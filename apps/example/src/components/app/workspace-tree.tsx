@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FolderIcon, PlusIcon, FolderPlusIcon } from "lucide-react";
 import { useAcpConnection, useAcpRuntimeExtras, useAcpThreadState } from "@hafbit/react-acp";
 import { hasAgentCapability } from "@hafbit/react-acp/core";
@@ -37,6 +37,8 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   const connection = useAcpConnection();
   const { workspaces, add, remove } = useWorkspaces(agentType);
   const [adding, setAdding] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
   const canDelete = hasAgentCapability(connection.capabilities, "delete");
 
   const sessionIdsByDirectory = (directory: string) =>
@@ -48,8 +50,16 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   ].filter((cwd) => !workspaces.includes(cwd));
 
   async function createSession(directory: string) {
-    await directories.createSessionIn(directory, extras.createSession);
-    await extras.refreshSessions();
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    setCreating(true);
+    try {
+      await directories.createSessionIn(directory, extras.createSession);
+      await extras.refreshSessions();
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
   }
 
   return (
@@ -82,7 +92,10 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
                   />
                 ))}
                 <SidebarMenuSubItem>
-                  <SidebarMenuSubButton onClick={() => void createSession(directory)}>
+                  <SidebarMenuSubButton
+                    aria-disabled={creating || undefined}
+                    onClick={() => void createSession(directory)}
+                  >
                     <PlusIcon />
                     <span>New session</span>
                   </SidebarMenuSubButton>

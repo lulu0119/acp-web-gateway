@@ -17,10 +17,41 @@ export type DirectoryAdapter = {
  * the directory chosen for that session, and loads reuse the cwd it was
  * created with.
  */
+export function createSessionDirectoryGate(): {
+  cwd(): string;
+  run<T>(directory: string, createSession: () => Promise<T>): Promise<T>;
+} {
+  let pendingDirectory: string | undefined;
+  let chain: Promise<void> = Promise.resolve();
+  return {
+    cwd() {
+      if (pendingDirectory === undefined) {
+        throw new Error("No working directory was chosen for the new session.");
+      }
+      return pendingDirectory;
+    },
+    run(directory, createSession) {
+      const result = chain.then(async () => {
+        pendingDirectory = directory;
+        try {
+          return await createSession();
+        } finally {
+          pendingDirectory = undefined;
+        }
+      });
+      chain = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    },
+  };
+}
+
 export function createDirectoryAdapter(createStream: AcpStreamFactory): DirectoryAdapter {
   const sdkAdapter = new SdkAcpClientAdapter(createStream);
   const directoryBySession = new Map<string, string>();
-  let pendingDirectory: string | undefined;
+  const directoryGate = createSessionDirectoryGate();
 
   function withSessionDirectory<T extends { sessionId: string; cwd: string }>(request: T): T {
     return { ...request, cwd: directoryBySession.get(request.sessionId) ?? request.cwd };
@@ -32,11 +63,9 @@ export function createDirectoryAdapter(createStream: AcpStreamFactory): Director
       return {
         ...connection,
         async newSession(request) {
-          if (pendingDirectory === undefined) {
-            throw new Error("No working directory was chosen for the new session.");
-          }
-          const response = await connection.newSession({ ...request, cwd: pendingDirectory });
-          directoryBySession.set(response.sessionId, pendingDirectory);
+          const directory = directoryGate.cwd();
+          const response = await connection.newSession({ ...request, cwd: directory });
+          directoryBySession.set(response.sessionId, directory);
           return response;
         },
         loadSession: (request) => connection.loadSession(withSessionDirectory(request)),
@@ -55,12 +84,7 @@ export function createDirectoryAdapter(createStream: AcpStreamFactory): Director
   return {
     adapter,
     async createSessionIn(directory, createSession) {
-      pendingDirectory = directory;
-      try {
-        return await createSession();
-      } finally {
-        pendingDirectory = undefined;
-      }
+      return directoryGate.run(directory, createSession);
     },
   };
 }
