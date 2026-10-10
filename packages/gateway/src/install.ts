@@ -16,9 +16,11 @@ export async function installLocalGateway(input: {
   registerApplication?: (applicationPath: string) => Promise<void>;
   signApplication?: (applicationPath: string) => Promise<void>;
   probeAgentType?: (agentType: string, pathValue: string) => Promise<ProbeOutcome>;
+  prepareTls?: () => Promise<void>;
   inform?: (message: string) => void;
   warn?: (message: string) => void;
 }): Promise<void> {
+  await input.prepareTls?.();
   const cliPath = await copyGatewayRuntime({
     sourceDistDirectory: input.sourceDistDirectory,
     destinationRoot: runtimeDirectory(input.applicationSupportDirectory),

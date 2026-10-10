@@ -1,6 +1,7 @@
 import { acpPath, statusPath, type GatewayStatus } from "@mukae/contract";
 import { spawn, type ChildProcess } from "node:child_process";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { createServer } from "node:https";
 import { StringDecoder } from "node:string_decoder";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
@@ -25,11 +26,12 @@ export function startGatewayServer(input: {
   expectedOrigin: string;
   port: number;
   idleTimeoutMs: number;
+  tls: { cert: string | Buffer; key: string | Buffer };
   initial: { status: "waiting"; agent: AgentProcess } | { status: "unconfigured" } | { status: "choosing" };
 }): Promise<GatewayServer> {
   let phase: GatewayStatus = input.initial.status;
   let agentProcess: AgentProcess | undefined = input.initial.status === "waiting" ? input.initial.agent : undefined;
-  const server = createServer((request, response) => {
+  const server = createServer({ cert: input.tls.cert, key: input.tls.key }, (request, response) => {
     handleHttp(request, response);
   });
   const webSockets = new WebSocketServer({ noServer: true });

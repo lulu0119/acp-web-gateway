@@ -1,8 +1,11 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { parseLaunchUrl, selectAgentSlots } from "@mukae/contract";
 import { launchForAgentType, type AgentLaunch } from "./agents.js";
 import { commandOnPath, readLoginPath } from "./launch-path.js";
 import { chooseNameFromSystemDialog } from "./choose-name.js";
 import { readGatewayConfig, type StoredAgent } from "./config.js";
+import { readLoopbackTls, type LoopbackTls, trustLoopbackCertificate, ensureLoopbackCertificate } from "./loopback-certificate.js";
 import { startGatewayServer, type AgentProcess, type GatewayServer } from "./server.js";
 
 const defaultIdleTimeoutMs = 90_000;
@@ -10,8 +13,10 @@ const defaultChoiceTimeoutMs = 5 * 60_000;
 
 export type GatewaySessionOptions = {
   homeDirectory?: string;
+  applicationSupportDirectory?: string;
   port?: number;
   idleTimeoutMs?: number;
+  tls?: LoopbackTls;
   chooseName?: (agentType: string, names: readonly string[]) => Promise<string | undefined>;
   commandPath?: string;
   warn?: (message: string) => void;
@@ -41,6 +46,7 @@ export async function startGatewaySession(
     expectedOrigin: launch.origin,
     port: options.port ?? launch.port,
     idleTimeoutMs: options.idleTimeoutMs ?? defaultIdleTimeoutMs,
+    tls: options.tls ?? (await loadTrustedLoopbackTls(options.applicationSupportDirectory)),
   };
 
   if (!launchCommand || selection.result === "unconfigured") {
@@ -91,6 +97,12 @@ async function applyChoice(input: {
   } catch {
     input.server.finishChoice(undefined);
   }
+}
+
+async function loadTrustedLoopbackTls(applicationSupportDirectory = join(homedir(), "Library/Application Support/mukae")): Promise<LoopbackTls> {
+  const created = await ensureLoopbackCertificate(applicationSupportDirectory);
+  if (created.created && process.platform === "darwin") await trustLoopbackCertificate(created.certPath);
+  return readLoopbackTls(applicationSupportDirectory);
 }
 
 function processFor(launchCommand: AgentLaunch, stored: StoredAgent, commandPath: string): AgentProcess {

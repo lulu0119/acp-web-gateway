@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import http from "node:http";
+import https from "node:https";
 import test from "node:test";
 import { buildLaunchUrl, defaultGatewayPort } from "@mukae/contract";
 import { configFilePath, writeGatewayConfig } from "./config.js";
+import { ensureLoopbackCertificate } from "./loopback-certificate.js";
 import { startGatewaySession } from "./open-gateway.js";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,6 +11,9 @@ import { dirname, join } from "node:path";
 
 const origin = "https://app.example";
 const nonce = "nonce-1234";
+const tlsDirectory = await mkdtemp(join(tmpdir(), "mukae-session-tls-"));
+const tlsPaths = await ensureLoopbackCertificate(tlsDirectory);
+const tls = { cert: await readFile(tlsPaths.certPath), key: await readFile(tlsPaths.keyPath) };
 
 test("one configuration for the requested type starts without asking for a name", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-session-"));
@@ -27,6 +31,7 @@ test("one configuration for the requested type starts without asking for a name"
     homeDirectory,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     chooseName: async () => {
       asked = true;
       return undefined;
@@ -61,6 +66,7 @@ test("several configurations of one type wait for a local name and then become r
     homeDirectory,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     chooseName: (agentType, names) => {
       assert.equal(agentType, "opencode");
       offered = names;
@@ -88,6 +94,7 @@ test("a type with no configuration is unconfigured and the status omits other na
     homeDirectory,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
   });
   try {
     const body = (await requestStatus(session.port)).body;
@@ -109,6 +116,7 @@ test("a config file that is not JSON starts unconfigured and leaves the file alo
     homeDirectory,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     warn: (message) => warnings.push(message),
   });
   try {
@@ -127,13 +135,14 @@ function launchUrl(agentType: string): string {
 
 function requestStatus(port: number): Promise<{ statusCode: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const request = http.request(
+    const request = https.request(
       {
         hostname: "127.0.0.1",
         port,
         path: "/status",
         method: "GET",
         headers: { Origin: origin },
+        rejectUnauthorized: false,
       },
       (response) => {
         const chunks: Buffer[] = [];

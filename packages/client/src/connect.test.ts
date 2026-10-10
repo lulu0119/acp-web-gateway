@@ -49,7 +49,7 @@ test("waiting status returns the websocket url without leaving the page", async 
     sleep: async () => {},
     now: () => 0,
   });
-  assert.deepEqual(outcome, { connected: true, url: "ws://127.0.0.1:9/acp?nonce=nonce-1234" });
+  assert.deepEqual(outcome, { connected: true, url: "wss://127.0.0.1:9/acp?nonce=nonce-1234" });
   assert.deepEqual(visits, []);
 });
 
@@ -91,5 +91,5 @@ test("a local choice keeps the page in place until the gateway is waiting", asyn
     },
     now: () => now,
   });
-  assert.deepEqual(outcome, { connected: true, url: "ws://127.0.0.1:9/acp?nonce=nonce-1234" });
+  assert.deepEqual(outcome, { connected: true, url: "wss://127.0.0.1:9/acp?nonce=nonce-1234" });
 });

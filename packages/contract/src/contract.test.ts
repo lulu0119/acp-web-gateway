@@ -86,9 +86,9 @@ test("the launch catalog is the registry ids the gateway can start", () => {
 });
 
 test("local urls use the default port when asked", () => {
-  assert.equal(buildStatusUrl(defaultGatewayPort), "http://127.0.0.1:47321/status");
+  assert.equal(buildStatusUrl(defaultGatewayPort), "https://127.0.0.1:47321/status");
   assert.equal(
     buildWebSocketUrl({ port: defaultGatewayPort, nonce: "nonce-1234" }),
-    "ws://127.0.0.1:47321/acp?nonce=nonce-1234",
+    "wss://127.0.0.1:47321/acp?nonce=nonce-1234",
   );
 });

@@ -102,11 +102,11 @@ export function parseStatusBody(value: unknown): GatewayStatus | undefined {
 }
 
 export function buildStatusUrl(port: number): string {
-  return `http://127.0.0.1:${port}${statusPath}`;
+  return `https://127.0.0.1:${port}${statusPath}`;
 }
 
 export function buildWebSocketUrl(input: { port: number; nonce: string }): string {
-  const url = new URL(`ws://127.0.0.1:${input.port}${acpPath}`);
+  const url = new URL(`wss://127.0.0.1:${input.port}${acpPath}`);
   url.searchParams.set("nonce", input.nonce);
   return url.toString();
 }

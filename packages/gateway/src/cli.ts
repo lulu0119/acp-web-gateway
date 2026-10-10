@@ -11,6 +11,7 @@ import { readLoginPath } from "./launch-path.js";
 import { openGateway } from "./open-gateway.js";
 import { registerLocalGateway } from "./register.js";
 import { runCli } from "./run-cli.js";
+import { ensureLoopbackCertificate, trustLoopbackCertificate } from "./loopback-certificate.js";
 import { runtimeDependencies } from "./runtime.js";
 
 const execFileAsync = promisify(execFile);
@@ -45,6 +46,10 @@ const result = await runCli(process.argv.slice(2), {
       sourceDistDirectory: dirname(cliPath),
       pathValue: readLoginPath(),
       packages: runtimeDependencies(),
+      prepareTls: async () => {
+        const certificate = await ensureLoopbackCertificate(applicationSupportDirectory);
+        if (process.platform === "darwin" && certificate.created) await trustLoopbackCertificate(certificate.certPath);
+      },
     }),
   register: () => registerLocalGateway({ ...registration, cliPath }),
   open: (launchUrl) => openGateway(launchUrl),

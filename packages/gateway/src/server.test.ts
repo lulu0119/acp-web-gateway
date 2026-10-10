@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
-import http from "node:http";
+import { mkdtemp, readFile } from "node:fs/promises";
+import https from "node:https";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { buildWebSocketUrl } from "@mukae/contract";
+import { ensureLoopbackCertificate } from "./loopback-certificate.js";
 import { startGatewayServer, type AgentProcess } from "./server.js";
 
 const origin = "https://app.example";
@@ -13,6 +17,9 @@ const echoAgent: AgentProcess = {
   args: ["-e", "process.stdin.pipe(process.stdout)"],
   env: {},
 };
+const tlsDirectory = await mkdtemp(join(tmpdir(), "mukae-gateway-tls-"));
+const tlsPaths = await ensureLoopbackCertificate(tlsDirectory);
+const tls = { cert: await readFile(tlsPaths.certPath), key: await readFile(tlsPaths.keyPath) };
 
 test("status and socket follow the launch nonce and origin, then frames pass through", async () => {
   const gateway = await startGatewayServer({
@@ -20,6 +27,7 @@ test("status and socket follow the launch nonce and origin, then frames pass thr
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: { status: "waiting", agent: echoAgent },
   });
   try {
@@ -34,6 +42,7 @@ test("status and socket follow the launch nonce and origin, then frames pass thr
 
     const rejected = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce: "other-nonce" }), {
       headers: { Origin: origin },
+      rejectUnauthorized: false,
     });
     const rejectedStatus = await new Promise<number>((resolve, reject) => {
       rejected.once("error", () => {});
@@ -44,6 +53,7 @@ test("status and socket follow the launch nonce and origin, then frames pass thr
 
     const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
       headers: { Origin: origin },
+      rejectUnauthorized: false,
     });
     await once(accepted, "open");
     const payload = JSON.stringify({ jsonrpc: "2.0", id: 1 });
@@ -64,6 +74,7 @@ test("an unconfigured type is reported without names and does not accept a socke
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: { status: "unconfigured" },
   });
   try {
@@ -82,6 +93,7 @@ test("several configurations stay closed until a local choice, and the status ha
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: { status: "choosing" },
   });
   try {
@@ -102,6 +114,7 @@ test("several configurations stay closed until a local choice, and the status ha
 
     const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
       headers: { Origin: origin },
+      rejectUnauthorized: false,
     });
     await once(accepted, "open");
     const payload = JSON.stringify({ jsonrpc: "2.0", id: 2 });
@@ -122,6 +135,7 @@ test("stdout bytes split mid-character stay one frame", async () => {
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: {
       status: "waiting",
       agent: {
@@ -137,6 +151,7 @@ test("stdout bytes split mid-character stay one frame", async () => {
   try {
     const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
       headers: { Origin: origin },
+      rejectUnauthorized: false,
     });
     await once(accepted, "open");
     assert.equal(await onceMessage(accepted), "€");
@@ -154,6 +169,7 @@ test("a socket frame after the agent exits ends the gateway", async () => {
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: {
       status: "waiting",
       agent: { command: process.execPath, args: ["-e", "process.exit(0)"], env: {} },
@@ -162,6 +178,7 @@ test("a socket frame after the agent exits ends the gateway", async () => {
   try {
     const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
       headers: { Origin: origin },
+      rejectUnauthorized: false,
     });
     accepted.on("error", () => {});
     await once(accepted, "open");
@@ -179,6 +196,7 @@ test("cancelling the local choice rejects the socket", async () => {
     expectedOrigin: origin,
     port: 0,
     idleTimeoutMs: 15_000,
+    tls,
     initial: { status: "choosing" },
   });
   try {
@@ -197,13 +215,14 @@ function requestStatus(
   requestOrigin: string,
 ): Promise<{ statusCode: number; body: string; allowOrigin?: string; allowPrivateNetwork?: string }> {
   return new Promise((resolve, reject) => {
-    const request = http.request(
+    const request = https.request(
       {
         hostname: "127.0.0.1",
         port,
         path: "/status",
         method: "GET",
         headers: { Origin: requestOrigin },
+        rejectUnauthorized: false,
       },
       (response) => {
         const chunks: Buffer[] = [];
@@ -224,7 +243,10 @@ function requestStatus(
 }
 
 function socketStatus(port: number): Promise<number> {
-  const socket = new WebSocket(buildWebSocketUrl({ port, nonce }), { headers: { Origin: origin } });
+  const socket = new WebSocket(buildWebSocketUrl({ port, nonce }), {
+    headers: { Origin: origin },
+    rejectUnauthorized: false,
+  });
   return new Promise((resolve, reject) => {
     socket.once("error", () => {});
     socket.once("unexpected-response", (_request, response) => resolve(response.statusCode ?? 0));
