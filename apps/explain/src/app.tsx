@@ -1,8 +1,6 @@
 import { buildAgentSetupPrompt } from "@mukae/agent-setup";
-import { ChainDiagram } from "./components/chain-diagram";
 import { ManualSetup } from "./components/manual-setup";
 import { PromptSection } from "./components/prompt-section";
-import { Troubleshooting } from "./components/troubleshooting";
 
 export function App() {
   const prompt = buildAgentSetupPrompt();
@@ -18,9 +16,7 @@ export function App() {
         </p>
       </header>
 
-      <ChainDiagram />
       <PromptSection prompt={prompt} />
-      <Troubleshooting />
       <ManualSetup />
     </main>
   );
