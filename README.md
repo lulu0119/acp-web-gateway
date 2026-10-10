@@ -22,7 +22,7 @@ There is no relay package yet.
 
 ## Local flow
 
-1. Run `npx mukae`. That copies the gateway into `~/Library/Application Support/mukae`, writes `~/.config/mukae/config.json`, and, on macOS, registers a windowless handler for `mukae://`. The handler reads a pointer file, so it does not contain a path. The same command writes a configuration for each installed agent that completes an ACP handshake. If an agent needs a sign-in, it says so and leaves that configuration unwritten. From a checkout, `node packages/gateway/dist/cli.js` does the same install, and `node packages/gateway/dist/cli.js register` points the handler at that checkout instead of the copy.
+1. Run `npx mukae`. That copies the gateway into `~/Library/Application Support/mukae`, writes `~/.config/mukae/config.json`, and, on macOS, registers a windowless handler for `mukae://`. The handler reads a pointer file, so it does not contain a path. The same command writes a configuration for each installed agent that completes an ACP handshake. If an agent lists a sign-in method, the command says so and still writes that configuration. From a checkout, `node packages/gateway/dist/cli.js` does the same install, and `node packages/gateway/dist/cli.js register` points the handler at that checkout instead of the copy.
 2. `npx mukae` writes one configuration per agent type that answers. Add another with `npx mukae agent-config create --agent-type opencode`. The name defaults to the type. Pass `--name` to keep another configuration of the same type, and repeat `--env KEY=VALUE` for that slot. `npx mukae agent-config list` prints the names. The gateway starts these registry types:
 
    - `claude-acp` — `npx -y @agentclientprotocol/claude-agent-acp@0.89.1`

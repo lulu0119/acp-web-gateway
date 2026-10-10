@@ -36,6 +36,30 @@ test("a handshake that returns protocol version 1 is ready", async () => {
   assert.deepEqual(outcome, { status: "ready" });
 });
 
+test("a handshake stays open until the agent answers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "mukae-probe-"));
+  const script = join(root, "answer.js");
+  const binary = join(root, "opencode");
+  await writeFile(
+    script,
+    `let ended = false;
+process.stdin.on("end", () => {
+  ended = true;
+  process.exit(0);
+});
+process.stdin.resume();
+setTimeout(() => {
+  if (ended) return;
+  process.stdout.write('{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"authMethods":[{"name":"Login with opencode"}]}}\\n');
+}, 100);
+`,
+  );
+  await writeFile(binary, `#!/bin/sh\nexec '${process.execPath}' '${script}'\n`);
+  await chmod(binary, 0o755);
+  const outcome = await probeInstalledAgent("opencode", root, 5_000);
+  assert.deepEqual(outcome, { status: "sign-in", methods: ["Login with opencode"] });
+});
+
 test("a missing agent command is reported without starting a process", async () => {
   const outcome = await probeInstalledAgent("opencode", "/missing");
   assert.deepEqual(outcome, { status: "missing", command: "opencode" });
@@ -54,13 +78,13 @@ test("probe results keep an existing configuration and write only a ready agent"
   });
   assert.deepEqual(
     planned.agents.map((agent) => agent.name),
-    ["codex-acp", "opencode"],
+    ["codex-acp", "opencode", "gemini"],
   );
   assert.equal(planned.needsSignIn, true);
   assert.deepEqual(planned.lines, [
     "codex-acp: already configured",
     "opencode: configured",
-    "gemini: sign-in required (Google)",
+    "gemini: configured; sign-in available (Google)",
     "claude-acp: not installed (claude)",
   ]);
 });

@@ -102,9 +102,20 @@ export function planAgentConfigurations(input: {
       continue;
     }
     if (outcome.status === "sign-in") {
+      const added = addAgentConfig({
+        agents,
+        agentType: probe.agentType,
+        env: {},
+        knownTypes: input.knownTypes,
+      });
+      if (!added.ok) {
+        lines.push(`${probe.agentType}: ${added.message}`);
+        continue;
+      }
+      agents = added.agents;
       needsSignIn = true;
       const methods = outcome.methods.length > 0 ? ` (${outcome.methods.join(", ")})` : "";
-      lines.push(`${probe.agentType}: sign-in required${methods}`);
+      lines.push(`${probe.agentType}: configured; sign-in available${methods}`);
       continue;
     }
     if (outcome.status === "missing") {
@@ -118,7 +129,9 @@ export function planAgentConfigurations(input: {
 
 export function formatInstallReport(lines: readonly string[], needsSignIn: boolean): string {
   const body = lines.length > 0 ? `${lines.join("\n")}\n` : "";
-  const signIn = needsSignIn ? "Sign in to the agents that require it, then run npx mukae again.\n" : "";
+  const signIn = needsSignIn
+    ? "Some agents listed a sign-in method. The configuration was still written.\n"
+    : "";
   return `Installed mukae.\n${body}${signIn}Return to the web page, choose a type, click Connect, and allow the browser prompt.\n`;
 }
 
@@ -182,7 +195,6 @@ async function runInitializeHandshake(input: {
       finish({ ok: false, reason, stderr });
     });
     child.stdin.write(initializeLine);
-    child.stdin.end();
   });
 }
 

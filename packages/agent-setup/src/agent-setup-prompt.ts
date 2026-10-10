@@ -16,7 +16,7 @@ Limits:
 - Do not change source, use sudo, or install anything globally.
 - Do not write API keys or tokens into the config. If an agent needs environment variables, ask me first.
 - If node (22 or newer) or npx is missing, stop and tell me.
-- If the command says an agent needs a sign-in, stop and tell me. Do not invent a configuration for it.
+- If the command says an agent listed a sign-in method, tell me. Leave the configuration it wrote.
 
 After it finishes, run:
 ${listAgentConfigsCommand}

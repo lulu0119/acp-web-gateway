@@ -66,12 +66,12 @@ test("install copies the runtime, records the pointer, and configures agents tha
   const config = await readGatewayConfig(homeDirectory);
   assert.deepEqual(
     config.agents.map((agent) => agent.agentType),
-    ["opencode"],
+    ["gemini", "opencode"],
   );
   assert.deepEqual(probed, ["claude-acp", "codex-acp", "gemini", "opencode"]);
   const report = notices.join("\n");
   assert.match(report, /Installed mukae/);
   assert.match(report, /opencode: configured/);
-  assert.match(report, /gemini: sign-in required \(Google\)/);
-  assert.match(report, /npx mukae again/);
+  assert.match(report, /gemini: configured; sign-in available \(Google\)/);
+  assert.match(report, /configuration was still written/);
 });
