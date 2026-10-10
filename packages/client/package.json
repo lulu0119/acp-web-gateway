@@ -1,8 +1,17 @@
 {
   "name": "@mukae/client",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-beta.0",
+  "description": "Browser helper that opens the local mukae gateway from a click.",
   "type": "module",
+  "files": ["dist"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lulu0119/mukae.git",
+    "directory": "packages/client"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -10,7 +19,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
+    "prepublishOnly": "pnpm run build",
     "test": "tsc -p tsconfig.json && node --test dist/choose-connect-action.test.js dist/connect.test.js dist/pick-port.test.js"
   },
   "dependencies": {
