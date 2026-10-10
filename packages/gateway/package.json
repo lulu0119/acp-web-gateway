@@ -1,15 +1,23 @@
 {
   "name": "mukae",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-beta.0",
   "description": "Local gateway that lets a web page use an ACP agent on this computer.",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lulu0119/mukae.git",
+    "directory": "packages/gateway"
+  },
   "bin": {
     "mukae": "./dist/cli.js"
   },
   "files": ["dist", "launcher/mukae-launcher"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
+    "prepublishOnly": "pnpm run build",
     "launcher": "clang -arch arm64 -arch x86_64 -fobjc-arc -framework Cocoa -o launcher/mukae-launcher launcher/launcher.m",
     "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
   },
