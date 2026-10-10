@@ -11,15 +11,77 @@ export function launcherSource(input: { nodePath: string; cliPath: string }): st
   const nodePath = objectiveCString(input.nodePath);
   const cliPath = objectiveCString(input.cliPath);
   return `#import <Cocoa/Cocoa.h>
+#include <errno.h>
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
 static NSString *nodePath = @"${nodePath}";
 static NSString *cliPath = @"${cliPath}";
 
+static void logFailure(NSString *message) {
+  NSString *directory = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/mukae"];
+  [[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil];
+  NSString *path = [directory stringByAppendingPathComponent:@"launcher.log"];
+  NSString *line = [NSString stringWithFormat:@"%@ %@\\n", [NSDate date], message];
+  NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+  if (handle == nil) {
+    [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
+    handle = [NSFileHandle fileHandleForWritingAtPath:path];
+  }
+  if (handle == nil) return;
+  [handle seekToEndOfFile];
+  [handle writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+  [handle closeFile];
+}
+
+static NSString *nodeFromLoginShell(void) {
+  NSTask *task = [[NSTask alloc] init];
+  [task setExecutableURL:[NSURL fileURLWithPath:@"/bin/zsh"]];
+  [task setArguments:@[@"-lic", @"command -v node"]];
+  NSPipe *pipe = [NSPipe pipe];
+  [task setStandardOutput:pipe];
+  [task setStandardError:[NSFileHandle fileHandleForWritingAtPath:@"/dev/null"]];
+  NSError *error = nil;
+  if (![task launchAndReturnError:&error]) return nil;
+  __block NSData *output = nil;
+  dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    output = [[pipe fileHandleForReading] readDataToEndOfFile];
+    dispatch_semaphore_signal(finished);
+  });
+  if (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC)) != 0) {
+    [task terminate];
+    if (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) {
+      kill(task.processIdentifier, SIGKILL);
+      dispatch_semaphore_wait(finished, DISPATCH_TIME_FOREVER);
+    }
+    logFailure(@"login shell timed out while resolving node");
+    return nil;
+  }
+  NSString *text = [[NSString alloc] initWithData:output encoding:NSUTF8StringEncoding];
+  for (NSString *line in [[text componentsSeparatedByString:@"\\n"] reverseObjectEnumerator]) {
+    NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if ([trimmed hasPrefix:@"/"]) return trimmed;
+  }
+  return nil;
+}
+
+static void execNode(NSString *node, NSString *url) {
+  execl(node.UTF8String, node.UTF8String, cliPath.UTF8String, "open", url.UTF8String, (char *)NULL);
+}
+
 static void execOpen(NSString *url) {
-  execl(nodePath.UTF8String, nodePath.UTF8String, cliPath.UTF8String, "open", url.UTF8String, (char *)NULL);
-  perror("mukae");
+  execNode(nodePath, url);
+  int bakedError = errno;
+  logFailure([NSString stringWithFormat:@"exec %@ failed: %s", nodePath, strerror(bakedError)]);
+  NSString *resolved = nodeFromLoginShell();
+  if (resolved != nil) {
+    execNode(resolved, url);
+    logFailure([NSString stringWithFormat:@"exec %@ failed: %s; cli %@", resolved, strerror(errno), cliPath]);
+  } else {
+    logFailure([NSString stringWithFormat:@"could not resolve node; cli %@", cliPath]);
+  }
   exit(1);
 }
 

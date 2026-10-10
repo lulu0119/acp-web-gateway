@@ -38,6 +38,10 @@ test("macOS registration writes config and a windowless URL handler", async () =
   );
   assert.match(launcher, /\/opt\/node\/bin\/node/);
   assert.match(launcher, /\/Apps\/O'Hare\/cli.js/);
+  assert.match(launcher, /Library\/Logs\/mukae/);
+  assert.match(launcher, /launcher\.log/);
+  assert.match(launcher, /\/bin\/zsh/);
+  assert.match(launcher, /command -v node/);
   assert.match(launcher, /kAEGetURL/);
   assert.match(launcher, /mukae:/);
   assert.deepEqual(registered, [join(applicationSupportDirectory, "Mukae.app")]);
