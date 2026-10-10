@@ -1,0 +1,18 @@
+---
+description: Keep docs/open-work.md current when the roadmap changes
+alwaysApply: true
+---
+
+# Open-work inventory
+
+`docs/open-work.md` is the unfinished roadmap. Follow [AGENTS.md](../../AGENTS.md).
+
+## Before claiming done
+
+If the change adds, finishes, or defers roadmap work, edit `docs/open-work.md` in the same change.
+
+## How to edit
+
+- **Not implemented**: code still missing.
+- **Awaiting verification**: code exists and has not been verified yet.
+- When an item passes, delete the bullet.

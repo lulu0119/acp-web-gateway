@@ -1,0 +1,22 @@
+{
+  "name": "@mukae/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "mukae": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@mukae/contract": "workspace:*",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.2"
+  }
+}

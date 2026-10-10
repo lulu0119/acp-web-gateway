@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+
+@theme {
+  --font-sans: "Geist Variable", "PingFang SC", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: light;
+  background: #f6f7fb;
+}
+
+/* A dot travels the chain once on load, then rests. It shows the order of the hops, nothing more. */
+@keyframes travel {
+  from {
+    left: 0;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.travel-dot {
+  animation: travel 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.4s 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-dot {
+    animation: none;
+    left: 100%;
+  }
+}
