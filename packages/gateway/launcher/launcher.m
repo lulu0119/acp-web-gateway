@@ -1,5 +1,4 @@
 #import <Cocoa/Cocoa.h>
-#include <errno.h>
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
@@ -57,22 +56,26 @@ static NSString *nodeFromLoginShell(void) {
   return nil;
 }
 
-static void execNode(NSString *node, NSString *cli, NSString *url) {
-  execl(node.UTF8String, node.UTF8String, cli.UTF8String, "open", url.UTF8String, (char *)NULL);
+// Launch Services delivers the next URL to this process. Replacing it with node drops that URL.
+static BOOL spawnNode(NSString *node, NSString *cli, NSString *url, NSError **error) {
+  NSTask *task = [[NSTask alloc] init];
+  [task setExecutableURL:[NSURL fileURLWithPath:node]];
+  [task setArguments:@[cli, @"open", url]];
+  return [task launchAndReturnError:error];
 }
 
-static void execOpen(NSString *url) {
+static void spawnOpen(NSString *url) {
   NSString *path = pointerPath();
   NSData *data = [NSData dataWithContentsOfFile:path];
   if (data == nil) {
     logFailure([NSString stringWithFormat:@"cannot read %@", path]);
-    exit(1);
+    return;
   }
   NSError *error = nil;
   id parsed = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
   if (![parsed isKindOfClass:[NSDictionary class]]) {
     logFailure([NSString stringWithFormat:@"cannot parse %@", path]);
-    exit(1);
+    return;
   }
   NSDictionary *json = parsed;
   NSString *nodePath = json[@"nodePath"];
@@ -80,19 +83,19 @@ static void execOpen(NSString *url) {
   if (![nodePath isKindOfClass:[NSString class]] || nodePath.length == 0 ||
       ![cliPath isKindOfClass:[NSString class]] || cliPath.length == 0) {
     logFailure([NSString stringWithFormat:@"runtime pointer at %@ has no nodePath or cliPath", path]);
-    exit(1);
+    return;
   }
-  execNode(nodePath, cliPath, url);
-  int bakedError = errno;
-  logFailure([NSString stringWithFormat:@"exec %@ failed: %s", nodePath, strerror(bakedError)]);
+  error = nil;
+  if (spawnNode(nodePath, cliPath, url, &error)) return;
+  logFailure([NSString stringWithFormat:@"spawn %@ failed: %@", nodePath, error.localizedDescription]);
   NSString *resolved = nodeFromLoginShell();
-  if (resolved != nil) {
-    execNode(resolved, cliPath, url);
-    logFailure([NSString stringWithFormat:@"exec %@ failed: %s; cli %@", resolved, strerror(errno), cliPath]);
-  } else {
+  error = nil;
+  if (resolved != nil && spawnNode(resolved, cliPath, url, &error)) return;
+  if (resolved == nil) {
     logFailure([NSString stringWithFormat:@"could not resolve node; cli %@", cliPath]);
+  } else {
+    logFailure([NSString stringWithFormat:@"spawn %@ failed: %@; cli %@", resolved, error.localizedDescription, cliPath]);
   }
-  exit(1);
 }
 
 @interface LaunchHandler : NSObject
@@ -102,8 +105,8 @@ static void execOpen(NSString *url) {
 @implementation LaunchHandler
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
   NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
-  if (url.length == 0) exit(1);
-  execOpen(url);
+  if (url.length == 0) return;
+  spawnOpen(url);
 }
 @end
 
@@ -111,7 +114,7 @@ int main(int argc, char **argv) {
   @autoreleasepool {
     for (int index = 1; index < argc; index += 1) {
       if (strncmp(argv[index], "mukae:", 6) == 0) {
-        execOpen([NSString stringWithUTF8String:argv[index]]);
+        spawnOpen([NSString stringWithUTF8String:argv[index]]);
       }
     }
   }
