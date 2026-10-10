@@ -116,6 +116,63 @@ test("several configurations stay closed until a local choice, and the status ha
   }
 });
 
+test("stdout bytes split mid-character stay one frame", async () => {
+  const gateway = await startGatewayServer({
+    expectedNonce: nonce,
+    expectedOrigin: origin,
+    port: 0,
+    idleTimeoutMs: 15_000,
+    initial: {
+      status: "waiting",
+      agent: {
+        command: process.execPath,
+        args: [
+          "-e",
+          "process.stdout.write(Buffer.from([0xe2])); setTimeout(() => process.stdout.write(Buffer.from([0x82, 0xac, 0x0a])), 30);",
+        ],
+        env: {},
+      },
+    },
+  });
+  try {
+    const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
+      headers: { Origin: origin },
+    });
+    await once(accepted, "open");
+    assert.equal(await onceMessage(accepted), "€");
+    accepted.close();
+    await gateway.finished;
+  } finally {
+    gateway.stop();
+    await gateway.finished;
+  }
+});
+
+test("a socket frame after the agent exits ends the gateway", async () => {
+  const gateway = await startGatewayServer({
+    expectedNonce: nonce,
+    expectedOrigin: origin,
+    port: 0,
+    idleTimeoutMs: 15_000,
+    initial: {
+      status: "waiting",
+      agent: { command: process.execPath, args: ["-e", "process.exit(0)"], env: {} },
+    },
+  });
+  try {
+    const accepted = new WebSocket(buildWebSocketUrl({ port: gateway.port, nonce }), {
+      headers: { Origin: origin },
+    });
+    accepted.on("error", () => {});
+    await once(accepted, "open");
+    accepted.send(JSON.stringify({ id: 1 }));
+    await gateway.finished;
+  } finally {
+    gateway.stop();
+    await gateway.finished;
+  }
+});
+
 test("cancelling the local choice rejects the socket", async () => {
   const gateway = await startGatewayServer({
     expectedNonce: nonce,

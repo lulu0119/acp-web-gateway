@@ -1,6 +1,7 @@
 import { acpPath, statusPath, type GatewayStatus } from "@mukae/contract";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { StringDecoder } from "node:string_decoder";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { admitConnection, statusForOrigin } from "./gate.js";
@@ -135,25 +136,47 @@ export function startGatewayServer(input: {
       stdio: ["pipe", "pipe", "pipe"],
     });
     child = agent;
+    const closeBoth = (): void => finish();
+    const decoder = new StringDecoder("utf8");
     let pending = "";
-    agent.stdout?.on("data", (chunk: Buffer) => {
-      const consumed = consumeAgentChunk(pending, chunk.toString("utf8"));
+    const takeStdout = (text: string): void => {
+      const consumed = consumeAgentChunk(pending, text);
       pending = consumed.pending;
       for (const frame of consumed.frames) {
-        if (webSocket.readyState === WebSocket.OPEN) webSocket.send(frame);
+        if (webSocket.readyState !== WebSocket.OPEN) return;
+        try {
+          webSocket.send(frame);
+        } catch {
+          closeBoth();
+          return;
+        }
       }
+      if (consumed.overflow) closeBoth();
+    };
+    agent.stdout?.on("data", (chunk: Buffer) => {
+      takeStdout(decoder.write(chunk));
+    });
+    agent.stdout?.on("end", () => {
+      takeStdout(decoder.end());
     });
     agent.stderr?.on("data", (chunk: Buffer) => {
       process.stderr.write(chunk);
     });
     webSocket.on("message", (data, isBinary) => {
-      if (isBinary || !agent.stdin) return;
-      agent.stdin.write(webSocketTextToAgentLine(data.toString()));
+      if (isBinary || !agent.stdin?.writable) return;
+      try {
+        agent.stdin.write(webSocketTextToAgentLine(data.toString()));
+      } catch {
+        closeBoth();
+      }
     });
-    const closeBoth = (): void => finish();
     webSocket.on("close", closeBoth);
+    webSocket.on("error", closeBoth);
     agent.on("exit", closeBoth);
     agent.on("error", closeBoth);
+    agent.stdin?.on("error", closeBoth);
+    agent.stdout?.on("error", closeBoth);
+    agent.stderr?.on("error", closeBoth);
   }
 
   return new Promise((resolve, reject) => {
