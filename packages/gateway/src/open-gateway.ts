@@ -6,6 +6,7 @@ import { readGatewayConfig, type StoredAgent } from "./config.js";
 import { startGatewayServer, type AgentProcess, type GatewayServer } from "./server.js";
 
 const defaultIdleTimeoutMs = 90_000;
+const defaultChoiceTimeoutMs = 5 * 60_000;
 
 export type GatewaySessionOptions = {
   homeDirectory?: string;
@@ -63,7 +64,9 @@ export async function startGatewaySession(
     agents: config.agents,
     launchCommand,
     commandPath,
-    chooseName: options.chooseName ?? chooseNameFromSystemDialog,
+    chooseName:
+      options.chooseName ??
+      ((agentType, names) => chooseNameFromSystemDialog(agentType, names, defaultChoiceTimeoutMs)),
   });
   return server;
 }

@@ -24,14 +24,27 @@ export function systemDialogCommand(
   };
 }
 
+type DialogRun = (command: string, args: readonly string[], timeoutMs: number) => Promise<{ stdout: string }>;
+
+async function runSystemDialog(
+  command: string,
+  args: readonly string[],
+  timeoutMs: number,
+): Promise<{ stdout: string }> {
+  const { stdout } = await execFileAsync(command, args, { encoding: "utf8", timeout: timeoutMs });
+  return { stdout };
+}
+
 export async function chooseNameFromSystemDialog(
   agentType: string,
   names: readonly string[],
+  timeoutMs: number,
+  run: DialogRun = runSystemDialog,
 ): Promise<string | undefined> {
   if (names.length === 0) return undefined;
   const invocation = systemDialogCommand(agentType, names);
   try {
-    const { stdout } = await execFileAsync(invocation.command, invocation.args, { encoding: "utf8" });
+    const { stdout } = await run(invocation.command, invocation.args, timeoutMs);
     const chosen = stdout.trim();
     return names.includes(chosen) ? chosen : undefined;
   } catch {
