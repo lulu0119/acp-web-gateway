@@ -4,13 +4,26 @@ import type { StoredAgent } from "./config.js";
 export type AgentLaunch = {
   command: string;
   args: readonly string[];
+  requires: readonly string[];
 };
 
 const builtinAgents: Record<LaunchAgentType, AgentLaunch> = {
-  "claude-acp": { command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"] },
-  "codex-acp": { command: "npx", args: ["-y", "@agentclientprotocol/codex-acp@2.2.2"] },
-  gemini: { command: "npx", args: ["-y", "@google/gemini-cli@0.63.0", "--acp"] },
-  opencode: { command: "opencode", args: ["acp"] },
+  "claude-acp": {
+    command: "npx",
+    args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"],
+    requires: ["claude", "npx"],
+  },
+  "codex-acp": {
+    command: "npx",
+    args: ["-y", "@agentclientprotocol/codex-acp@2.2.2"],
+    requires: ["codex", "npx"],
+  },
+  gemini: {
+    command: "npx",
+    args: ["-y", "@google/gemini-cli@0.63.0", "--acp"],
+    requires: ["gemini", "npx"],
+  },
+  opencode: { command: "opencode", args: ["acp"], requires: ["opencode"] },
 };
 
 const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;

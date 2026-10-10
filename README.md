@@ -11,7 +11,7 @@ The gateway does not implement ACP. It forwards each WebSocket text frame as one
 pnpm workspace:
 
 - `packages/contract` — launch URL, default port, status values
-- `packages/gateway` — local CLI
+- `packages/gateway` — local CLI, package name `mukae`
 - `packages/client` — browser helper a web app calls from a click
 - `packages/agent-setup` — the setup prompt and gateway CLI commands that `apps/explain` and `apps/example` share
 - `packages/react-hooks` — React hooks shared by the apps, such as `useCopyToClipboard`
@@ -22,8 +22,8 @@ There is no relay package yet.
 
 ## Local flow
 
-1. Install and build this repo, then run `mukae register`. That writes `~/.config/mukae/config.json` and, on macOS, registers a windowless handler for `mukae://`. The handler is not a login item. The command then prints the next step.
-2. Create a configuration for an agent type: `mukae agent-config create --agent-type opencode`. The name defaults to the type. Pass `--name` to keep another configuration of the same type, and repeat `--env KEY=VALUE` for that slot. `mukae agent-config list` prints the names. The gateway starts these registry types:
+1. Run `npx mukae`. That copies the gateway into `~/Library/Application Support/mukae`, writes `~/.config/mukae/config.json`, and, on macOS, registers a windowless handler for `mukae://`. The handler reads a pointer file, so it does not contain a path. The same command writes a configuration for each installed agent that completes an ACP handshake. If an agent needs a sign-in, it says so and leaves that configuration unwritten. From a checkout, `node packages/gateway/dist/cli.js` does the same install, and `node packages/gateway/dist/cli.js register` points the handler at that checkout instead of the copy.
+2. `npx mukae` writes one configuration per agent type that answers. Add another with `npx mukae agent-config create --agent-type opencode`. The name defaults to the type. Pass `--name` to keep another configuration of the same type, and repeat `--env KEY=VALUE` for that slot. `npx mukae agent-config list` prints the names. The gateway starts these registry types:
 
    - `claude-acp` — `npx -y @agentclientprotocol/claude-agent-acp@0.89.1`
    - `codex-acp` — `npx -y @agentclientprotocol/codex-acp@2.2.2`
@@ -43,7 +43,8 @@ No third-party account is involved. A later remote relay would use an account to
 pnpm install
 pnpm build
 pnpm test
-pnpm --filter @mukae/gateway exec mukae register
+node packages/gateway/dist/cli.js
+node packages/gateway/dist/cli.js register
 pnpm example
 pnpm explain
 ```
@@ -53,6 +54,7 @@ pnpm explain
 - [Local custom-scheme gateway](docs/adr/0001-local-custom-scheme-gateway.md)
 - [ACP frames pass through](docs/adr/0002-passthrough-acp-frames.md)
 - [Product name: Mukae](docs/adr/0004-product-name-mukae.md)
+- [npx installs a stable copy](docs/adr/0005-npx-installs-a-stable-copy.md)
 
 Agent rules: [AGENTS.md](AGENTS.md). Roadmap: [docs/open-work.md](docs/open-work.md).
 

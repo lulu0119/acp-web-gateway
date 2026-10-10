@@ -1,4 +1,5 @@
 export type CliCommand =
+  | { kind: "install" }
   | { kind: "register" }
   | { kind: "open"; launchUrl: string }
   | { kind: "list-agent-configs" }
@@ -6,6 +7,7 @@ export type CliCommand =
   | { kind: "invalid" };
 
 export function parseCliArgs(args: readonly string[]): CliCommand {
+  if (args.length === 0) return { kind: "install" };
   const [command, subcommand, ...rest] = args;
   if (command === "register" && args.length === 1) return { kind: "register" };
   if (command === "open" && args.length === 2 && subcommand) return { kind: "open", launchUrl: subcommand };
@@ -17,6 +19,7 @@ export function parseCliArgs(args: readonly string[]): CliCommand {
 export async function runCli(
   args: readonly string[],
   actions: {
+    install: () => Promise<void>;
     register: () => Promise<void>;
     open: (launchUrl: string) => Promise<void>;
     listAgentConfigs: () => Promise<number>;
@@ -28,6 +31,10 @@ export async function runCli(
   },
 ): Promise<{ exitCode: number; showUsage: boolean }> {
   const parsed = parseCliArgs(args);
+  if (parsed.kind === "install") {
+    await actions.install();
+    return { exitCode: 0, showUsage: false };
+  }
   if (parsed.kind === "register") {
     await actions.register();
     return { exitCode: 0, showUsage: false };

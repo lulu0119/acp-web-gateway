@@ -79,7 +79,7 @@ export function ConnectForm({ onConnected }: { onConnected: (agent: ConnectedAge
         Connect
       </Button>
       {setupNeeded && (
-        <Button variant="outline" onClick={() => copyToClipboard(buildAgentSetupPrompt(__REPOSITORY_PATH__))}>
+        <Button variant="outline" onClick={() => copyToClipboard(buildAgentSetupPrompt())}>
           {isCopied ? "Copied. Paste it to the agent" : "Copy setup instructions for the agent"}
         </Button>
       )}

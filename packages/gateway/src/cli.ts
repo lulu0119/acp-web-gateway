@@ -1,37 +1,52 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { addAgentConfig, formatAgentConfigList, knownAgentTypes } from "./agents.js";
 import { readGatewayConfig, readGatewayConfigForWrite, writeGatewayConfig } from "./config.js";
+import { installLocalGateway } from "./install.js";
+import { readLoginPath } from "./launch-path.js";
 import { openGateway } from "./open-gateway.js";
 import { registerLocalGateway } from "./register.js";
 import { runCli } from "./run-cli.js";
+import { runtimeDependencies } from "./runtime.js";
 
 const execFileAsync = promisify(execFile);
 const cliPath = fileURLToPath(new URL("./cli.js", import.meta.url));
+const packageRoot = join(dirname(cliPath), "..");
+const launcherBinaryPath = join(packageRoot, "launcher", "mukae-launcher");
+const applicationSupportDirectory = join(homedir(), "Library", "Application Support", "mukae");
 const launchServicesRegister =
   "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
 
+const registration = {
+  homeDirectory: homedir(),
+  applicationSupportDirectory,
+  nodePath: process.execPath,
+  launcherBinaryPath,
+  platform: process.platform,
+  registerApplication: async (applicationPath: string) => {
+    await execFileAsync(launchServicesRegister, ["-f", applicationPath]);
+  },
+  signApplication: async (applicationPath: string) => {
+    await execFileAsync("xattr", ["-cr", applicationPath]).catch(() => undefined);
+    await execFileAsync("codesign", ["-s", "-", "--force", applicationPath]);
+  },
+  inform: (message: string) => console.log(message),
+  warn: (message: string) => console.error(message),
+};
+
 const result = await runCli(process.argv.slice(2), {
-  register: () =>
-    registerLocalGateway({
-      homeDirectory: homedir(),
-      applicationSupportDirectory: join(homedir(), "Library", "Application Support", "mukae"),
-      nodePath: process.execPath,
-      cliPath,
-      platform: process.platform,
-      registerApplication: async (applicationPath) => {
-        await execFileAsync(launchServicesRegister, ["-f", applicationPath]);
-      },
-      compileLauncher: async ({ sourcePath, executablePath }) => {
-        await execFileAsync("clang", ["-fobjc-arc", "-framework", "Cocoa", "-o", executablePath, sourcePath]);
-      },
-      inform: (message) => console.log(message),
-      warn: (message) => console.error(message),
+  install: () =>
+    installLocalGateway({
+      ...registration,
+      sourceDistDirectory: dirname(cliPath),
+      pathValue: readLoginPath(),
+      packages: runtimeDependencies(),
     }),
+  register: () => registerLocalGateway({ ...registration, cliPath }),
   open: (launchUrl) => openGateway(launchUrl),
   listAgentConfigs: async () => {
     const config = await readGatewayConfig();
@@ -67,6 +82,7 @@ const result = await runCli(process.argv.slice(2), {
 
 if (result.showUsage) {
   console.error(`Usage:
+  mukae
   mukae register
   mukae open <mukae-url>
   mukae agent-config list

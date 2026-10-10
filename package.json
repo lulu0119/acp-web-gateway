@@ -1,5 +1,5 @@
 {
-  "name": "mukae",
+  "name": "mukae-workspace",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.34.4",
@@ -10,8 +10,8 @@
     "onlyBuiltDependencies": ["esbuild"]
   },
   "scripts": {
-    "build": "pnpm -r --filter '!mukae' --if-present run build",
-    "test": "pnpm -r --filter '!mukae' --if-present run test",
+    "build": "pnpm -r --filter '!mukae-workspace' --if-present run build",
+    "test": "pnpm -r --filter '!mukae-workspace' --if-present run test",
     "example": "pnpm --filter @mukae/example start",
     "explain": "pnpm --filter @mukae/explain start"
   }

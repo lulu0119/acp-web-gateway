@@ -1,21 +1,11 @@
-import {
-  buildCommand,
-  createAgentConfigCommand,
-  installCommand,
-  listAgentConfigsCommand,
-  registerCommand,
-  shellQuote,
-} from "@mukae/agent-setup";
+import { createAgentConfigCommand, installCommand, listAgentConfigsCommand } from "@mukae/agent-setup";
 import { CopyButton } from "./copy-button";
 
-export function ManualSetup({ repositoryPath }: { repositoryPath: string }) {
+export function ManualSetup() {
   const commands: { label: string; command: string }[] = [
-    { label: "Enter the repository", command: `cd ${shellQuote(repositoryPath)}` },
-    { label: "Install dependencies", command: installCommand },
-    { label: "Build", command: buildCommand },
-    { label: "Register the link and write the config file", command: registerCommand },
+    { label: "Install mukae and configure installed agents", command: installCommand },
+    { label: "List configurations", command: listAgentConfigsCommand },
     { label: "Add an opencode configuration", command: createAgentConfigCommand("opencode") },
-    { label: "List existing configurations", command: listAgentConfigsCommand },
   ];
 
   return (
@@ -23,8 +13,9 @@ export function ManualSetup({ repositoryPath }: { repositoryPath: string }) {
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">Run it yourself</h2>
         <p className="text-zinc-600">
-          Replace the type with claude-acp, codex-acp, or gemini. To keep another configuration of
-          the same type, pass --name with a different name.
+          The install command writes a configuration for each agent that is already installed. To
+          keep another configuration of the same type, pass --name with a different name. Replace
+          opencode with claude-acp, codex-acp, or gemini.
         </p>
       </div>
       <ol className="flex flex-col divide-y divide-zinc-200 border-y border-zinc-200">

@@ -7,16 +7,19 @@ test("the built-in table launches registry agents as argv, without a shell comma
   assert.deepEqual(launchForAgentType("claude-acp"), {
     command: "npx",
     args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"],
+    requires: ["claude", "npx"],
   });
   assert.deepEqual(launchForAgentType("codex-acp"), {
     command: "npx",
     args: ["-y", "@agentclientprotocol/codex-acp@2.2.2"],
+    requires: ["codex", "npx"],
   });
   assert.deepEqual(launchForAgentType("gemini"), {
     command: "npx",
     args: ["-y", "@google/gemini-cli@0.63.0", "--acp"],
+    requires: ["gemini", "npx"],
   });
-  assert.deepEqual(launchForAgentType("opencode"), { command: "opencode", args: ["acp"] });
+  assert.deepEqual(launchForAgentType("opencode"), { command: "opencode", args: ["acp"], requires: ["opencode"] });
   assert.equal(launchForAgentType("claude"), undefined);
 });
 

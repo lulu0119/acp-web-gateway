@@ -5,8 +5,7 @@ import { PromptSection } from "./components/prompt-section";
 import { Troubleshooting } from "./components/troubleshooting";
 
 export function App() {
-  const repositoryPath = __REPOSITORY_PATH__;
-  const prompt = buildAgentSetupPrompt(repositoryPath);
+  const prompt = buildAgentSetupPrompt();
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-20 px-6 pt-20 pb-24 text-[#1b1d23]">
@@ -22,7 +21,7 @@ export function App() {
       <ChainDiagram />
       <PromptSection prompt={prompt} />
       <Troubleshooting />
-      <ManualSetup repositoryPath={repositoryPath} />
+      <ManualSetup />
     </main>
   );
 }

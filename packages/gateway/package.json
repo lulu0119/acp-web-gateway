@@ -1,13 +1,16 @@
 {
-  "name": "@mukae/gateway",
+  "name": "mukae",
   "version": "0.0.0",
   "private": true,
+  "description": "Local gateway that lets a web page use an ACP agent on this computer.",
   "type": "module",
   "bin": {
     "mukae": "./dist/cli.js"
   },
+  "files": ["dist", "launcher/mukae-launcher"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "launcher": "clang -arch arm64 -arch x86_64 -fobjc-arc -framework Cocoa -o launcher/mukae-launcher launcher/launcher.m",
     "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
   },
   "dependencies": {
