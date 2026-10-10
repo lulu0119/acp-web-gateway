@@ -13,6 +13,6 @@
     "build": "pnpm -r --filter '!mukae' --if-present run build",
     "test": "pnpm -r --filter '!mukae' --if-present run test",
     "example": "pnpm --filter @mukae/example start",
-    "explain": "pnpm --filter @mukae/explain dev"
+    "explain": "pnpm --filter @mukae/explain start"
   }
 }
