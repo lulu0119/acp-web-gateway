@@ -15,7 +15,7 @@ pnpm workspace:
 - `packages/client` — browser helper a web app calls from a click
 - `packages/agent-setup` — the setup prompt and gateway CLI commands that `apps/explain` and `apps/example` share
 - `packages/react-hooks` — React hooks shared by the apps, such as `useCopyToClipboard`
-- `apps/explain` — page shown when the local program does not become ready. It copies a setup prompt for a coding agent, which configures the installed agents itself. Run it with `pnpm explain` (port 47101)
+- `apps/explain` — public setup page at https://lulu0119.github.io/mukae/. Shown when the local program does not become ready. It copies a setup prompt for a coding agent, which configures the installed agents itself. `@mukae/client` exports that address as `explainPageUrl`. Run it locally with `pnpm explain` (port 47101)
 - `apps/example` — a page that connects to a local agent, then lists working directories and sessions per connection in a sidebar
 
 There is no relay package yet.
@@ -31,7 +31,7 @@ There is no relay package yet.
    - `opencode` — `opencode acp`
 3. From a click handler, the web app calls `connectLocalGateway({ agentType, documentationUrl })`. The helper opens `mukae://connect` on the app’s own origin, so the browser dialog names that site and the registered program name, Mukae. The launch URL carries the agent type.
 4. The person allows the browser prompt. Each connection gets its own CLI process. It listens on `127.0.0.1` at the port in the launch URL, one of `47321` to `47340`, and accepts one WebSocket whose nonce and `Origin` match the launch URL. One configuration of that type starts immediately. Several configurations open a macOS dialog that lists only those names. Status reports the phase: `choosing`, `waiting`, `unconfigured`, or `cancelled`. Cancelling the dialog refuses the socket and leaves the page in place.
-5. If the local program never becomes ready, the helper navigates to the explain page. That page covers three cases: the scheme is not registered, the person cancelled the prompt, or the process exited immediately. A missing configuration stays on the current page.
+5. If the local program never becomes ready, the helper navigates to `documentationUrl`. Pass `explainPageUrl` to open the published setup page. That page gives a coding agent the setup prompt, and lists the same commands to run by hand. A missing configuration stays on the current page. The person does not install anything before that page opens.
 
 The browser draws the prompt. This repo cannot change its wording. Chrome on macOS usually shows no prompt when nothing handles `mukae://`; it logs a failure and leaves the page in place. The helper treats “status never became waiting” as that failure. While a name dialog is open, status stays `choosing` and the helper keeps waiting. The dialog ends after 5 minutes if it is still open, and that counts as a cancellation.
 

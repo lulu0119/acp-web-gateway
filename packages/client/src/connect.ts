@@ -14,6 +14,9 @@ export type ConnectOutcome =
   | { connected: false; reason: "unconfigured" | "cancelled" | "not_ready" | "no_free_port" };
 
 export const defaultReadyTimeoutMs = 60_000;
+
+/** Published setup page. A web app passes this as `documentationUrl`. */
+export const explainPageUrl = "https://lulu0119.github.io/mukae/";
 const pollIntervalMs = 250;
 
 export type ConnectDependencies = {

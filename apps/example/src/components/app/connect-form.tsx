@@ -1,5 +1,5 @@
 import { buildAgentSetupPrompt } from "@mukae/agent-setup";
-import { connectLocalGateway } from "@mukae/client";
+import { connectLocalGateway, explainPageUrl } from "@mukae/client";
 import { launchAgentTypes, type LaunchAgentType } from "@mukae/contract";
 import { useCopyToClipboard } from "@mukae/react-hooks";
 import { useState } from "react";
@@ -14,9 +14,6 @@ import {
 } from "@/components/ui/select";
 
 export type ConnectedAgent = { agentType: LaunchAgentType; url: string };
-
-// Served by `pnpm explain` (apps/explain), a separate dev server.
-const explainPageUrl = "http://127.0.0.1:47101/";
 
 const outcomeMessages: Record<string, string> = {
   unconfigured: "This agent has no configuration yet.",

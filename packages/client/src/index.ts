@@ -1,1 +1,1 @@
-export { connectLocalGateway, type ConnectOutcome } from "./connect.js";
+export { connectLocalGateway, explainPageUrl, type ConnectOutcome } from "./connect.js";
