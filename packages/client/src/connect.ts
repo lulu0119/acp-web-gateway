@@ -16,7 +16,7 @@ export type ConnectOutcome =
 export const defaultReadyTimeoutMs = 60_000;
 
 /** Published setup page. A web app passes this as `documentationUrl`. */
-export const explainPageUrl = "https://lulu0119.github.io/mukae/";
+export const explainPageUrl = "https://lulu0119.github.io/mukae/explain/";
 const pollIntervalMs = 250;
 
 export type ConnectDependencies = {

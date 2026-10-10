@@ -35,10 +35,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mukae/explain... build
         env:
-          PAGES_BASE: /mukae/
+          PAGES_BASE: /mukae/explain/
+      - run: mkdir -p site/explain && cp -R apps/explain/dist/. site/explain
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/explain/dist
+          path: site
 
   deploy:
     needs: build

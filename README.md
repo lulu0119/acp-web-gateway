@@ -15,7 +15,7 @@ pnpm workspace:
 - `packages/client` — browser helper a web app calls from a click
 - `packages/agent-setup` — the setup prompt and gateway CLI commands that `apps/explain` and `apps/example` share
 - `packages/react-hooks` — React hooks shared by the apps, such as `useCopyToClipboard`
-- `apps/explain` — public setup page at https://lulu0119.github.io/mukae/. Shown when the local program does not become ready. It copies a setup prompt for a coding agent, which configures the installed agents itself. `@mukae/client` exports that address as `explainPageUrl`. Run it locally with `pnpm explain` (port 47101)
+- `apps/explain` — public setup page at https://lulu0119.github.io/mukae/explain/. Shown when the local program does not become ready. It copies a setup prompt for a coding agent, which configures the installed agents itself. `@mukae/client` exports that address as `explainPageUrl`. Run it locally with `pnpm explain` (port 47101)
 - `apps/example` — a page that connects to a local agent, then lists working directories and sessions per connection in a sidebar
 
 There is no relay package yet.
