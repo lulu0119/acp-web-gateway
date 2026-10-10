@@ -1,6 +1,6 @@
 {
   "name": "mukae",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "description": "Local gateway that lets a web page use an ACP agent on this computer.",
   "type": "module",
   "engines": {

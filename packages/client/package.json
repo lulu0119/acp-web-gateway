@@ -1,6 +1,6 @@
 {
   "name": "@mukae/client",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "description": "Browser helper that opens the local mukae gateway from a click.",
   "type": "module",
   "files": ["dist"],
