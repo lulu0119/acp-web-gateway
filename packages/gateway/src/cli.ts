@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { addAgentConfig, formatAgentConfigList, knownAgentTypes } from "./agents.js";
-import { readGatewayConfig, writeGatewayConfig } from "./config.js";
+import { readGatewayConfig, readGatewayConfigForWrite, writeGatewayConfig } from "./config.js";
 import { openGateway } from "./open-gateway.js";
 import { registerLocalGateway } from "./register.js";
 import { runCli } from "./run-cli.js";
@@ -35,10 +35,19 @@ const result = await runCli(process.argv.slice(2), {
   open: (launchUrl) => openGateway(launchUrl),
   listAgentConfigs: async () => {
     const config = await readGatewayConfig();
+    if (config.warning) {
+      console.error(config.warning);
+      return 1;
+    }
     process.stdout.write(formatAgentConfigList(config.agents));
+    return 0;
   },
   createAgentConfig: async (input) => {
-    const config = await readGatewayConfig();
+    const config = await readGatewayConfigForWrite();
+    if (!config.ok) {
+      console.error(config.message);
+      return 1;
+    }
     const added = addAgentConfig({
       agents: config.agents,
       agentType: input.agentType,

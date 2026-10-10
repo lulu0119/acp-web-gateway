@@ -50,6 +50,7 @@ function actions(calls: string[]) {
     },
     listAgentConfigs: async () => {
       calls.push("list");
+      return 0;
     },
     createAgentConfig: async (input: { agentType: string; name?: string; env: Record<string, string> }) => {
       const envText = Object.entries(input.env)

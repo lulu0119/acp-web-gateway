@@ -19,7 +19,7 @@ export async function runCli(
   actions: {
     register: () => Promise<void>;
     open: (launchUrl: string) => Promise<void>;
-    listAgentConfigs: () => Promise<void>;
+    listAgentConfigs: () => Promise<number>;
     createAgentConfig: (input: {
       agentType: string;
       name?: string;
@@ -37,8 +37,8 @@ export async function runCli(
     return { exitCode: 0, showUsage: false };
   }
   if (parsed.kind === "list-agent-configs") {
-    await actions.listAgentConfigs();
-    return { exitCode: 0, showUsage: false };
+    const exitCode = await actions.listAgentConfigs();
+    return { exitCode, showUsage: false };
   }
   if (parsed.kind === "create-agent-config") {
     const exitCode = await actions.createAgentConfig({

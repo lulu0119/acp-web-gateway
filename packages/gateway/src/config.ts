@@ -38,13 +38,27 @@ export function defaultConfigText(): string {
   return configText({ agents: [] });
 }
 
-export async function readGatewayConfig(homeDirectory = homedir()): Promise<GatewayConfig> {
-  try {
-    const text = await readFile(configFilePath(homeDirectory), "utf8");
-    return parseGatewayConfig(JSON.parse(text) as unknown);
-  } catch {
-    return { agents: [] };
+export async function readGatewayConfig(homeDirectory = homedir()): Promise<{
+  agents: StoredAgent[];
+  warning?: string;
+}> {
+  const loaded = await loadGatewayConfig(homeDirectory);
+  const failure = loadFailure(loaded);
+  if (failure) return { agents: [], warning: failure };
+  if (loaded.kind === "parsed") return { agents: loaded.config.agents };
+  return { agents: [] };
+}
+
+export async function readGatewayConfigForWrite(homeDirectory = homedir()): Promise<
+  { ok: true; agents: StoredAgent[] } | { ok: false; message: string }
+> {
+  const loaded = await loadGatewayConfig(homeDirectory);
+  const failure = loadFailure(loaded);
+  if (failure) return { ok: false, message: failure };
+  if (loaded.kind === "parsed" && loaded.dropsAgents) {
+    return { ok: false, message: `Cannot rewrite ${loaded.path} without dropping agent entries.` };
   }
+  return { ok: true, agents: loaded.kind === "parsed" ? loaded.config.agents : [] };
 }
 
 export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = homedir()): Promise<void> {
@@ -61,6 +75,51 @@ export async function writeDefaultConfigIfMissing(homeDirectory = homedir()): Pr
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, defaultConfigText(), "utf8");
   }
+}
+
+type LoadedGatewayConfig =
+  | { kind: "missing" }
+  | { kind: "unreadable"; path: string }
+  | { kind: "invalid"; path: string }
+  | { kind: "parsed"; path: string; config: GatewayConfig; dropsAgents: boolean };
+
+async function loadGatewayConfig(homeDirectory: string): Promise<LoadedGatewayConfig> {
+  const path = configFilePath(homeDirectory);
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissingFile(error)) return { kind: "missing" };
+    return { kind: "unreadable", path };
+  }
+  try {
+    const value: unknown = JSON.parse(text);
+    return {
+      kind: "parsed",
+      path,
+      config: parseGatewayConfig(value),
+      dropsAgents: rewriteWouldDropAgents(value),
+    };
+  } catch {
+    return { kind: "invalid", path };
+  }
+}
+
+function loadFailure(loaded: LoadedGatewayConfig): string | undefined {
+  if (loaded.kind === "unreadable") return `Cannot read ${loaded.path}.`;
+  if (loaded.kind === "invalid") return `Cannot read ${loaded.path} as JSON.`;
+  return undefined;
+}
+
+function rewriteWouldDropAgents(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return true;
+  const agents = (value as { agents?: unknown }).agents;
+  if (!Array.isArray(agents)) return true;
+  return parseGatewayConfig(value).agents.length !== agents.length;
+}
+
+function isMissingFile(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 function parseStoredAgent(value: unknown): StoredAgent | undefined {

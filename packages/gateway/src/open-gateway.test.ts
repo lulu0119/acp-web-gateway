@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import test from "node:test";
 import { buildLaunchUrl, defaultGatewayPort } from "@mukae/contract";
-import { writeGatewayConfig } from "./config.js";
+import { configFilePath, writeGatewayConfig } from "./config.js";
 import { startGatewaySession } from "./open-gateway.js";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const origin = "https://app.example";
 const nonce = "nonce-1234";
@@ -93,6 +93,28 @@ test("a type with no configuration is unconfigured and the status omits other na
     const body = (await requestStatus(session.port)).body;
     assert.equal(body, JSON.stringify({ status: "unconfigured" }));
     assert.equal(body.includes("work"), false);
+  } finally {
+    session.stop();
+    await session.finished;
+  }
+});
+
+test("a config file that is not JSON starts unconfigured and leaves the file alone", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-session-"));
+  const path = configFilePath(homeDirectory);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, "{", "utf8");
+  const warnings: string[] = [];
+  const session = await startGatewaySession(launchUrl("opencode"), {
+    homeDirectory,
+    port: 0,
+    idleTimeoutMs: 15_000,
+    warn: (message) => warnings.push(message),
+  });
+  try {
+    assert.equal((await requestStatus(session.port)).body, JSON.stringify({ status: "unconfigured" }));
+    assert.deepEqual(warnings, [`Cannot read ${path} as JSON.`]);
+    assert.equal(await readFile(path, "utf8"), "{");
   } finally {
     session.stop();
     await session.finished;

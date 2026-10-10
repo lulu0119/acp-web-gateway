@@ -13,6 +13,7 @@ export type GatewaySessionOptions = {
   idleTimeoutMs?: number;
   chooseName?: (agentType: string, names: readonly string[]) => Promise<string | undefined>;
   commandPath?: string;
+  warn?: (message: string) => void;
 };
 
 export async function openGateway(launchUrl: string, options?: GatewaySessionOptions): Promise<void> {
@@ -27,7 +28,9 @@ export async function startGatewaySession(
   const launch = parseLaunchUrl(launchUrl);
   if (!launch) throw new Error("The launch URL is not a mukae connect URL.");
   const commandPath = options.commandPath ?? readLoginPath();
-  const config = await readGatewayConfig(options.homeDirectory);
+  const loaded = await readGatewayConfig(options.homeDirectory);
+  if (loaded.warning) (options.warn ?? ((message: string) => console.error(message)))(loaded.warning);
+  const config = { agents: loaded.agents };
   const launchCommand = launchForAgentType(launch.agentType);
   const selection = launchCommand
     ? selectAgentSlots({ agentType: launch.agentType, slots: config.agents })

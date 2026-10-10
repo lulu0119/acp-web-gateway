@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import {
   configFilePath,
   defaultConfigText,
   parseGatewayConfig,
   readGatewayConfig,
+  readGatewayConfigForWrite,
   writeGatewayConfig,
 } from "./config.js";
 
@@ -40,4 +41,60 @@ test("written config can be read back", async () => {
   assert.deepEqual(await readGatewayConfig(homeDirectory), {
     agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }],
   });
+  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), {
+    ok: true,
+    agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }],
+  });
+});
+
+test("a missing config file is empty and may be created", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  assert.deepEqual(await readGatewayConfig(homeDirectory), { agents: [] });
+  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), { ok: true, agents: [] });
+});
+
+test("a config file that is not JSON is not treated as empty", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const path = configFilePath(homeDirectory);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, "{", "utf8");
+  const launch = await readGatewayConfig(homeDirectory);
+  const update = await readGatewayConfigForWrite(homeDirectory);
+  assert.deepEqual(launch.agents, []);
+  assert.equal(launch.warning, `Cannot read ${path} as JSON.`);
+  assert.deepEqual(update, { ok: false, message: `Cannot read ${path} as JSON.` });
+  assert.equal(await readFile(path, "utf8"), "{");
+});
+
+test("a config whose agents field is not a list is refused for rewrite", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const path = configFilePath(homeDirectory);
+  await mkdir(dirname(path), { recursive: true });
+  const text = '{"agents":"nope"}\n';
+  await writeFile(path, text, "utf8");
+  assert.deepEqual(await readGatewayConfig(homeDirectory), { agents: [] });
+  const update = await readGatewayConfigForWrite(homeDirectory);
+  assert.equal(update.ok, false);
+  assert.equal(await readFile(path, "utf8"), text);
+});
+
+test("a config that would drop agent entries is refused for rewrite", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const path = configFilePath(homeDirectory);
+  await mkdir(dirname(path), { recursive: true });
+  const text = `${JSON.stringify({
+    agents: [
+      { name: "work", agentType: "opencode", env: {} },
+      { name: "broken", agentType: "Not A Type" },
+    ],
+  })}\n`;
+  await writeFile(path, text, "utf8");
+  assert.deepEqual(await readGatewayConfig(homeDirectory), {
+    agents: [{ name: "work", agentType: "opencode", env: {} }],
+  });
+  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), {
+    ok: false,
+    message: `Cannot rewrite ${path} without dropping agent entries.`,
+  });
+  assert.equal(await readFile(path, "utf8"), text);
 });
