@@ -1,10 +1,12 @@
 import { mkdirSync } from "node:fs";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import Database from "better-sqlite3";
 import { mountAccountPages } from "./account.js";
 import { openMukaeAuth } from "./auth.js";
 import { createRelayApp } from "./app.js";
 import { ensurePublicClients } from "./clients.js";
+import { mountDashboard } from "./dashboard.js";
 import { createRegistry } from "./registry.js";
 import { readUserId } from "./session.js";
 
@@ -31,34 +33,21 @@ const mukae = await openMukaeAuth({
   origins,
 });
 const clients = await ensurePublicClients(mukae, { redirectUri });
+const registry = createRegistry();
 const { app, injectWebSocket } = createRelayApp({
-  registry: createRegistry(),
+  registry,
   origins,
   clients,
   publicUrl,
   readUserId: (request) => readUserId(request, { jwksUrl: mukae.jwksUrl, issuer: mukae.issuer, audience: mukae.resource }),
 });
 mountAccountPages(app, mukae, githubClientId.length > 0 && githubClientSecret.length > 0);
+mountDashboard(app, mukae, registry);
+app.use("/assets/*", serveStatic({ root: "./dist/public" }));
 app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
-app.get("/", async (c) => {
-  const session = await mukae.auth.api.getSession({ headers: c.req.raw.headers });
-  const name = session?.user.name;
-  const body = name ? `<h1>Mukae</h1><p>Signed in as ${escapeHtml(name)}.</p>` : `<h1>Mukae</h1><p><a href="/sign-in">Sign in</a></p>`;
-  return c.html(`<!doctype html><html lang="en"><body>${body}</body></html>`);
-});
 
 const hostname = process.env.HOST ?? "127.0.0.1";
 const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   console.log(`Mukae listening on http://${hostname}:${info.port}`);
 });
 injectWebSocket(server);
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => {
-    if (character === "&") return "&amp;";
-    if (character === "<") return "&lt;";
-    if (character === ">") return "&gt;";
-    if (character === '"') return "&quot;";
-    return "&#39;";
-  });
-}

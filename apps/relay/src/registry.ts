@@ -42,12 +42,19 @@ type LiveSession = {
   openResolve?: (result: OpenSessionResult) => void;
 };
 
+export type LiveSessionInfo = {
+  machineId: string;
+  agentName: string;
+  agentType: string;
+};
+
 export type Registry = {
   connectDaemon(input: { userId: string; send: (message: RelayMessage) => void }): {
     receive(message: DaemonMessage): void;
     close(): void;
   };
   listMachines(userId: string): Machine[];
+  listSessions(userId: string): LiveSessionInfo[];
   openSession(input: { userId: string; machineId: string; agentName: string }): Promise<OpenSessionResult>;
   takeTicket(ticket: string, browser: BrowserSocket): BrowserLink | undefined;
 };
@@ -147,6 +154,11 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       return [...machines.values()]
         .filter((machine) => machine.userId === userId)
         .map((machine) => ({ id: machine.id, hostname: machine.hostname, agents: machine.agents }));
+    },
+    listSessions(userId) {
+      return [...sessions.values()]
+        .filter((session) => session.userId === userId && !session.ended)
+        .map((session) => ({ machineId: session.machineId, agentName: session.agentName, agentType: session.agentType }));
     },
     openSession({ userId, machineId, agentName }) {
       const machine = machines.get(machineId);

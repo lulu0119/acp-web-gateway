@@ -64,6 +64,27 @@ test("a ticket that nobody claims ends the session", async () => {
   assert.equal(sent.at(-1)?.type, "close");
 });
 
+test("live sessions are listed per account without reading ACP payloads", async () => {
+  const sent: RelayMessage[] = [];
+  const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
+  const ada = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
+  ada.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  const bea = registry.connectDaemon({ userId: "bea", send: () => undefined });
+  bea.receive({ type: "hello", hostname: "field", agents: [{ name: "work", agentType: "opencode" }] });
+  assert.deepEqual(registry.listSessions("ada"), []);
+  const machineId = registry.listMachines("ada")[0]?.id ?? "";
+  const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });
+  const open = sent[0];
+  if (open?.type !== "open") throw new Error("expected open");
+  ada.receive({ type: "opened", sessionId: open.sessionId });
+  const result = await pending;
+  assert.equal(result.ok, true);
+  assert.deepEqual(registry.listSessions("ada"), [{ machineId, agentName: "work", agentType: "opencode" }]);
+  assert.deepEqual(registry.listSessions("bea"), []);
+  ada.close();
+  assert.deepEqual(registry.listSessions("ada"), []);
+});
+
 function fakeBrowser(frames: string[]): BrowserSocket {
   return {
     send(payload) {

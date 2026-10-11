@@ -1,20 +1,42 @@
+import { webStylesheet } from "./web.js";
+
+const primaryButton =
+  "inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/80";
+const outlineButton =
+  "inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition hover:bg-muted";
+const textInput =
+  "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring";
+
 export function signInPage(input: { query: string; configured: boolean }): string {
   const continuation = hidden("query", input.query);
   const github = input.configured
-    ? `<form method="post" action="/sign-in/github">${continuation}<button type="submit">Sign in with GitHub</button></form>`
-    : `<p>Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, then start Mukae again.</p>`;
-  return layout("Sign in", `<h1>Mukae</h1><p>Sign in to approve a web app or a machine.</p>${github}`);
+    ? `<form method="post" action="/sign-in/github">${continuation}<button type="submit" class="${primaryButton}">Sign in with GitHub</button></form>`
+    : `<p class="text-sm text-muted-foreground">Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, then start Mukae again.</p>`;
+  return layout(
+    "Sign in",
+    `<p class="text-sm text-muted-foreground">mukae</p>
+     <h1 class="text-4xl font-semibold tracking-tight">Sign in to Mukae</h1>
+     <p class="text-lg leading-relaxed text-muted-foreground">A web app reaches an agent on a machine you own through this account. Sign in to approve a web app or a machine.</p>
+     ${github}`,
+  );
 }
 
 export function consentPage(input: { query: string; clientId: string; scope: string }): string {
   const fields = `${hidden("query", input.query)}`;
   return layout(
     "Approve",
-    `<h1>Approve this web app</h1>
-     <p>Client ${escapeHtml(input.clientId)} is asking for ${escapeHtml(input.scope || "access")}.</p>
-     <p>Approving lets that site see your online machines and open an agent on one of them.</p>
-     <form method="post" action="/consent">${fields}<button name="accept" value="yes" type="submit">Approve</button></form>
-     <form method="post" action="/consent">${fields}<button name="accept" value="no" type="submit">Deny</button></form>`,
+    `<p class="text-sm text-muted-foreground">mukae</p>
+     <h1 class="text-4xl font-semibold tracking-tight">Approve this web app</h1>
+     ${chain(1)}
+     <div class="rounded-xl border border-border bg-card p-5">
+       <p class="font-mono text-sm">${escapeHtml(input.clientId)}</p>
+       <p class="mt-1 text-sm text-muted-foreground">is asking for ${escapeHtml(input.scope || "access")}.</p>
+       <p class="mt-3 text-sm">Approving lets that site see your online machines and open an agent on one of them.</p>
+     </div>
+     <div class="flex gap-3">
+       <form method="post" action="/consent">${fields}<button name="accept" value="yes" type="submit" class="${primaryButton}">Approve</button></form>
+       <form method="post" action="/consent">${fields}<button name="accept" value="no" type="submit" class="${outlineButton}">Deny</button></form>
+     </div>`,
   );
 }
 
@@ -22,27 +44,58 @@ export function devicePage(input: { userCode: string }): string {
   const code = hidden("userCode", input.userCode);
   return layout(
     "Approve machine",
-    `<h1>Approve this machine</h1>
-     <p>Code ${escapeHtml(input.userCode)}</p>
-     <p>Approving lets this computer run agents for your account. Approve only a code you just requested.</p>
-     <form method="post" action="/device">${code}<button name="decision" value="approve" type="submit">Approve</button></form>
-     <form method="post" action="/device">${code}<button name="decision" value="deny" type="submit">Deny</button></form>`,
+    `<p class="text-sm text-muted-foreground">mukae</p>
+     <h1 class="text-4xl font-semibold tracking-tight">Approve this machine</h1>
+     ${chain(1)}
+     <div class="rounded-xl border border-border bg-card p-5">
+       <p class="font-mono text-sm">Code ${escapeHtml(input.userCode)}</p>
+       <p class="mt-3 text-sm">Approving lets this computer run agents for your account. Approve only a code you just requested.</p>
+     </div>
+     <div class="flex gap-3">
+       <form method="post" action="/device">${code}<button name="decision" value="approve" type="submit" class="${primaryButton}">Approve</button></form>
+       <form method="post" action="/device">${code}<button name="decision" value="deny" type="submit" class="${outlineButton}">Deny</button></form>
+     </div>`,
   );
 }
 
 export function deviceCodePage(): string {
   return layout(
     "Approve machine",
-    `<h1>Approve a machine</h1>
-     <form method="get" action="/device">
-       <label>Code <input name="user_code" autocomplete="one-time-code" required></label>
-       <button type="submit">Continue</button>
+    `<p class="text-sm text-muted-foreground">mukae</p>
+     <h1 class="text-4xl font-semibold tracking-tight">Approve a machine</h1>
+     <p class="text-lg leading-relaxed text-muted-foreground">Enter the code the machine printed after <span class="font-mono text-base">mukae login</span>.</p>
+     <form method="get" action="/device" class="flex max-w-sm flex-col gap-3">
+       <label class="flex flex-col gap-2 text-sm">Code<input name="user_code" autocomplete="one-time-code" required class="${textInput}"></label>
+       <button type="submit" class="${primaryButton} self-start">Continue</button>
      </form>`,
   );
 }
 
 export function messagePage(title: string, message: string): string {
-  return layout(title, `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p>`);
+  return layout(
+    title,
+    `<p class="text-sm text-muted-foreground">mukae</p>
+     <h1 class="text-4xl font-semibold tracking-tight">${escapeHtml(title)}</h1>
+     <p class="text-lg leading-relaxed text-muted-foreground">${escapeHtml(message)}</p>
+     <p><a href="/" class="text-sm underline underline-offset-4">Back to Mukae</a></p>`,
+  );
+}
+
+const hops = ["Web app", "Mukae", "Machine daemon", "Agent"];
+
+function chain(active: number): string {
+  const items = hops
+    .map((hop, index) => {
+      const dot =
+        index < active
+          ? `<span class="size-2 rounded-full bg-primary"></span>`
+          : index === active
+            ? `<span class="size-2 animate-pulse rounded-full bg-primary"></span>`
+            : `<span class="size-2 rounded-full border border-primary bg-background"></span>`;
+      return `<li class="flex flex-1 flex-col gap-2">${dot}<span class="text-sm font-medium">${hop}</span></li>`;
+    })
+    .join("");
+  return `<ol class="relative flex gap-2 border-y border-border py-5">${items}</ol>`;
 }
 
 function layout(title: string, body: string): string {
@@ -50,14 +103,12 @@ function layout(title: string, body: string): string {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    body { font: 16px/1.5 system-ui, sans-serif; margin: 4rem auto; max-width: 32rem; padding: 0 1rem; }
-    button { font: inherit; margin-right: 0.5rem; }
-    input { font: inherit; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)} · Mukae</title>${webStylesheet()}
 </head>
-<body>${body}</body>
+<body class="bg-background font-sans antialiased">
+  <main class="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-6 pt-20 pb-24">${body}</main>
+</body>
 </html>`;
 }
 
