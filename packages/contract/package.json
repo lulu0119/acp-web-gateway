@@ -23,6 +23,9 @@
     "prepublishOnly": "pnpm run build",
     "test": "tsc -p tsconfig.json && node --test dist/contract.test.js"
   },
+  "dependencies": {
+    "valibot": "^1.5.0"
+  },
   "devDependencies": {
     "@types/node": "^24.6.0",
     "typescript": "^5.9.2"
