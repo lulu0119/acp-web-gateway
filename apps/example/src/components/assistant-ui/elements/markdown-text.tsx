@@ -15,8 +15,8 @@ import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
-import { useCopyToClipboard } from "@mukae/react-hooks";
 import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "react-use";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
   components?: Parameters<typeof memoizeMarkdownComponents>[0];
@@ -67,7 +67,8 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({
 export const MarkdownText = memo(MarkdownTextImpl);
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
-  const { isCopied, copyToClipboard } = useCopyToClipboard();
+  const [state, copyToClipboard] = useCopyToClipboard();
+  const isCopied = code !== undefined && state.value === code;
   const onCopy = () => {
     if (!code || isCopied) return;
     copyToClipboard(code);

@@ -14,7 +14,6 @@ pnpm workspace:
 - `packages/contract` — relay paths and the daemon messages
 - `packages/gateway` — the `mukae` daemon and `agent-config`
 - `packages/client` — sign-in and session open for a web app or the daemon
-- `packages/react-hooks` — React hooks shared by the apps, such as `useCopyToClipboard`
 - `apps/example` — a page that signs in, lists machines, and opens an agent. Coolify builds this image and the relay image from their Dockerfiles.
 
 ## Flow
