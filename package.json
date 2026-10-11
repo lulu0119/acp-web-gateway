@@ -14,5 +14,8 @@
     "test": "pnpm -r --filter '!mukae-workspace' --if-present run test",
     "example": "pnpm --filter @mukae/example start",
     "explain": "pnpm --filter @mukae/explain start"
+  },
+  "devDependencies": {
+    "pkg-pr-new": "^0.0.91"
   }
 }

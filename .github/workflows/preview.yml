@@ -1,0 +1,33 @@
+name: Preview packages
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "!**"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to publish
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mukae/client... --filter mukae... build
+      - run: pnpm exec pkg-pr-new publish --pnpm --previewVersion --no-compact --commentWithSha --packageManager=pnpm ./packages/contract ./packages/client ./packages/gateway
