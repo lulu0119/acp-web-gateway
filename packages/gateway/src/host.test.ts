@@ -14,7 +14,8 @@ test("hello advertises configured agents and open pipes one of them", () => {
     hostname: "studio",
     agents: [{ name: "work", agentType: "opencode", env: {} }],
     send: (message) => sent.push(message),
-    spawnAgent: (_agent, next) => {
+    resolveLaunch: readyLaunch,
+    spawnAgent: (_agent, _launch, next) => {
       hooks = next;
       next.onReady();
       return pipe(writes);
@@ -54,7 +55,8 @@ test("the agent exiting tells the relay to close", () => {
     hostname: "studio",
     agents: [agent],
     send: (message) => sent.push(message),
-    spawnAgent: (_agent, next) => {
+    resolveLaunch: readyLaunch,
+    spawnAgent: (_agent, _launch, next) => {
       hooks = next;
       next.onReady();
       return pipe([]);
@@ -66,6 +68,29 @@ test("the agent exiting tells the relay to close", () => {
 });
 
 const agent: StoredAgent = { name: "work", agentType: "opencode", env: {} };
+
+function readyLaunch(stored: StoredAgent) {
+  return { command: "opencode", args: ["acp"], env: stored.env };
+}
+
+test("hello omits an agent the registry cannot launch", () => {
+  const sent: DaemonMessage[] = [];
+  const host = createDaemonHost({
+    hostname: "studio",
+    agents: [agent],
+    send: (message) => sent.push(message),
+    resolveLaunch: () => undefined,
+    spawnAgent: () => {
+      throw new Error("spawned");
+    },
+  });
+  host.hello();
+  host.receive({ type: "open", sessionId, agentName: "work" });
+  assert.deepEqual(sent, [
+    { type: "hello", hostname: "studio", agents: [] },
+    { type: "open-failed", sessionId, message: "That agent is not configured." },
+  ]);
+});
 
 function pipe(writes: string[]): AgentPipe {
   return {

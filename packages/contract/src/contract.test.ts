@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { launchAgentTypes, parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
-
-test("the relay catalog is the agent types a machine can start", () => {
-  assert.deepEqual(launchAgentTypes, ["claude-acp", "codex-acp", "gemini", "opencode"]);
-});
+import { parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
 
 test("a daemon hello names the machine and its agent configurations", () => {
   assert.deepEqual(

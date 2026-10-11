@@ -1,5 +1,6 @@
 import { daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@mukae/contract";
 import WebSocket from "ws";
+import { commandOnPath, loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
 
@@ -9,9 +10,12 @@ export async function runDaemon(input: {
   hostname: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
+  catalog?: readonly RegistryAgent[];
 }): Promise<void> {
+  const loaded = input.catalog ? undefined : await loadAcpRegistry();
+  const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);
   while (!input.signal?.aborted) {
-    const result = await connectOnce(input);
+    const result = await connectOnce({ ...input, catalog });
     if (result === "unauthorized") throw new Error("Run mukae login again.");
     if (input.signal?.aborted) return;
     await delay(1_000, input.signal);
@@ -24,6 +28,7 @@ function connectOnce(input: {
   hostname: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
+  catalog: readonly RegistryAgent[];
 }): Promise<"closed" | "unauthorized"> {
   const socket = new WebSocket(relayWebSocketUrl(input.relayUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
@@ -34,6 +39,14 @@ function connectOnce(input: {
     agents: input.agents,
     send(message: DaemonMessage) {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    },
+    resolveLaunch(agent) {
+      return resolveStoredAgent({
+        agent,
+        agents: input.catalog,
+        platform: platformTarget(),
+        commandExists: (command) => commandOnPath(command),
+      });
     },
   });
   const stop = () => {

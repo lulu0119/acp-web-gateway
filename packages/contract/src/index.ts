@@ -13,9 +13,6 @@ export type PublicClients = {
   daemonClientId: string;
 };
 
-export const launchAgentTypes = ["claude-acp", "codex-acp", "gemini", "opencode"] as const;
-export type LaunchAgentType = (typeof launchAgentTypes)[number];
-
 const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
 const idPattern = /^[A-Za-z0-9_-]{8,128}$/;
 const namePattern = /^[^\r\n\t]{1,128}$/;
@@ -47,10 +44,6 @@ export type RelayMessage =
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
-}
-
-export function isLaunchAgentType(value: string): value is LaunchAgentType {
-  return (launchAgentTypes as readonly string[]).includes(value);
 }
 
 export function relayWebSocketUrl(relayUrl: string, path: string): string {

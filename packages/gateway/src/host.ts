@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import type { AgentSlot, DaemonMessage, RelayMessage } from "@mukae/contract";
-import { launchForAgentType } from "./agents.js";
+import type { AgentLaunch } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 
@@ -23,28 +23,31 @@ export function createDaemonHost(input: {
   hostname: string;
   agents: readonly StoredAgent[];
   send: (message: DaemonMessage) => void;
-  spawnAgent?: (agent: StoredAgent, hooks: AgentHooks) => AgentPipe;
+  resolveLaunch?: (agent: StoredAgent) => AgentLaunch | undefined;
+  spawnAgent?: (agent: StoredAgent, launch: AgentLaunch, hooks: AgentHooks) => AgentPipe;
 }): { hello(): void; receive(message: RelayMessage): void; close(): void } {
   const sessions = new Map<string, { pipe?: AgentPipe; opened: boolean }>();
-  const slots: AgentSlot[] = input.agents.flatMap((agent) =>
-    launchForAgentType(agent.agentType) ? [{ name: agent.name, agentType: agent.agentType }] : [],
-  );
+  const resolveLaunch = input.resolveLaunch ?? customLaunch;
 
   return {
     hello() {
-      input.send({ type: "hello", hostname: input.hostname.slice(0, 256), agents: slots });
+      const agents: AgentSlot[] = input.agents.flatMap((agent) =>
+        resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : [],
+      );
+      input.send({ type: "hello", hostname: input.hostname.slice(0, 256), agents });
     },
     receive(message) {
       if (message.type === "open") {
         if (sessions.has(message.sessionId)) return;
         const agent = input.agents.find((item) => item.name === message.agentName);
-        if (!agent || !launchForAgentType(agent.agentType)) {
+        const launch = agent ? resolveLaunch(agent) : undefined;
+        if (!agent || !launch) {
           input.send({ type: "open-failed", sessionId: message.sessionId, message: "That agent is not configured." });
           return;
         }
         const current: { pipe?: AgentPipe; opened: boolean } = { opened: false };
         sessions.set(message.sessionId, current);
-        current.pipe = (input.spawnAgent ?? startAgent)(agent, {
+        current.pipe = (input.spawnAgent ?? startAgent)(agent, launch, {
           onReady() {
             current.opened = true;
             input.send({ type: "opened", sessionId: message.sessionId });
@@ -82,14 +85,9 @@ export function createDaemonHost(input: {
   };
 }
 
-export function startAgent(agent: StoredAgent, hooks: AgentHooks): AgentPipe {
-  const launch = launchForAgentType(agent.agentType);
-  if (!launch) {
-    hooks.onFail("That agent is not configured.");
-    return { write() {}, stop() {} };
-  }
+export function startAgent(_agent: StoredAgent, launch: AgentLaunch, hooks: AgentHooks): AgentPipe {
   const child = spawn(launch.command, [...launch.args], {
-    env: { ...process.env, ...agent.env },
+    env: { ...process.env, ...launch.env },
     stdio: ["pipe", "pipe", "pipe"],
   });
   let settled = false;
@@ -130,6 +128,11 @@ export function startAgent(agent: StoredAgent, hooks: AgentHooks): AgentPipe {
     },
     stop,
   };
+}
+
+function customLaunch(agent: StoredAgent): AgentLaunch | undefined {
+  if (!agent.command) return undefined;
+  return { command: agent.command, args: agent.args ?? [], env: agent.env };
 }
 
 function clip(message: string): string {

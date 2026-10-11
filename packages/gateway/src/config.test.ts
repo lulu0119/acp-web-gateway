@@ -30,6 +30,15 @@ test("config stores named agents and ignores a leftover agent command", () => {
   assert.equal(defaultConfigText().includes("47321"), false);
 });
 
+test("a custom command is stored with the configuration", () => {
+  assert.deepEqual(
+    parseGatewayConfig({
+      agents: [{ name: "mine", agentType: "custom", env: {}, command: "my-agent", args: ["--stdio"] }],
+    }),
+    { agents: [{ name: "mine", agentType: "custom", env: {}, command: "my-agent", args: ["--stdio"] }] },
+  );
+});
+
 test("written config can be read back", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
   await writeGatewayConfig(

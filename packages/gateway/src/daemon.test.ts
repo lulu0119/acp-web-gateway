@@ -25,6 +25,7 @@ test("the daemon connects with its access token and says hello", async () => {
     hostname: "studio",
     agents: [{ name: "work", agentType: "opencode", env: {} }],
     signal: controller.signal,
+    catalog: [{ id: "opencode", name: "OpenCode", binary: { "darwin-aarch64": { cmd: "./opencode", args: ["acp"], env: {} } } }],
   });
   try {
     const message = await seen;

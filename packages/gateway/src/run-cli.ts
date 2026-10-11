@@ -4,7 +4,8 @@ export type CliCommand =
   | { kind: "login"; relayUrl: string }
   | { kind: "daemon"; relayUrl: string }
   | { kind: "list-agent-configs" }
-  | { kind: "create-agent-config"; agentType: string; name?: string; env: Record<string, string> }
+  | { kind: "list-agent-types" }
+  | { kind: "create-agent-config"; agentType?: string; command?: string; name?: string; env: Record<string, string> }
   | { kind: "invalid" };
 
 export function parseCliArgs(args: readonly string[]): CliCommand {
@@ -12,6 +13,7 @@ export function parseCliArgs(args: readonly string[]): CliCommand {
   if (command === "login") return parseRelayCommand("login", rest);
   if (command === "daemon") return parseRelayCommand("daemon", rest);
   if (command === "agent-config" && rest[0] === "list" && rest.length === 1) return { kind: "list-agent-configs" };
+  if (command === "agent-config" && rest[0] === "types" && rest.length === 1) return { kind: "list-agent-types" };
   if (command === "agent-config" && rest[0] === "create") return parseCreateArgs(rest.slice(1));
   return { kind: "invalid" };
 }
@@ -22,18 +24,17 @@ export async function runCli(
     login: (relayUrl: string) => Promise<number>;
     daemon: (relayUrl: string) => Promise<number>;
     listAgentConfigs: () => Promise<number>;
-    createAgentConfig: (input: { agentType: string; name?: string; env: Record<string, string> }) => Promise<number>;
+    listAgentTypes: () => Promise<number>;
+    createAgentConfig: (input: { agentType?: string; command?: string; name?: string; env: Record<string, string> }) => Promise<number>;
   },
 ): Promise<{ exitCode: number; showUsage: boolean }> {
   const parsed = parseCliArgs(args);
   if (parsed.kind === "login") return { exitCode: await actions.login(parsed.relayUrl), showUsage: false };
   if (parsed.kind === "daemon") return { exitCode: await actions.daemon(parsed.relayUrl), showUsage: false };
   if (parsed.kind === "list-agent-configs") return { exitCode: await actions.listAgentConfigs(), showUsage: false };
+  if (parsed.kind === "list-agent-types") return { exitCode: await actions.listAgentTypes(), showUsage: false };
   if (parsed.kind === "create-agent-config") {
-    return {
-      exitCode: await actions.createAgentConfig({ agentType: parsed.agentType, name: parsed.name, env: parsed.env }),
-      showUsage: false,
-    };
+    return { exitCode: await actions.createAgentConfig(parsed), showUsage: false };
   }
   return { exitCode: 1, showUsage: true };
 }
@@ -54,17 +55,24 @@ function parseRelayCommand(kind: "login" | "daemon", args: readonly string[]): C
 
 function parseCreateArgs(args: readonly string[]): CliCommand {
   let agentType: string | undefined;
+  let command: string | undefined;
   let name: string | undefined;
   const env: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
     const value = args[index + 1];
-    if ((flag === "--agent-type" || flag === "--name" || flag === "--env") && (!value || value.startsWith("--"))) {
+    if ((flag === "--agent-type" || flag === "--name" || flag === "--env" || flag === "--command") && (!value || value.startsWith("--"))) {
       return { kind: "invalid" };
     }
     if (flag === "--agent-type") {
       if (agentType !== undefined || value === undefined) return { kind: "invalid" };
       agentType = value;
+      index += 1;
+      continue;
+    }
+    if (flag === "--command") {
+      if (command !== undefined || value === undefined) return { kind: "invalid" };
+      command = value;
       index += 1;
       continue;
     }
@@ -85,6 +93,7 @@ function parseCreateArgs(args: readonly string[]): CliCommand {
     }
     return { kind: "invalid" };
   }
-  if (!agentType) return { kind: "invalid" };
-  return { kind: "create-agent-config", agentType, name, env };
+  if (agentType && command) return { kind: "invalid" };
+  if (!agentType && !command) return { kind: "invalid" };
+  return { kind: "create-agent-config", agentType, command, name, env };
 }

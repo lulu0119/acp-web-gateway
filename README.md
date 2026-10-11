@@ -28,12 +28,7 @@ pnpm workspace:
    npx --package=https://pkg.pr.new/lulu0119/mukae@main -- mukae daemon
    ```
 
-   `@main` is the latest preview published from `main`. Use a commit hash instead of `main` to stay on one publish. From a checkout, the same commands are `node packages/gateway/dist/cli.js`. `login` prints a link and a code. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. The daemon starts these types:
-
-   - `claude-acp` — `npx -y @agentclientprotocol/claude-agent-acp@0.89.1`
-   - `codex-acp` — `npx -y @agentclientprotocol/codex-acp@2.2.2`
-   - `gemini` — `npx -y @google/gemini-cli@0.63.0 --acp`
-   - `opencode` — `opencode acp`
+   `@main` is the latest preview published from `main`. Use a commit hash instead of `main` to stay on one publish. From a checkout, the same commands are `node packages/gateway/dist/cli.js`. `login` prints a link and a code. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`.
 
 3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
 4. The web app lists the account's online machines and asks Mukae to open one agent. Mukae returns a one-time WebSocket address. The page uses that address as the ACP connection.
@@ -55,6 +50,7 @@ node packages/gateway/dist/cli.js daemon
 ## Decisions
 
 - [An account relays a web app to a machine](docs/adr/0008-account-relay.md)
+- [The daemon launches agents from the ACP Registry](docs/adr/0009-acp-registry-launch.md)
 - [ACP frames pass through](docs/adr/0002-passthrough-acp-frames.md)
 - [Product name: Mukae](docs/adr/0004-product-name-mukae.md)
 

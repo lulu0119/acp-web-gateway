@@ -1,56 +1,22 @@
-import { launchAgentTypes, type LaunchAgentType } from "@mukae/contract";
+import { isAgentType } from "@mukae/contract";
 import type { StoredAgent } from "./config.js";
 
-export type AgentLaunch = {
-  command: string;
-  args: readonly string[];
-  requires: readonly string[];
-};
-
-const builtinAgents: Record<LaunchAgentType, AgentLaunch> = {
-  "claude-acp": {
-    command: "npx",
-    args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"],
-    requires: ["claude", "npx"],
-  },
-  "codex-acp": {
-    command: "npx",
-    args: ["-y", "@agentclientprotocol/codex-acp@2.2.2"],
-    requires: ["codex", "npx"],
-  },
-  gemini: {
-    command: "npx",
-    args: ["-y", "@google/gemini-cli@0.63.0", "--acp"],
-    requires: ["gemini", "npx"],
-  },
-  opencode: { command: "opencode", args: ["acp"], requires: ["opencode"] },
-};
-
 const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-export function knownAgentTypes(): readonly string[] {
-  return launchAgentTypes;
-}
-
-export function launchForAgentType(agentType: string): AgentLaunch | undefined {
-  if (!isLaunchAgentType(agentType)) return undefined;
-  return builtinAgents[agentType];
-}
-
-function isLaunchAgentType(agentType: string): agentType is LaunchAgentType {
-  return (launchAgentTypes as readonly string[]).includes(agentType);
-}
 
 export function addAgentConfig(input: {
   agents: readonly StoredAgent[];
   agentType: string;
   name?: string;
   env: Record<string, string>;
+  command?: string;
+  args?: readonly string[];
   knownTypes: readonly string[];
 }): { ok: true; agents: StoredAgent[]; createdName: string } | { ok: false; message: string } {
-  if (!input.knownTypes.includes(input.agentType)) {
-    const choices = input.knownTypes.length > 0 ? input.knownTypes.join(", ") : "(none)";
-    return { ok: false, message: `Unknown agent type "${input.agentType}". Choose one of: ${choices}.` };
+  if (!isAgentType(input.agentType) || (!input.command && !input.knownTypes.includes(input.agentType))) {
+    return { ok: false, message: `Unknown agent type "${input.agentType}". Run mukae agent-config types.` };
+  }
+  if (input.command !== undefined && input.command.length === 0) {
+    return { ok: false, message: "The command is empty." };
   }
   for (const key of Object.keys(input.env)) {
     if (!envNamePattern.test(key)) {
@@ -67,11 +33,47 @@ export function addAgentConfig(input: {
       message: `An agent configuration named "${name}" already exists. Pass --name to add another of this type.`,
     };
   }
-  return {
-    ok: true,
-    createdName: name,
-    agents: [...input.agents, { name, agentType: input.agentType, env: { ...input.env } }],
-  };
+  const agent: StoredAgent = { name, agentType: input.agentType, env: { ...input.env } };
+  if (input.command) {
+    agent.command = input.command;
+    agent.args = [...(input.args ?? [])];
+  }
+  return { ok: true, createdName: name, agents: [...input.agents, agent] };
+}
+
+export function parseCommandArgv(text: string): string[] | undefined {
+  const args: string[] = [];
+  let current = "";
+  let quoting: "'" | '"' | undefined;
+  let started = false;
+  for (const char of text) {
+    if (quoting) {
+      if (char === quoting) quoting = undefined;
+      else current += char;
+      started = true;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quoting = char;
+      started = true;
+      continue;
+    }
+    if (char === " " || char === "\t") {
+      if (started) {
+        args.push(current);
+        current = "";
+        started = false;
+      }
+      continue;
+    }
+    if (char === "\n" || char === "\r") return undefined;
+    current += char;
+    started = true;
+  }
+  if (quoting || !started) return undefined;
+  args.push(current);
+  if (args[0]?.length === 0) return undefined;
+  return args;
 }
 
 export function formatAgentConfigList(agents: readonly StoredAgent[]): string {
