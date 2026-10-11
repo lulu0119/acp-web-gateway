@@ -1,4 +1,4 @@
-import { defaultRelayUrl } from "@mukae/contract";
+import { defaultRelayUrl, isEnvName } from "@mukae/contract";
 
 export type CliCommand =
   | { kind: "login"; relayUrl: string }
@@ -86,7 +86,7 @@ function parseCreateArgs(args: readonly string[]): CliCommand {
       if (value === undefined) return { kind: "invalid" };
       const separator = value.indexOf("=");
       const key = separator > 0 ? value.slice(0, separator) : "";
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return { kind: "invalid" };
+      if (!isEnvName(key)) return { kind: "invalid" };
       env[key] = value.slice(separator + 1);
       index += 1;
       continue;

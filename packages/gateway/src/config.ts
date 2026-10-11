@@ -1,4 +1,4 @@
-import { isAgentType } from "@mukae/contract";
+import { isAgentType, isEnvName } from "@mukae/contract";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,8 +15,6 @@ export type GatewayConfig = {
   agents: StoredAgent[];
 };
 
-const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 export function configFilePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "mukae", "config.json");
 }
@@ -32,7 +30,7 @@ export function parseGatewayConfig(value: unknown): GatewayConfig {
   return { agents };
 }
 
-export function configText(config: GatewayConfig): string {
+function configText(config: GatewayConfig): string {
   return `${JSON.stringify({ agents: config.agents }, null, 2)}\n`;
 }
 
@@ -67,16 +65,6 @@ export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = 
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, configText(config), "utf8");
-}
-
-export async function writeDefaultConfigIfMissing(homeDirectory = homedir()): Promise<void> {
-  const path = configFilePath(homeDirectory);
-  try {
-    await readFile(path, "utf8");
-  } catch {
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, defaultConfigText(), "utf8");
-  }
 }
 
 type LoadedGatewayConfig =
@@ -150,7 +138,7 @@ function parseEnv(value: unknown): Record<string, string> | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
   const env: Record<string, string> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (!envNamePattern.test(key) || typeof item !== "string") return undefined;
+    if (!isEnvName(key) || typeof item !== "string") return undefined;
     env[key] = item;
   }
   return env;

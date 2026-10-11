@@ -1,3 +1,4 @@
+import { isRecord } from "@mukae/contract";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,7 +10,7 @@ export type DaemonSession = {
   expiresAt: number;
 };
 
-export function daemonSessionPath(homeDirectory = homedir()): string {
+function daemonSessionPath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "mukae", "daemon-session.json");
 }
 
@@ -43,8 +44,4 @@ export async function writeDaemonSession(session: DaemonSession, homeDirectory =
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await writeFile(path, `${JSON.stringify(session, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   await chmod(path, 0o600);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

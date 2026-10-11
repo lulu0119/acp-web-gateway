@@ -16,6 +16,7 @@ export type PublicClients = {
 };
 
 const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
+const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const idPattern = /^[A-Za-z0-9_-]{8,128}$/;
 const namePattern = /^[^\r\n\t]{1,128}$/;
 const maxPayloadLength = 1_048_576;
@@ -46,6 +47,10 @@ export type RelayMessage =
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
+}
+
+export function isEnvName(value: string): boolean {
+  return envNamePattern.test(value);
 }
 
 export function relayWebSocketUrl(relayUrl: string, path: string): string {
@@ -108,7 +113,7 @@ function parseOpenFailed(value: Record<string, unknown>): DaemonMessage | undefi
   return { type: "open-failed", sessionId: value.sessionId, message: value.message };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

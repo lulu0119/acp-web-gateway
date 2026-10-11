@@ -1,3 +1,4 @@
+import { isEnvName, isRecord } from "@mukae/contract";
 import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -7,7 +8,6 @@ import type { StoredAgent } from "./config.js";
 export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 
 const cacheMaxAgeMs = 60 * 60 * 1000;
-const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const platformTargets: Record<string, string> = {
   "darwin-arm64": "darwin-aarch64",
@@ -44,7 +44,7 @@ export type AgentLaunch = {
   env: Record<string, string>;
 };
 
-export function acpRegistryCachePath(homeDirectory = homedir()): string {
+function acpRegistryCachePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "mukae", "acp-registry.json");
 }
 
@@ -257,11 +257,7 @@ function parseDistributionEnv(value: unknown): Record<string, string> | undefine
   if (!isRecord(value)) return undefined;
   const env: Record<string, string> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (envNamePattern.test(key) && typeof item === "string") env[key] = item;
+    if (isEnvName(key) && typeof item === "string") env[key] = item;
   }
   return env;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

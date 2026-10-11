@@ -31,7 +31,6 @@ export function consentPage(input: { query: string; clientId: string; clientName
     "Approve",
     `<p class="text-sm text-muted-foreground">mukae</p>
      <h1 class="text-4xl font-semibold tracking-tight">${heading}</h1>
-     ${chain(1)}
      <div class="rounded-xl border border-border bg-card p-5">
        <p class="font-mono text-sm">${escapeHtml(input.clientId)}</p>
        <p class="mt-1 text-sm text-muted-foreground">is asking for ${escapeHtml(input.scope || "access")}.</p>
@@ -50,7 +49,6 @@ export function devicePage(input: { userCode: string }): string {
     "Approve machine",
     `<p class="text-sm text-muted-foreground">mukae</p>
      <h1 class="text-4xl font-semibold tracking-tight">Approve this machine</h1>
-     ${chain(1)}
      <div class="rounded-xl border border-border bg-card p-5">
        <p class="font-mono text-sm">Code ${escapeHtml(input.userCode)}</p>
        <p class="mt-3 text-sm">Approving lets this computer run agents for your account. Approve only a code you just requested.</p>
@@ -83,23 +81,6 @@ export function messagePage(title: string, message: string): string {
      <p class="text-lg leading-relaxed text-muted-foreground">${escapeHtml(message)}</p>
      <p><a href="/" class="text-sm underline underline-offset-4">Back to Mukae</a></p>`,
   );
-}
-
-const hops = ["Web app", "Mukae", "Machine daemon", "Agent"];
-
-function chain(active: number): string {
-  const items = hops
-    .map((hop, index) => {
-      const dot =
-        index < active
-          ? `<span class="size-2 rounded-full bg-primary"></span>`
-          : index === active
-            ? `<span class="size-2 animate-pulse rounded-full bg-primary"></span>`
-            : `<span class="size-2 rounded-full border border-primary bg-background"></span>`;
-      return `<li class="flex flex-1 flex-col gap-2">${dot}<span class="text-sm font-medium">${hop}</span></li>`;
-    })
-    .join("");
-  return `<ol class="relative flex gap-2 border-y border-border py-5">${items}</ol>`;
 }
 
 function layout(title: string, body: string): string {

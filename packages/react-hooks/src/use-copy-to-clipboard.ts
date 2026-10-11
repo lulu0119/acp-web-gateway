@@ -11,16 +11,13 @@ export const useCopyToClipboard = ({
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const scopeGenerationRef = useRef(0);
 
   useEffect(
     () => () => {
-      scopeGenerationRef.current += 1;
       if (copiedTimerRef.current === undefined) return;
 
       clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = undefined;
-      setIsCopied(false);
     },
     [],
   );
@@ -30,11 +27,8 @@ export const useCopyToClipboard = ({
       return;
     }
 
-    const scopeGeneration = scopeGenerationRef.current;
     navigator.clipboard.writeText(value).then(
       () => {
-        if (scopeGeneration !== scopeGenerationRef.current) return;
-
         if (copiedTimerRef.current !== undefined) {
           clearTimeout(copiedTimerRef.current);
         }

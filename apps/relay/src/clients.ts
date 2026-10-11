@@ -133,7 +133,7 @@ export function parsePendingClient(body: unknown): PendingParse {
   };
 }
 
-export function validateClientName(clientName: string): string | undefined {
+function validateClientName(clientName: string): string | undefined {
   if (clientName.length === 0) return "Give the client a name.";
   if (clientName.length > 64) return "Keep the name under 64 characters.";
   if (/^mukae/i.test(clientName)) return "Names starting with Mukae are reserved.";

@@ -57,7 +57,7 @@ function buildMukaeAuth(config: MukaeAuthConfig) {
   };
 }
 
-export async function migrateAuth(options: Parameters<typeof getMigrations>[0]): Promise<void> {
+async function migrateAuth(options: Parameters<typeof getMigrations>[0]): Promise<void> {
   const plan = await getMigrations(options);
   await plan.runMigrations();
 }

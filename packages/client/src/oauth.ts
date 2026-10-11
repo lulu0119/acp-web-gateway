@@ -1,6 +1,7 @@
 import {
   authorizeRequestPath,
   exampleCallbackPath,
+  isRecord,
   machinesPath,
   machinesScope,
   publicClientsPath,
@@ -434,8 +435,4 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 function isMachine(value: unknown): value is Machine {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.hostname !== "string" || !Array.isArray(value.agents)) return false;
   return value.agents.every((agent) => isRecord(agent) && typeof agent.name === "string" && typeof agent.agentType === "string");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,7 +1,5 @@
-import { isAgentType } from "@mukae/contract";
+import { isAgentType, isEnvName } from "@mukae/contract";
 import type { StoredAgent } from "./config.js";
-
-const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function addAgentConfig(input: {
   agents: readonly StoredAgent[];
@@ -19,7 +17,7 @@ export function addAgentConfig(input: {
     return { ok: false, message: "The command is empty." };
   }
   for (const key of Object.keys(input.env)) {
-    if (!envNamePattern.test(key)) {
+    if (!isEnvName(key)) {
       return { ok: false, message: `Environment variable "${key}" is not a valid name.` };
     }
   }
