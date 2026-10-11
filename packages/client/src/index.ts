@@ -12,6 +12,7 @@ export {
   openConnection,
   pollDeviceAuthorization,
   refreshMukaeAccessToken,
+  registerPublicClient,
   storedAccessToken,
   type BrowserStore,
   type DeviceAuthorization,

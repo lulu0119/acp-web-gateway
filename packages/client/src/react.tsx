@@ -11,17 +11,12 @@ export type AccountSession = {
   signOut: () => void;
 };
 
-export function useAccount(relayUrl: string, clientId: string): AccountSession {
+export function useAccount(relayUrl: string, clientId?: string): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!clientId) {
-      setAccount({ phase: "signed-out" });
-      setError("Register a client on Mukae and set its id before signing in.");
-      return;
-    }
     const store = window.sessionStorage;
     const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
     const returning = window.location.pathname === browserCallbackPath;
@@ -48,10 +43,6 @@ export function useAccount(relayUrl: string, clientId: string): AccountSession {
   }, [relayUrl, clientId]);
 
   const signIn = useCallback(() => {
-    if (!clientId) {
-      setError("Register a client on Mukae and set its id before signing in.");
-      return;
-    }
     setBusy(true);
     setError("");
     const redirectUri = new URL(browserCallbackPath, window.location.origin).href;

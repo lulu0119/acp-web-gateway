@@ -73,6 +73,20 @@ test("machine list and session open use the access token", async () => {
   }
 });
 
+test("a web app without a client id registers once and reuses it", async () => {
+  const relay = await fakeRelay();
+  const store = memoryStore();
+  try {
+    const first = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
+    assert.equal(first.searchParams.get("client_id"), "auto-client");
+    const second = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
+    assert.equal(second.searchParams.get("client_id"), "auto-client");
+    assert.equal(relay.registerCalls(), 1);
+  } finally {
+    relay.close();
+  }
+});
+
 test("the account behind an access token identifies itself", async () => {
   const relay = await fakeRelay();
   try {
@@ -101,9 +115,9 @@ function memoryStore(): BrowserStore {
   };
 }
 
-async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
+async function fakeRelay(): Promise<{ origin: string; close: () => void; registerCalls: () => number }> {
   let devicePolls = 0;
-  const server: Server = createServer((request, response) => {
+  let registerCalls = 0;  const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -131,6 +145,10 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
       });
     }
     if (url.pathname === "/api/clients") return json(response, { daemonClientId: "daemon-client" });
+    if (url.pathname === "/api/clients/register") {
+      registerCalls += 1;
+      return json(response, { clientId: "auto-client", clientSecret: undefined });
+    }
     if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
       return json(response, {
@@ -161,7 +179,7 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The fake relay did not bind.");
-  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close() };
+  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close(), registerCalls: () => registerCalls };
 }
 
 function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {

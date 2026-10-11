@@ -1,4 +1,5 @@
 import {
+  clientRegistryPath,
   exampleCallbackPath,
   machinesPath,
   machinesScope,
@@ -223,10 +224,44 @@ export async function fetchMukaeUser(input: { relayUrl: string; accessToken: str
   return { sub: body.sub };
 }
 
-export async function beginBrowserSignIn(input: { relayUrl: string; clientId: string; redirectUri: string; store: BrowserStore }): Promise<string> {
+export async function registerPublicClient(input: { relayUrl: string; clientName: string; redirectUri: string }): Promise<string> {
+  const response = await fetch(new URL(clientRegistryPath, originOf(input.relayUrl)), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ clientName: input.clientName, redirectUris: [input.redirectUri], confidential: false }),
+  });
+  const body: unknown = await response.json().catch(() => undefined);
+  if (!response.ok || !isRecord(body) || typeof body.clientId !== "string") {
+    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Mukae did not register the app.";
+    throw new Error(message);
+  }
+  return body.clientId;
+}
+
+function cachedClientId(store: BrowserStore, relayUrl: string): string | undefined {
+  return store.getItem(clientIdKey(originOf(relayUrl))) ?? undefined;
+}
+
+function cacheClientId(store: BrowserStore, relayUrl: string, clientId: string): void {
+  store.setItem(clientIdKey(originOf(relayUrl)), clientId);
+}
+
+function clientIdKey(origin: string): string {
+  return `mukae.clientId:${origin}`;
+}
+
+export async function beginBrowserSignIn(input: {
+  relayUrl: string;
+  redirectUri: string;
+  store: BrowserStore;
+  clientId?: string;
+  clientName?: string;
+}): Promise<string> {
+  const clientId =
+    input.clientId ?? cachedClientId(input.store, input.relayUrl) ?? (await registerAndCache(input));
   const request = await createAuthorizationRequest({
     relayUrl: input.relayUrl,
-    clientId: input.clientId,
+    clientId,
     redirectUri: input.redirectUri,
   });
   input.store.setItem(verifierKey, request.codeVerifier);
@@ -234,20 +269,32 @@ export async function beginBrowserSignIn(input: { relayUrl: string; clientId: st
   return request.url;
 }
 
+async function registerAndCache(input: { relayUrl: string; redirectUri: string; store: BrowserStore; clientName?: string }): Promise<string> {
+  const origin = new URL(input.redirectUri).origin;
+  const clientId = await registerPublicClient({
+    relayUrl: input.relayUrl,
+    clientName: input.clientName ?? `Web app at ${origin}`,
+    redirectUri: input.redirectUri,
+  });
+  cacheClientId(input.store, input.relayUrl, clientId);
+  return clientId;
+}
+
 export async function finishBrowserSignIn(input: {
   relayUrl: string;
-  clientId: string;
   redirectUri: string;
   callbackUrl: string;
   store: BrowserStore;
+  clientId?: string;
   clientSecret?: string;
 }): Promise<MukaeTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
-  if (!codeVerifier || !state) throw new Error("Sign in again.");
+  const clientId = input.clientId ?? cachedClientId(input.store, input.relayUrl);
+  if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
   const tokens = await exchangeAuthorizationCode({
     relayUrl: input.relayUrl,
-    clientId: input.clientId,
+    clientId,
     redirectUri: input.redirectUri,
     callbackUrl: input.callbackUrl,
     codeVerifier,
@@ -260,14 +307,16 @@ export async function finishBrowserSignIn(input: {
   return tokens;
 }
 
-export async function storedAccessToken(input: { relayUrl: string; clientId: string; store: BrowserStore; clientSecret?: string }): Promise<string | undefined> {
+export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore; clientId?: string; clientSecret?: string }): Promise<string | undefined> {
+  const clientId = input.clientId ?? cachedClientId(input.store, input.relayUrl);
+  if (!clientId) return undefined;
   const accessToken = input.store.getItem(accessKey);
   const expiresAt = Number(input.store.getItem(expiresKey));
   if (accessToken && Number.isFinite(expiresAt) && expiresAt - Date.now() > refreshWindowMs) return accessToken;
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
   try {
-    const tokens = await refreshMukaeAccessToken({ relayUrl: input.relayUrl, clientId: input.clientId, refreshToken, clientSecret: input.clientSecret });
+    const tokens = await refreshMukaeAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
     writeBrowserTokens(input.store, tokens);
     return tokens.accessToken;
   } catch {
