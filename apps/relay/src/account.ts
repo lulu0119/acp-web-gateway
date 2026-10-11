@@ -21,9 +21,12 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
     const result = await mukae.auth.api.signInSocial({
       body: { provider: "github", callbackURL, disableRedirect: true },
       headers: c.req.raw.headers,
+      returnHeaders: true,
     });
-    if (result.url) return c.redirect(result.url);
-    return c.html(messagePage("Sign in", "GitHub did not return a sign-in address."), 502);
+    if (!result.response.url) return c.html(messagePage("Sign in", "GitHub did not return a sign-in address."), 502);
+    const response = c.redirect(result.response.url);
+    for (const cookie of result.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
+    return response;
   });
 
   app.get("/consent", async (c) => {
