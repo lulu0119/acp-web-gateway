@@ -41,7 +41,8 @@ test("signing out ends the cookie session", async () => {
   const { app, cookie } = await openDashboard();
   const signedOut = await app.request("http://127.0.0.1:8787/api/auth/sign-out", {
     method: "POST",
-    headers: { cookie, origin: "http://127.0.0.1:8787" },
+    headers: { cookie, origin: "http://127.0.0.1:8787", "content-type": "application/json" },
+    body: JSON.stringify({}),
   });
   assert.equal(signedOut.status, 200);
   const home = await app.request("http://127.0.0.1:8787/", { headers: { cookie } });
