@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { consumeAgentChunk, maxPendingAgentChars, webSocketTextToAgentLine } from "./frames.js";
 
 test("a web socket text frame becomes one agent line", () => {

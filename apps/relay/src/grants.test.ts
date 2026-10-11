@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { Hono } from "hono";
-import test from "node:test";
+import { test } from "vitest";
 import { mountAccountPages } from "./account.js";
 import type { RelayEnv } from "./app.js";
 import { openMukaeAuth, type MukaeAuth } from "./auth.js";

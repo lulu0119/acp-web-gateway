@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json && tsc --noEmit -p web/tsconfig.json && vite build --config web/vite.config.ts && printf '%s\\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
     "build:web": "vite build --config web/vite.config.ts",
     "start": "node --env-file-if-exists=.env dist/main.js",
-    "test": "tsc -p tsconfig.json && node --test dist/*.test.js",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
     "web": "vite --config web/vite.config.ts"
   },
   "dependencies": {
@@ -39,6 +39,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.9.2",
     "vite": "^7.1.9",
+    "vitest": "^3.2.7",
     "ws": "^8.18.3"
   }
 }

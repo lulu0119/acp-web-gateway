@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import type { RelayMessage } from "@mukae/contract";
 import { createRegistry, type BrowserSocket } from "./registry.js";
 

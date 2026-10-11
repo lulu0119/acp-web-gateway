@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import test from "node:test";
+import { test } from "vitest";
 import { openMukaeAuth, type MukaeAuth } from "./auth.js";
 import { ensureDaemonClient, maxClientsPerUser, parseClientRegistration, registerClient } from "./clients.js";
 

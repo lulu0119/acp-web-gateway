@@ -27,7 +27,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
     "prepublishOnly": "pnpm run build",
-    "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
     "@mukae/contract": "workspace:*",
@@ -40,6 +40,7 @@
     "@types/node": "^24.6.0",
     "@types/react": "^19.2.0",
     "react": "^19.2.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.7"
   }
 }

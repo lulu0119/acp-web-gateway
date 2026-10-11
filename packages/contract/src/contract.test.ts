@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
 
 test("a daemon hello names the machine and its agent configurations", () => {

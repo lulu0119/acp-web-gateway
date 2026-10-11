@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
-import test from "node:test";
+import { test } from "vitest";
 import { machinesScope } from "@mukae/contract";
 import {
   beginBrowserSignIn,

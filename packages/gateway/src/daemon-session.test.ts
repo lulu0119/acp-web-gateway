@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { parseDaemonSession, readDaemonSession, writeDaemonSession } from "./daemon-session.js";
 
 test("a daemon session is private to the account directory", async () => {

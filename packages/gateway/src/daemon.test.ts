@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
-import test from "node:test";
+import { test } from "vitest";
 import { WebSocketServer } from "ws";
 import { runDaemon } from "./daemon.js";
 

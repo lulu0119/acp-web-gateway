@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { dashboardShell, webStylesheet } from "./web.js";
 
 const publicDir = join(tmpdir(), `mukae-web-${process.pid}`);

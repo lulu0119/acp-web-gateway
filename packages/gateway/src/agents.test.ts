@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { addAgentConfig, formatAgentConfigList, parseCommandArgv } from "./agents.js";
 
 test("creating a configuration names it after the type, and a second one needs its own name", () => {

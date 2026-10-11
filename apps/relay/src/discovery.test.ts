@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { machinesScope } from "@mukae/contract";
 import Database from "better-sqlite3";
 import { Hono } from "hono";
-import test from "node:test";
+import { test } from "vitest";
 import { openMukaeAuth } from "./auth.js";
 import { ensureDaemonClient } from "./clients.js";
 
