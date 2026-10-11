@@ -262,6 +262,10 @@ export async function storedAccessToken(input: { relayUrl: string; store: Browse
   }
 }
 
+export function clearBrowserSignIn(store: BrowserStore): void {
+  clearBrowserTokens(store);
+}
+
 async function discover(relayUrl: string): Promise<oauth.AuthorizationServer> {
   const issuer = new URL("/api/auth", originOf(relayUrl));
   let response: Response;

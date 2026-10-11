@@ -6,6 +6,7 @@ import { machinesScope } from "@mukae/contract";
 import {
   beginBrowserSignIn,
   beginDeviceAuthorization,
+  clearBrowserSignIn,
   finishBrowserSignIn,
   listMachines,
   openConnection,
@@ -68,6 +69,17 @@ test("machine list and session open use the access token", async () => {
   } finally {
     relay.close();
   }
+});
+
+test("signing out clears the stored browser tokens", () => {
+  const store = memoryStore();
+  store.setItem("mukae.accessToken", "access-1");
+  store.setItem("mukae.refreshToken", "refresh-1");
+  store.setItem("mukae.expiresAt", String(Date.now() + 3_600_000));
+  clearBrowserSignIn(store);
+  assert.equal(store.getItem("mukae.accessToken"), null);
+  assert.equal(store.getItem("mukae.refreshToken"), null);
+  assert.equal(store.getItem("mukae.expiresAt"), null);
 });
 
 function memoryStore(): BrowserStore {

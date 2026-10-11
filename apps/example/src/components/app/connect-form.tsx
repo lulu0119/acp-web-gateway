@@ -1,4 +1,4 @@
-import { beginBrowserSignIn, browserCallbackPath, finishBrowserSignIn, listMachines, openConnection, storedAccessToken } from "@mukae/client";
+import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, listMachines, openConnection, storedAccessToken } from "@mukae/client";
 import type { Machine } from "@mukae/contract";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export type ConnectedAgent = { agentType: string; url: string; label: string };
 
-export function ConnectForm({ onConnected }: { onConnected: (agent: ConnectedAgent) => void }) {
+export function ConnectForm({ onConnected, onSignOut }: { onConnected: (agent: ConnectedAgent) => void; onSignOut: () => void }) {
   const relayUrl = mukaeRelayUrl();
   const [status, setStatus] = useState("Checking the sign-in.");
   const [accessToken, setAccessToken] = useState<string>();
@@ -60,7 +60,26 @@ export function ConnectForm({ onConnected }: { onConnected: (agent: ConnectedAge
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
-      <h2 className="text-lg font-medium">Connect an agent</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">Connect an agent</h2>
+        {accessToken && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              clearBrowserSignIn(window.sessionStorage);
+              onSignOut();
+              setAccessToken(undefined);
+              setMachines([]);
+              setSelection("");
+              setBusy(false);
+              setStatus("");
+            }}
+          >
+            Sign out
+          </Button>
+        )}
+      </div>
       {!accessToken && (
         <Button
           disabled={busy}

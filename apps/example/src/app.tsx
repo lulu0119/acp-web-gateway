@@ -48,6 +48,12 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
+  const signOut = useCallback(() => {
+    setConnections([]);
+    setActiveId(undefined);
+    setStatuses({});
+  }, []);
+
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -90,7 +96,7 @@ export function App() {
         <SidebarInset className="min-h-0">
           {connections.length === 0 && (
             <div className="flex flex-1 items-center justify-center p-6">
-              <ConnectForm onConnected={addConnection} />
+              <ConnectForm onConnected={addConnection} onSignOut={signOut} />
             </div>
           )}
           {connections.map((connection) => (
@@ -109,7 +115,7 @@ export function App() {
           <DialogHeader className="sr-only">
             <DialogTitle>Add a connection</DialogTitle>
           </DialogHeader>
-          <ConnectForm onConnected={addConnection} />
+          <ConnectForm onConnected={addConnection} onSignOut={signOut} />
         </DialogContent>
       </Dialog>
     </TooltipProvider>

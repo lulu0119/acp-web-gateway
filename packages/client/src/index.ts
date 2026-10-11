@@ -2,6 +2,7 @@ export {
   beginBrowserSignIn,
   beginDeviceAuthorization,
   browserCallbackPath,
+  clearBrowserSignIn,
   createAuthorizationRequest,
   exchangeAuthorizationCode,
   fetchPublicClients,
