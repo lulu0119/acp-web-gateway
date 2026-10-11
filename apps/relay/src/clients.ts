@@ -6,7 +6,9 @@ import type { MukaeAuth } from "./auth.js";
 const daemonSoftwareId = "mukae-daemon";
 const userSoftwarePrefix = "mukae-user-client:";
 const openSoftwarePrefix = "mukae-open-client:";
+const pendingSoftwarePrefix = "mukae-pending:";
 export const maxClientsPerUser = 10;
+const pendingTtlMs = 3_600_000;
 
 export type ClientRegistration = {
   clientName: string;
@@ -34,9 +36,8 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
   const clientUri = record.clientUri === undefined ? undefined : typeof record.clientUri === "string" ? record.clientUri.trim() : "";
   const confidential = record.confidential;
 
-  if (clientName.length === 0) errors.push("Give the client a name.");
-  if (clientName.length > 64) errors.push("Keep the name under 64 characters.");
-  if (/^mukae/i.test(clientName)) errors.push("Names starting with Mukae are reserved.");
+  const nameProblem = validateClientName(clientName);
+  if (nameProblem) errors.push(nameProblem);
   if (redirectUris.length === 0) errors.push("Add at least one redirect address.");
   if (redirectUris.length > 8) errors.push("Keep at most 8 redirect addresses.");
   for (const uri of redirectUris) {
@@ -83,6 +84,119 @@ function isHttpsUrl(uri: string): boolean {
   } catch {
     return false;
   }
+}
+
+export type PendingClientRequest = {
+  clientName: string;
+  logoUri?: string;
+  redirectUri: string;
+  scopes: string[];
+  state: string;
+  codeChallenge: string;
+};
+
+export type PendingParse = { ok: true; value: PendingClientRequest } | { ok: false; errors: string[] };
+
+const grantableScopes = ["machines", "offline_access"];
+
+export function parsePendingClient(body: unknown): PendingParse {
+  const errors: string[] = [];
+  const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const clientName = typeof record.clientName === "string" ? record.clientName.trim() : "";
+  const logoUri = record.logoUri === undefined ? undefined : typeof record.logoUri === "string" ? record.logoUri.trim() : "";
+  const redirectUri = typeof record.redirectUri === "string" ? record.redirectUri.trim() : "";
+  const scopes = Array.isArray(record.scopes) ? record.scopes.filter((scope): scope is string => typeof scope === "string") : [];
+  const state = typeof record.state === "string" ? record.state : "";
+  const codeChallenge = typeof record.codeChallenge === "string" ? record.codeChallenge : "";
+  const nameProblem = validateClientName(clientName);
+  if (nameProblem) errors.push(nameProblem);
+  if (state.length === 0 || state.length > 128) errors.push("The approval needs a state.");
+  if (!/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) errors.push("The approval needs a PKCE challenge.");
+  const redirect = redirectProblem(redirectUri);
+  if (redirect) errors.push(redirect);
+  if (logoUri !== undefined && logoUri.length > 0 && !isHttpsUrl(logoUri)) errors.push("The logo must be an https address.");
+  if (scopes.length === 0) errors.push("Ask for at least one scope.");
+  for (const scope of scopes) {
+    if (!grantableScopes.includes(scope)) errors.push(`Mukae does not grant the ${scope} scope.`);
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      clientName,
+      logoUri: logoUri && logoUri.length > 0 ? logoUri : undefined,
+      redirectUri,
+      scopes: [...new Set(scopes)],
+      state,
+      codeChallenge,
+    },
+  };
+}
+
+export function validateClientName(clientName: string): string | undefined {
+  if (clientName.length === 0) return "Give the client a name.";
+  if (clientName.length > 64) return "Keep the name under 64 characters.";
+  if (/^mukae/i.test(clientName)) return "Names starting with Mukae are reserved.";
+  return undefined;
+}
+
+export async function createPendingClient(mukae: MukaeAuth, input: PendingClientRequest): Promise<string> {
+  const created = await withOwner(mukae, (headers) =>
+    mukae.auth.api.adminCreateOAuthClient({
+      headers,
+      body: {
+        software_id: `${pendingSoftwarePrefix}${randomBytes(8).toString("hex")}`,
+        client_name: input.clientName,
+        logo_uri: input.logoUri,
+        application_type: applicationTypeForRedirects([input.redirectUri]),
+        redirect_uris: [input.redirectUri],
+        grant_types: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_method: "none",
+        response_types: ["code"],
+        scope: input.scopes.join(" "),
+        skip_consent: false,
+      },
+    }),
+  );
+  if (!created.client_id) throw new Error("Mukae could not start the approval.");
+  await linkResource(mukae, created.client_id);
+  return created.client_id;
+}
+
+export async function approvePendingClient(mukae: MukaeAuth, clientId: string): Promise<boolean> {
+  const context = await mukae.auth.$context;
+  const rows = await context.adapter.findMany<StoredClient>({
+    model: "oauthClient",
+    where: [{ field: "clientId", value: clientId }],
+  });
+  const row = rows.find((item) => item.clientId === clientId);
+  const softwareId = row?.softwareId;
+  if (!softwareId?.startsWith(pendingSoftwarePrefix)) return false;
+  await context.adapter.update({
+    model: "oauthClient",
+    where: [{ field: "clientId", value: clientId }],
+    update: { softwareId: `${openSoftwarePrefix}${softwareId.slice(pendingSoftwarePrefix.length)}` },
+  });
+  return true;
+}
+
+export async function prunePendingClients(mukae: MukaeAuth, olderThanMs = pendingTtlMs, now: number = Date.now()): Promise<number> {
+  const context = await mukae.auth.$context;
+  const rows = await context.adapter.findMany<StoredClient & { id?: string; createdAt?: Date | string }>({
+    model: "oauthClient",
+    where: [],
+  });
+  let pruned = 0;
+  for (const row of rows) {
+    if (!row.softwareId?.startsWith(pendingSoftwarePrefix)) continue;
+    const createdAt = row.createdAt ? new Date(row.createdAt).getTime() : Number.NaN;
+    if (!Number.isFinite(createdAt) || now - createdAt < olderThanMs) continue;
+    const id = row.id ?? row.clientId;
+    if (!id) continue;
+    await context.adapter.delete({ model: "oauthClient", where: [{ field: row.id ? "id" : "clientId", value: id }] });
+    pruned += 1;
+  }
+  return pruned;
 }
 
 export async function ensureDaemonClient(mukae: MukaeAuth): Promise<string> {

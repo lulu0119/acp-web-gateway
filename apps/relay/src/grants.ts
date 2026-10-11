@@ -1,10 +1,17 @@
-import { clientRegistryPath, grantsPath } from "@mukae/contract";
+import { authorizeRequestPath, clientRegistryPath, grantsPath } from "@mukae/contract";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context, Hono } from "hono";
 import { readAccount, type Account } from "./account-session.js";
 import type { RelayEnv } from "./app.js";
 import type { MukaeAuth } from "./auth.js";
-import { parseClientRegistration, registerClient } from "./clients.js";
+import {
+  createPendingClient,
+  parseClientRegistration,
+  parsePendingClient,
+  prunePendingClients,
+  registerClient,
+  type PendingClientRequest,
+} from "./clients.js";
 import type { ClientMeta, GrantedApp } from "./dashboard-data.js";
 
 export function createRateLimit(input: { max: number; windowMs: number; now?: () => number }): (key: string) => boolean {
@@ -23,7 +30,7 @@ export function createRateLimit(input: { max: number; windowMs: number; now?: ()
   };
 }
 
-const openRegistrationLimit = createRateLimit({ max: 30, windowMs: 3_600_000 });
+const approvalRequestLimit = createRateLimit({ max: 30, windowMs: 3_600_000 });
 
 function requestIp(c: Context<RelayEnv>): string {
   const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
@@ -38,18 +45,30 @@ function requestIp(c: Context<RelayEnv>): string {
 export function mountClientRegistry(app: Hono<RelayEnv>, mukae: MukaeAuth): void {
   app.post(clientRegistryPath, async (c) => {
     const account = await readAccount(c.req.raw, mukae);
+    if (!account) return c.json({ message: "Sign in again." }, 401);
     const parsed = parseClientRegistration(await c.req.json().catch(() => undefined));
     if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
-    if (parsed.value.confidential && !account) return c.json({ message: "Sign in again." }, 401);
-    if (!account && !openRegistrationLimit(requestIp(c))) {
-      return c.json({ message: "Too many registrations. Try again later." }, 429);
-    }
     try {
-      const registered = await registerClient(mukae, account?.userId, parsed.value);
+      const registered = await registerClient(mukae, account.userId, parsed.value);
       return c.json(registered, 201);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Mukae could not register the client.";
       return c.json({ message }, message.includes("at most") ? 429 : 502);
+    }
+  });
+
+  app.post(authorizeRequestPath, async (c) => {
+    if (!approvalRequestLimit(requestIp(c))) {
+      return c.json({ message: "Too many approvals. Try again later." }, 429);
+    }
+    const parsed = parsePendingClient(await c.req.json().catch(() => undefined));
+    if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
+    try {
+      await prunePendingClients(mukae);
+      const clientId = await createPendingClient(mukae, parsed.value);
+      return c.json({ url: authorizeUrl(mukae, parsed.value, clientId) });
+    } catch {
+      return c.json({ message: "Mukae could not start the approval." }, 502);
     }
   });
 
@@ -68,6 +87,19 @@ export function mountClientRegistry(app: Hono<RelayEnv>, mukae: MukaeAuth): void
     await revokeGrant(mukae, account, clientId);
     return c.json({ revoked: true });
   });
+}
+
+function authorizeUrl(mukae: MukaeAuth, input: PendingClientRequest, clientId: string): string {
+  const url = new URL("/api/auth/oauth2/authorize", mukae.publicUrl);
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", input.redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", input.scopes.join(" "));
+  url.searchParams.set("state", input.state);
+  url.searchParams.set("code_challenge", input.codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("resource", mukae.resource);
+  return url.href;
 }
 
 type StoredConsent = {

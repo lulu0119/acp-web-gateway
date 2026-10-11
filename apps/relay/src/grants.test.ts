@@ -6,28 +6,47 @@ import { mountAccountPages } from "./account.js";
 import type { RelayEnv } from "./app.js";
 import { openMukaeAuth, type MukaeAuth } from "./auth.js";
 import { createRateLimit, mountClientRegistry } from "./grants.js";
+import { prunePendingClients } from "./clients.js";
 
 const publicUrl = "http://127.0.0.1:8787";
 const secret = "test-secret-test-secret-test-secret";
 
-test("open registration takes public clients, but secrets need a signed-in account", async () => {
+test("registration needs a signed-in account, approval requests do not", async () => {
   const { app } = await openRegistry();
-  const open = await app.request(`${publicUrl}/api/clients/register`, {
+  const gated = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: false }),
   });
-  assert.equal(open.status, 201);
-  const created = (await open.json()) as { clientId?: string; clientSecret?: string };
-  assert.ok(created.clientId);
-  assert.equal(created.clientSecret, undefined);
+  assert.equal(gated.status, 401);
 
-  const gated = await app.request(`${publicUrl}/api/clients/register`, {
+  const open = await app.request(`${publicUrl}/api/authorize-request`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ clientName: "Vault", redirectUris: ["https://vault.example.test/callback"], confidential: true }),
+    body: JSON.stringify({
+      clientName: "Studio",
+      redirectUri: "https://app.example.test/callback",
+      scopes: ["machines", "offline_access"],
+      state: "browser-state",
+      codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    }),
   });
-  assert.equal(gated.status, 401);
+  assert.equal(open.status, 200);
+  const started = (await open.json()) as { url?: string };
+  assert.match(started.url ?? "", /client_id=/);
+
+  const spoofed = await app.request(`${publicUrl}/api/authorize-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      clientName: "Mukae Official",
+      redirectUri: "https://app.example.test/callback",
+      scopes: ["machines"],
+      state: "browser-state",
+      codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    }),
+  });
+  assert.equal(spoofed.status, 400);
 });
 
 test("the open registration limit resets after its window", () => {
@@ -41,6 +60,85 @@ test("the open registration limit resets after its window", () => {
   assert.equal(take("same-ip"), true);
 });
 
+test("the birth certificate is issued at approval, not before", async () => {
+  const { app, cookie } = await openRegistry();
+  const started = await app.request(`${publicUrl}/api/authorize-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      clientName: "Studio",
+      redirectUri: "https://app.example.test/callback",
+      scopes: ["machines", "offline_access"],
+      state: "browser-state",
+      codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    }),
+  });
+  assert.equal(started.status, 200);
+  const { url } = (await started.json()) as { url: string };
+  const authorize = new URL(url);
+  const clientId = authorize.searchParams.get("client_id") ?? "";
+  assert.ok(clientId);
+
+  const prompted = await app.request(url, { headers: { cookie } });
+  assert.equal(prompted.status, 302);
+  const consent = new URL(prompted.headers.get("location") ?? "", publicUrl);
+  assert.equal(consent.pathname, "/consent");
+
+  const page = await app.request(`${publicUrl}/consent?${consent.search.slice(1)}`, { headers: { cookie } });
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Studio/);
+
+  const approved = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query: consent.search.slice(1) }),
+  });
+  assert.equal(approved.status, 302);
+  const back = new URL(approved.headers.get("location") ?? "");
+  assert.equal(back.origin + back.pathname, "https://app.example.test/callback");
+  assert.equal(back.searchParams.get("client_id"), clientId);
+  assert.equal(typeof back.searchParams.get("code"), "string");
+
+  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as {
+    apps: { clientId: string; clientName: string }[];
+  };
+  assert.deepEqual(
+    listed.apps.map((item) => ({ clientId: item.clientId, clientName: item.clientName })),
+    [{ clientId, clientName: "Studio" }],
+  );
+});
+
+test("denied approvals leave no grant and abandoned ones are pruned", async () => {
+  const { app, cookie, mukae } = await openRegistry();
+  const started = await app.request(`${publicUrl}/api/authorize-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      clientName: "Dither",
+      redirectUri: "https://dither.example.test/callback",
+      scopes: ["machines"],
+      state: "browser-state",
+      codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    }),
+  });
+  const { url } = (await started.json()) as { url: string };
+  const clientId = new URL(url).searchParams.get("client_id") ?? "";
+  assert.ok(clientId);
+
+  const prompted = await app.request(url, { headers: { cookie } });
+  const query = new URL(prompted.headers.get("location") ?? "", publicUrl).search.slice(1);
+  const denied = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "no", query }),
+  });
+  assert.equal(denied.status, 302);
+  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: unknown[] };
+  assert.deepEqual(listed.apps, []);
+
+  assert.equal(await prunePendingClients(mukae, 0), 1);
+  assert.equal(await prunePendingClients(mukae, 0), 0);
+});
 test("a signed-in account registers, lists, revokes, and re-approves", async () => {
   const { app, cookie } = await openRegistry();
   const registered = await app.request(`${publicUrl}/api/clients/register`, {
@@ -135,7 +233,7 @@ async function openRegistry() {
   mountAccountPages(app, mukae, true);
   mountClientRegistry(app, mukae);
   app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
-  return { app, cookie: await sessionCookie(session.token, secret) };
+  return { app, mukae, cookie: await sessionCookie(session.token, secret) };
 }
 
 async function sessionCookie(token: string, secret: string): Promise<string> {

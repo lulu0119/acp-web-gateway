@@ -7,6 +7,7 @@ export const exampleCallbackPath = "/oauth/callback";
 
 export const publicClientsPath = "/api/clients";
 export const clientRegistryPath = "/api/clients/register";
+export const authorizeRequestPath = "/api/authorize-request";
 export const grantsPath = "/api/grants";
 export const machinesScope = "machines offline_access";
 

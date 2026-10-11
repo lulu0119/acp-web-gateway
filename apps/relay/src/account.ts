@@ -4,6 +4,7 @@ import type { MukaeAuth } from "./auth.js";
 import type { RelayEnv } from "./app.js";
 import { readAccount } from "./account-session.js";
 import { findClientMeta, hasRememberedGrant } from "./grants.js";
+import { approvePendingClient } from "./clients.js";
 import { consentPage, deviceCodePage, devicePage, messagePage, signInPage } from "./pages.js";
 
 export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubConfigured: boolean): void {
@@ -70,7 +71,15 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
       request: c.req.raw,
       asResponse: false,
     });
-    if (result.redirect) return c.redirect(result.url);
+    if (result.redirect) {
+      const clientId = new URLSearchParams(query).get("client_id") ?? "";
+      if (accept && clientId && (await approvePendingClient(mukae, clientId))) {
+        const back = new URL(result.url);
+        back.searchParams.set("client_id", clientId);
+        return c.redirect(back.href);
+      }
+      return c.redirect(result.url);
+    }
     return c.html(messagePage("Approve", "Mukae could not finish approval."), 502);
   });
 
