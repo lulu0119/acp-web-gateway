@@ -48,6 +48,10 @@ export function useAccount(relayUrl: string, clientId: string): AccountSession {
   }, [relayUrl, clientId]);
 
   const signIn = useCallback(() => {
+    if (!clientId) {
+      setError("Register a client on Mukae and set its id before signing in.");
+      return;
+    }
     setBusy(true);
     setError("");
     const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
