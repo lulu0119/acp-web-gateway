@@ -1,6 +1,5 @@
 import { authorizeRequestPath, clientRegistryPath, grantsPath } from "@mukae/contract";
-import { getConnInfo } from "@hono/node-server/conninfo";
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import { readAccount, type Account } from "./account-session.js";
 import type { RelayEnv } from "./app.js";
 import type { MukaeAuth } from "./auth.js";
@@ -13,34 +12,6 @@ import {
   type PendingClientRequest,
 } from "./clients.js";
 import type { ClientMeta, GrantedApp } from "./dashboard-data.js";
-
-export function createRateLimit(input: { max: number; windowMs: number; now?: () => number }): (key: string) => boolean {
-  const taken = new Map<string, number[]>();
-  const now = input.now ?? Date.now;
-  return (key) => {
-    const at = now();
-    const recent = (taken.get(key) ?? []).filter((stamp) => at - stamp < input.windowMs);
-    if (recent.length >= input.max) {
-      taken.set(key, recent);
-      return false;
-    }
-    recent.push(at);
-    taken.set(key, recent);
-    return true;
-  };
-}
-
-const approvalRequestLimit = createRateLimit({ max: 30, windowMs: 3_600_000 });
-
-function requestIp(c: Context<RelayEnv>): string {
-  const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  try {
-    return getConnInfo(c).remote.address ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
 
 export function mountClientRegistry(app: Hono<RelayEnv>, mukae: MukaeAuth): void {
   app.post(clientRegistryPath, async (c) => {
@@ -58,9 +29,6 @@ export function mountClientRegistry(app: Hono<RelayEnv>, mukae: MukaeAuth): void
   });
 
   app.post(authorizeRequestPath, async (c) => {
-    if (!approvalRequestLimit(requestIp(c))) {
-      return c.json({ message: "Too many approvals. Try again later." }, 429);
-    }
     const parsed = parsePendingClient(await c.req.json().catch(() => undefined));
     if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
     try {
