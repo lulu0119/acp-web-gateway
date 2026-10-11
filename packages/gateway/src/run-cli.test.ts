@@ -1,17 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { defaultRelayUrl } from "@mukae/contract";
 import { parseCliArgs, runCli } from "./run-cli.js";
 
-test("install, register, open, and agent-config dispatch, anything else fails", async () => {
+test("login, daemon, and agent-config dispatch, anything else fails", async () => {
   const calls: string[] = [];
-  assert.deepEqual(
-    await runCli(["register"], actions(calls)),
-    { exitCode: 0, showUsage: false },
-  );
-  assert.deepEqual(
-    await runCli(["open", "mukae://connect?nonce=nonce-1234&origin=https%3A%2F%2Fapp.example"], actions(calls)),
-    { exitCode: 0, showUsage: false },
-  );
+  assert.deepEqual(await runCli(["login"], actions(calls)), { exitCode: 0, showUsage: false });
+  assert.deepEqual(await runCli(["daemon", "--relay", "https://mukae.example"], actions(calls)), { exitCode: 0, showUsage: false });
   assert.deepEqual(await runCli(["agent-config", "list"], actions(calls)), { exitCode: 0, showUsage: false });
   assert.deepEqual(
     await runCli(
@@ -20,16 +15,9 @@ test("install, register, open, and agent-config dispatch, anything else fails", 
     ),
     { exitCode: 0, showUsage: false },
   );
-  assert.deepEqual(await runCli([], actions(calls)), { exitCode: 0, showUsage: false });
   assert.deepEqual(await runCli(["nope"], actions(calls)), { exitCode: 1, showUsage: true });
   assert.deepEqual(await runCli(["agent-config", "create"], actions(calls)), { exitCode: 1, showUsage: true });
-  assert.deepEqual(calls, [
-    "register",
-    "mukae://connect?nonce=nonce-1234&origin=https%3A%2F%2Fapp.example",
-    "list",
-    "create opencode work OPENCODE_CONFIG=/tmp/work",
-    "install",
-  ]);
+  assert.deepEqual(calls, ["login " + defaultRelayUrl, "daemon https://mukae.example", "list", "create opencode work OPENCODE_CONFIG=/tmp/work"]);
 });
 
 test("create accepts a repeated environment flag and rejects a broken one", () => {
@@ -40,18 +28,18 @@ test("create accepts a repeated environment flag and rejects a broken one", () =
     env: { A: "1", B: "2" },
   });
   assert.equal(parseCliArgs(["agent-config", "create", "--agent-type", "opencode", "--env", "nope"]).kind, "invalid");
+  assert.equal(parseCliArgs(["daemon", "--relay", "notaurl"]).kind, "invalid");
 });
 
 function actions(calls: string[]) {
   return {
-    install: async () => {
-      calls.push("install");
+    login: async (relayUrl: string) => {
+      calls.push(`login ${relayUrl}`);
+      return 0;
     },
-    register: async () => {
-      calls.push("register");
-    },
-    open: async (launchUrl: string) => {
-      calls.push(launchUrl);
+    daemon: async (relayUrl: string) => {
+      calls.push(`daemon ${relayUrl}`);
+      return 0;
     },
     listAgentConfigs: async () => {
       calls.push("list");

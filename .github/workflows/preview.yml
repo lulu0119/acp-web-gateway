@@ -24,5 +24,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @mukae/client... --filter mukae... build
+      - run: pnpm --filter @mukae/client... --filter mukae... --filter @mukae/example... build
+        env:
+          VITE_MUKAE_URL: ${{ vars.VITE_MUKAE_URL }}
       - run: pnpm exec pkg-pr-new publish --pnpm --previewVersion --no-compact --comment=off --no-template --packageManager=pnpm ./packages/contract ./packages/client ./packages/gateway
+      - run: pnpm dlx wrangler@4.149.0 deploy
+        working-directory: apps/example
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

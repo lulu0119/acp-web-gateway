@@ -1,86 +1,137 @@
-import { buildAgentSetupPrompt } from "@mukae/agent-setup";
-import { connectLocalGateway, explainPageUrl } from "@mukae/client";
-import { launchAgentTypes, type LaunchAgentType } from "@mukae/contract";
-import { useCopyToClipboard } from "@mukae/react-hooks";
-import { useState } from "react";
+import { beginBrowserSignIn, browserCallbackPath, finishBrowserSignIn, listMachines, openConnection, storedAccessToken } from "@mukae/client";
+import type { Machine } from "@mukae/contract";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { agentTypeLabels } from "@/lib/agent-types";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { mukaeRelayUrl } from "@/lib/relay-url";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type ConnectedAgent = { agentType: LaunchAgentType; url: string };
-
-const outcomeMessages: Record<string, string> = {
-  unconfigured: "This agent has no configuration yet.",
-  cancelled: "No configuration was selected.",
-  no_free_port: "Too many connections are open. Disconnect one, then connect again.",
-  not_ready: "The local program did not connect.",
-};
+export type ConnectedAgent = { agentType: string; url: string; label: string };
 
 export function ConnectForm({ onConnected }: { onConnected: (agent: ConnectedAgent) => void }) {
-  const [agentType, setAgentType] = useState<LaunchAgentType>("opencode");
-  const [status, setStatus] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [setupNeeded, setSetupNeeded] = useState(false);
-  const { isCopied, copyToClipboard } = useCopyToClipboard();
+  const relayUrl = mukaeRelayUrl();
+  const [status, setStatus] = useState("Checking the sign-in.");
+  const [accessToken, setAccessToken] = useState<string>();
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [selection, setSelection] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const items = launchAgentTypes.map((type) => ({ value: type, label: agentTypeLabels[type] }));
+  useEffect(() => {
+    const store = window.sessionStorage;
+    const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
+    const returning = window.location.pathname === browserCallbackPath;
+    const token = returning
+      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
+          window.history.replaceState({}, "", "/");
+          return tokens.accessToken;
+        })
+      : storedAccessToken({ relayUrl, store });
+    let cancelled = false;
+    void token
+      .then(async (current) => {
+        if (cancelled) return;
+        if (!current) {
+          setStatus("");
+          return;
+        }
+        setAccessToken(current);
+        const listed = await listMachines(relayUrl, current);
+        if (cancelled) return;
+        setMachines(listed);
+        const first = listed.find((machine) => machine.agents.length > 0);
+        const agent = first?.agents[0];
+        if (first && agent) setSelection(selectionOf(first.id, agent.name));
+        setStatus(listed.length === 0 ? "No machine is online. On that computer, run mukae daemon." : "");
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "Sign in again.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [relayUrl]);
+
+  const items = machines.flatMap((machine) =>
+    machine.agents.map((agent) => ({
+      value: selectionOf(machine.id, agent.name),
+      label: `${machine.hostname} / ${agent.name}`,
+    })),
+  );
+  const selected = items.find((item) => item.value === selection);
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
-      <h2 className="text-lg font-medium">Connect a local agent</h2>
-      <Select
-        items={items}
-        value={agentType}
-        onValueChange={(value) => {
-          if (value) setAgentType(value as LaunchAgentType);
-        }}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        disabled={connecting}
-        onClick={() => {
-          setConnecting(true);
-          setSetupNeeded(false);
-          setStatus("Opening the local program. If a prompt appears, allow it.");
-          void connectLocalGateway({
-            agentType,
-            documentationUrl: explainPageUrl,
-          })
-            .then((outcome) => {
-              if (outcome.connected) {
-                onConnected({ agentType, url: outcome.url });
-                return;
-              }
-              setSetupNeeded(outcome.reason === "unconfigured");
-              setStatus(outcomeMessages[outcome.reason] ?? "The local program did not connect.");
-            })
-            .finally(() => setConnecting(false));
-        }}
-      >
-        Connect
-      </Button>
-      {setupNeeded && (
-        <Button variant="outline" onClick={() => copyToClipboard(buildAgentSetupPrompt())}>
-          {isCopied ? "Copied. Paste it to the agent" : "Copy setup instructions for the agent"}
+      <h2 className="text-lg font-medium">Connect an agent</h2>
+      {!accessToken && (
+        <Button
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
+            void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage })
+              .then((url) => {
+                window.location.assign(url);
+              })
+              .catch((error: unknown) => {
+                setStatus(error instanceof Error ? error.message : "Mukae did not answer.");
+                setBusy(false);
+              });
+          }}
+        >
+          Sign in with Mukae
         </Button>
+      )}
+      {accessToken && items.length > 0 && (
+        <>
+          <Select
+            items={items}
+            value={selection}
+            onValueChange={(value) => {
+              if (value) setSelection(value);
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose an agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            disabled={busy || !selected}
+            onClick={() => {
+              if (!selected || !accessToken) return;
+              const parsed = parseSelection(selected.value);
+              if (!parsed) return;
+              setBusy(true);
+              void openConnection(relayUrl, accessToken, parsed)
+                .then((opened) => {
+                  onConnected({ agentType: opened.agentType, url: opened.url, label: selected.label });
+                })
+                .catch((error: unknown) => {
+                  setStatus(error instanceof Error ? error.message : "Mukae did not open the agent.");
+                })
+                .finally(() => setBusy(false));
+            }}
+          >
+            Connect
+          </Button>
+        </>
       )}
       <p className="text-muted-foreground min-h-5 text-sm">{status}</p>
     </div>
   );
+}
+
+function selectionOf(machineId: string, agentName: string): string {
+  return `${machineId}\t${agentName}`;
+}
+
+function parseSelection(value: string): { machineId: string; agentName: string } | undefined {
+  const separator = value.indexOf("\t");
+  if (separator < 1) return undefined;
+  return { machineId: value.slice(0, separator), agentName: value.slice(separator + 1) };
 }

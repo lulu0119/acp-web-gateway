@@ -1,58 +1,55 @@
 #!/usr/bin/env node
-import { execFile } from "node:child_process";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
+import { hostname } from "node:os";
 import { addAgentConfig, formatAgentConfigList, knownAgentTypes } from "./agents.js";
 import { readGatewayConfig, readGatewayConfigForWrite, writeGatewayConfig } from "./config.js";
-import { installLocalGateway } from "./install.js";
-import { readLoginPath } from "./launch-path.js";
-import { openGateway } from "./open-gateway.js";
-import { registerLocalGateway } from "./register.js";
+import { runDaemon } from "./daemon.js";
+import { signInDaemon, usableDaemonSession } from "./login.js";
 import { runCli } from "./run-cli.js";
-import { ensureLoopbackCertificate, trustLoopbackCertificate } from "./loopback-certificate.js";
-import { runtimeDependencies } from "./runtime.js";
-
-const execFileAsync = promisify(execFile);
-const cliPath = fileURLToPath(new URL("./cli.js", import.meta.url));
-const packageRoot = join(dirname(cliPath), "..");
-const launcherBinaryPath = join(packageRoot, "launcher", "mukae-launcher");
-const applicationSupportDirectory = join(homedir(), "Library", "Application Support", "mukae");
-const launchServicesRegister =
-  "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
-
-const registration = {
-  homeDirectory: homedir(),
-  applicationSupportDirectory,
-  nodePath: process.execPath,
-  launcherBinaryPath,
-  platform: process.platform,
-  registerApplication: async (applicationPath: string) => {
-    await execFileAsync(launchServicesRegister, ["-f", applicationPath]);
-  },
-  signApplication: async (applicationPath: string) => {
-    await execFileAsync("xattr", ["-cr", applicationPath]).catch(() => undefined);
-    await execFileAsync("codesign", ["-s", "-", "--force", applicationPath]);
-  },
-  inform: (message: string) => console.log(message),
-  warn: (message: string) => console.error(message),
-};
 
 const result = await runCli(process.argv.slice(2), {
-  install: () =>
-    installLocalGateway({
-      ...registration,
-      sourceDistDirectory: dirname(cliPath),
-      pathValue: readLoginPath(),
-      packages: runtimeDependencies(),
-      prepareTls: async () => {
-        const certificate = await ensureLoopbackCertificate(applicationSupportDirectory);
-        if (process.platform === "darwin" && certificate.created) await trustLoopbackCertificate(certificate.certPath);
-      },
-    }),
-  register: () => registerLocalGateway({ ...registration, cliPath }),
-  open: (launchUrl) => openGateway(launchUrl),
+  login: async (relayUrl) => {
+    try {
+      await signInDaemon(relayUrl, (line) => console.log(line));
+      console.log("Signed in. Next: mukae daemon");
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : "Sign-in failed.");
+      return 1;
+    }
+  },
+  daemon: async (relayUrl) => {
+    try {
+      const session = await usableDaemonSession();
+      if (session.relayUrl !== new URL(relayUrl).origin) {
+        console.error(`This machine is signed in to ${session.relayUrl}. Run mukae login --relay ${relayUrl} to switch.`);
+        return 1;
+      }
+      const config = await readGatewayConfig();
+      if (config.warning) {
+        console.error(config.warning);
+        return 1;
+      }
+      if (config.agents.length === 0) {
+        console.error("No agent configurations.\nNext: mukae agent-config create --agent-type opencode");
+        return 1;
+      }
+      const controller = new AbortController();
+      const stop = () => controller.abort();
+      process.on("SIGINT", stop);
+      process.on("SIGTERM", stop);
+      await runDaemon({
+        relayUrl: session.relayUrl,
+        accessToken: session.accessToken,
+        hostname: hostname(),
+        agents: config.agents,
+        signal: controller.signal,
+      });
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : "The daemon stopped.");
+      return 1;
+    }
+  },
   listAgentConfigs: async () => {
     const config = await readGatewayConfig();
     if (config.warning) {
@@ -87,9 +84,8 @@ const result = await runCli(process.argv.slice(2), {
 
 if (result.showUsage) {
   console.error(`Usage:
-  mukae
-  mukae register
-  mukae open <mukae-url>
+  mukae login [--relay <url>]
+  mukae daemon [--relay <url>]
   mukae agent-config list
   mukae agent-config create --agent-type <type> [--name <name>] [--env KEY=VALUE]`);
 }

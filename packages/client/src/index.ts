@@ -1,1 +1,17 @@
-export { connectLocalGateway, explainPageUrl, type ConnectOutcome } from "./connect.js";
+export {
+  beginBrowserSignIn,
+  beginDeviceAuthorization,
+  browserCallbackPath,
+  createAuthorizationRequest,
+  exchangeAuthorizationCode,
+  fetchPublicClients,
+  finishBrowserSignIn,
+  listMachines,
+  openConnection,
+  pollDeviceAuthorization,
+  refreshMukaeAccessToken,
+  storedAccessToken,
+  type BrowserStore,
+  type DeviceAuthorization,
+  type MukaeTokens,
+} from "./oauth.js";

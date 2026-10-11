@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FolderIcon, PlusIcon, FolderPlusIcon } from "lucide-react";
+import { FolderIcon, PlusIcon, FolderPlusIcon, RefreshCwIcon } from "lucide-react";
 import { useAcpConnection, useAcpRuntimeExtras, useAcpThreadState } from "@hafbit/react-acp";
 import { hasAgentCapability } from "@hafbit/react-acp/core";
 import type { DirectoryAdapter } from "@/acp/directory-adapter";
@@ -38,8 +38,10 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   const { workspaces, add, remove } = useWorkspaces(agentType);
   const [adding, setAdding] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const creatingRef = useRef(false);
   const canDelete = hasAgentCapability(connection.capabilities, "delete");
+  const canList = hasAgentCapability(connection.capabilities, "list");
 
   const sessionIdsByDirectory = (directory: string) =>
     state.sessionOrder.filter((id) => state.sessions[id]?.info?.cwd === directory);
@@ -48,6 +50,16 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   const knownDirectories = [
     ...new Set(state.sessionOrder.map((id) => state.sessions[id]?.info?.cwd).filter((cwd): cwd is string => !!cwd)),
   ].filter((cwd) => !workspaces.includes(cwd));
+
+  async function refreshSessions() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await extras.refreshSessions();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function createSession(directory: string) {
     if (creatingRef.current) return;
@@ -65,6 +77,17 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Working directories</SidebarGroupLabel>
+      {canList && (
+        <SidebarGroupAction
+          title="Refresh sessions"
+          className="right-9"
+          disabled={refreshing}
+          onClick={() => void refreshSessions()}
+        >
+          <RefreshCwIcon />
+          <span className="sr-only">Refresh sessions</span>
+        </SidebarGroupAction>
+      )}
       <SidebarGroupAction title="Add a working directory" onClick={() => setAdding(true)}>
         <FolderPlusIcon />
         <span className="sr-only">Add a working directory</span>

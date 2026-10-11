@@ -1,7 +1,7 @@
 {
   "name": "mukae",
   "version": "0.1.0-beta.1",
-  "description": "Local gateway that lets a web page use an ACP agent on this computer.",
+  "description": "Daemon that runs ACP agents for a Mukae account.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -14,14 +14,14 @@
   "bin": {
     "mukae": "./dist/cli.js"
   },
-  "files": ["dist", "launcher/mukae-launcher"],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
     "prepublishOnly": "pnpm run build",
-    "launcher": "clang -arch arm64 -arch x86_64 -fobjc-arc -framework Cocoa -o launcher/mukae-launcher launcher/launcher.m",
     "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
   },
   "dependencies": {
+    "@mukae/client": "workspace:*",
     "@mukae/contract": "workspace:*",
     "ws": "^8.18.3"
   },

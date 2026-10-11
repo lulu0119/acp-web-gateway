@@ -1,6 +1,6 @@
 # One gateway process per connection
 
-Status: accepted
+Status: superseded by [ADR 0007](0007-one-loopback-port.md)
 
 A web app can hold several connections to local agents at once. Each connection runs its own gateway process on its own port from `47321` to `47340`. The launch URL carries the port, and the web app picks the first port that no gateway answers on.
 

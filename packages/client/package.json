@@ -1,9 +1,11 @@
 {
   "name": "@mukae/client",
   "version": "0.1.0-beta.1",
-  "description": "Browser helper that opens the local mukae gateway from a click.",
+  "description": "Signs a web app or the Mukae daemon into an account and opens an agent.",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lulu0119/mukae.git",
@@ -21,10 +23,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
     "prepublishOnly": "pnpm run build",
-    "test": "tsc -p tsconfig.json && node --test dist/choose-connect-action.test.js dist/connect.test.js dist/pick-port.test.js"
+    "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
   },
   "dependencies": {
-    "@mukae/contract": "workspace:*"
+    "@mukae/contract": "workspace:*",
+    "oauth4webapi": "^3.8.8"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

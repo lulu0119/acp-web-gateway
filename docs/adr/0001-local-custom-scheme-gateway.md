@@ -1,6 +1,6 @@
 # Local gateway uses a custom scheme
 
-Status: accepted
+Status: superseded by [ADR 0008](0008-account-relay.md)
 
 The first version is a local gateway. The browser prompt that opens the registered local program is the only human confirmation. There is no third-party login. The web app does not receive the name of a configuration stored on the machine.
 

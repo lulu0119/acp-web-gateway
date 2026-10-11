@@ -23,7 +23,6 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { agentTypeLabels } from "@/lib/agent-types";
 
 export function App() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -72,9 +71,9 @@ export function App() {
                     <SidebarMenuItem key={connection.id}>
                       <SidebarMenuButton isActive={connection.id === activeId} onClick={() => setActiveId(connection.id)}>
                         <StatusDot status={statuses[connection.id] ?? "idle"} />
-                        <span>{agentTypeLabels[connection.agentType]}</span>
+                        <span>{connection.label}</span>
                       </SidebarMenuButton>
-                      <RowMenu label={`Actions for ${agentTypeLabels[connection.agentType]}`}>
+                      <RowMenu label={`Actions for ${connection.label}`}>
                         <DropdownMenuItem className="text-destructive" onClick={() => disconnect(connection.id)}>
                           Disconnect
                         </DropdownMenuItem>

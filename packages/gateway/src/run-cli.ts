@@ -1,61 +1,55 @@
+import { defaultRelayUrl } from "@mukae/contract";
+
 export type CliCommand =
-  | { kind: "install" }
-  | { kind: "register" }
-  | { kind: "open"; launchUrl: string }
+  | { kind: "login"; relayUrl: string }
+  | { kind: "daemon"; relayUrl: string }
   | { kind: "list-agent-configs" }
   | { kind: "create-agent-config"; agentType: string; name?: string; env: Record<string, string> }
   | { kind: "invalid" };
 
 export function parseCliArgs(args: readonly string[]): CliCommand {
-  if (args.length === 0) return { kind: "install" };
-  const [command, subcommand, ...rest] = args;
-  if (command === "register" && args.length === 1) return { kind: "register" };
-  if (command === "open" && args.length === 2 && subcommand) return { kind: "open", launchUrl: subcommand };
-  if (command === "agent-config" && subcommand === "list" && rest.length === 0) return { kind: "list-agent-configs" };
-  if (command === "agent-config" && subcommand === "create") return parseCreateArgs(rest);
+  const [command, ...rest] = args;
+  if (command === "login") return parseRelayCommand("login", rest);
+  if (command === "daemon") return parseRelayCommand("daemon", rest);
+  if (command === "agent-config" && rest[0] === "list" && rest.length === 1) return { kind: "list-agent-configs" };
+  if (command === "agent-config" && rest[0] === "create") return parseCreateArgs(rest.slice(1));
   return { kind: "invalid" };
 }
 
 export async function runCli(
   args: readonly string[],
   actions: {
-    install: () => Promise<void>;
-    register: () => Promise<void>;
-    open: (launchUrl: string) => Promise<void>;
+    login: (relayUrl: string) => Promise<number>;
+    daemon: (relayUrl: string) => Promise<number>;
     listAgentConfigs: () => Promise<number>;
-    createAgentConfig: (input: {
-      agentType: string;
-      name?: string;
-      env: Record<string, string>;
-    }) => Promise<number>;
+    createAgentConfig: (input: { agentType: string; name?: string; env: Record<string, string> }) => Promise<number>;
   },
 ): Promise<{ exitCode: number; showUsage: boolean }> {
   const parsed = parseCliArgs(args);
-  if (parsed.kind === "install") {
-    await actions.install();
-    return { exitCode: 0, showUsage: false };
-  }
-  if (parsed.kind === "register") {
-    await actions.register();
-    return { exitCode: 0, showUsage: false };
-  }
-  if (parsed.kind === "open") {
-    await actions.open(parsed.launchUrl);
-    return { exitCode: 0, showUsage: false };
-  }
-  if (parsed.kind === "list-agent-configs") {
-    const exitCode = await actions.listAgentConfigs();
-    return { exitCode, showUsage: false };
-  }
+  if (parsed.kind === "login") return { exitCode: await actions.login(parsed.relayUrl), showUsage: false };
+  if (parsed.kind === "daemon") return { exitCode: await actions.daemon(parsed.relayUrl), showUsage: false };
+  if (parsed.kind === "list-agent-configs") return { exitCode: await actions.listAgentConfigs(), showUsage: false };
   if (parsed.kind === "create-agent-config") {
-    const exitCode = await actions.createAgentConfig({
-      agentType: parsed.agentType,
-      name: parsed.name,
-      env: parsed.env,
-    });
-    return { exitCode, showUsage: false };
+    return {
+      exitCode: await actions.createAgentConfig({ agentType: parsed.agentType, name: parsed.name, env: parsed.env }),
+      showUsage: false,
+    };
   }
   return { exitCode: 1, showUsage: true };
+}
+
+function parseRelayCommand(kind: "login" | "daemon", args: readonly string[]): CliCommand {
+  if (args.length === 0) return { kind, relayUrl: defaultRelayUrl };
+  if (args.length === 2 && args[0] === "--relay" && args[1] && !args[1].startsWith("--")) {
+    try {
+      const url = new URL(args[1]);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return { kind: "invalid" };
+      return { kind, relayUrl: url.origin };
+    } catch {
+      return { kind: "invalid" };
+    }
+  }
+  return { kind: "invalid" };
 }
 
 function parseCreateArgs(args: readonly string[]): CliCommand {

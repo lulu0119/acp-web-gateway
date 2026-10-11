@@ -1,5 +1,4 @@
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import type { LaunchAgentType } from "@mukae/contract";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
   useAcpAuth,
@@ -22,7 +21,6 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbS
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { agentTypeLabels } from "@/lib/agent-types";
 import type { ConnectedAgent } from "./connect-form";
 import { connectionLabels, StatusDot } from "./connection-status";
 import { SessionControls } from "./session-controls";
@@ -54,12 +52,12 @@ export function ConnectionPane({
     <AssistantRuntimeProvider runtime={runtime}>
       <StatusReporter id={connection.id} onStatusChange={onStatusChange} />
       <section className={active ? "flex h-dvh min-h-0 flex-col" : "hidden"}>
-        <PaneHeader agentType={connection.agentType} />
+        <PaneHeader label={connection.label} />
         <PaneBody />
       </section>
       {active &&
         treeSlot &&
-        createPortal(<WorkspaceTree agentType={connection.agentType} directories={directories} />, treeSlot)}
+        createPortal(<WorkspaceTree agentType={connection.label} directories={directories} />, treeSlot)}
     </AssistantRuntimeProvider>
   );
 }
@@ -78,7 +76,7 @@ function StatusReporter({
   return null;
 }
 
-function PaneHeader({ agentType }: { agentType: LaunchAgentType }) {
+function PaneHeader({ label }: { label: string }) {
   const { status } = useAcpConnection();
   const session = useAcpSession();
   return (
@@ -87,7 +85,7 @@ function PaneHeader({ agentType }: { agentType: LaunchAgentType }) {
         <SidebarTrigger />
         <Breadcrumb>
           <BreadcrumbList className="flex-nowrap">
-            <BreadcrumbItem className="shrink-0">{agentTypeLabels[agentType]}</BreadcrumbItem>
+            <BreadcrumbItem className="shrink-0">{label}</BreadcrumbItem>
             {session && (
               <>
                 <BreadcrumbSeparator />

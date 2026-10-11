@@ -9,7 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mukae/agent-setup": "workspace:*",
     "@mukae/client": "workspace:*",
     "@mukae/react-hooks": "workspace:*",
     "@mukae/contract": "workspace:*",

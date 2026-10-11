@@ -1,6 +1,8 @@
 # npx installs a stable copy
 
-`npx --package=https://pkg.pr.new/lulu0119/mukae@main -- mukae` is the installer until the npm release. `@main` is the latest preview published from `main`. It copies the gateway into ~/Library/Application Support/mukae, writes a pointer file, and registers a macOS handler that contains no paths. Each browser connection still starts its own gateway process from that copy. A checkout can point the same pointer at its own `dist/cli.js`.
+Status: superseded by [ADR 0008](0008-account-relay.md)
+
+`npx --package=https://pkg.pr.new/lulu0119/mukae@main -- mukae` is the installer until the npm release. `@main` is the latest preview published from `main`. It copies the gateway into ~/Library/Application Support/mukae, writes a pointer file, and registers a macOS handler that contains no paths. Every connection starts a process from that copy. A checkout can point the same pointer at its own `dist/cli.js`.
 
 ## Considered Options
 
