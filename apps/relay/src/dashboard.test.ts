@@ -59,7 +59,6 @@ async function openDashboard() {
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
   const context = await mukae.auth.$context;
   const user = await context.internalAdapter.createUser(

@@ -9,7 +9,3 @@ export function mukaeRelayUrl(): string {
     return defaultRelayUrl;
   }
 }
-
-export function mukaeClientId(): string {
-  return import.meta.env.VITE_MUKAE_CLIENT_ID ?? "";
-}

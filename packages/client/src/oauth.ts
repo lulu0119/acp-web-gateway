@@ -270,19 +270,8 @@ export async function beginBrowserSignIn(input: {
   relayUrl: string;
   redirectUri: string;
   store: BrowserStore;
-  clientId?: string;
   clientName?: string;
 }): Promise<string> {
-  if (input.clientId) {
-    const request = await createAuthorizationRequest({
-      relayUrl: input.relayUrl,
-      clientId: input.clientId,
-      redirectUri: input.redirectUri,
-    });
-    input.store.setItem(verifierKey, request.codeVerifier);
-    input.store.setItem(stateKey, request.state);
-    return request.url;
-  }
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const state = oauth.generateRandomState();
   const url = await requestApprovalUrl({

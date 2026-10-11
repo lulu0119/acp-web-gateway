@@ -7,6 +7,7 @@ import {
   beginBrowserSignIn,
   beginDeviceAuthorization,
   clearBrowserSignIn,
+  createAuthorizationRequest,
   fetchMukaeUser,
   finishBrowserSignIn,
   listMachines,
@@ -15,22 +16,28 @@ import {
   type BrowserStore,
 } from "./oauth.js";
 
-test("a browser sign-in keeps the code verifier and exchanges the callback", async () => {
+test("a known client builds an authorization url and exchanges the callback", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
   try {
-    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, clientId: "example-client", redirectUri: `${relay.origin}/oauth/callback`, store }));
+    const request = await createAuthorizationRequest({
+      relayUrl: relay.origin,
+      clientId: "example-client",
+      redirectUri: `${relay.origin}/oauth/callback`,
+    });
+    store.setItem("mukae.codeVerifier", request.codeVerifier);
+    store.setItem("mukae.state", request.state);
+    const url = new URL(request.url);
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
     assert.equal(url.searchParams.get("scope"), machinesScope);
     assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
     assert.ok(url.searchParams.get("code_challenge"));
-    const state = store.getItem("mukae.state");
-    assert.equal(url.searchParams.get("state"), state);
+    assert.equal(url.searchParams.get("state"), request.state);
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", state ?? "");
+    callback.searchParams.set("state", request.state);
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     const tokens = await finishBrowserSignIn({
       relayUrl: relay.origin,

@@ -10,7 +10,6 @@ export type MukaeAuthConfig = {
   publicUrl: string;
   githubClientId: string;
   githubClientSecret: string;
-  origins: readonly string[];
 };
 
 export async function openMukaeAuth(config: MukaeAuthConfig) {
@@ -26,7 +25,6 @@ function buildMukaeAuth(config: MukaeAuthConfig) {
     baseURL: publicUrl,
     secret: config.secret,
     database: config.database,
-    trustedOrigins: [...config.origins],
     socialProviders: {
       github: {
         clientId: config.githubClientId,

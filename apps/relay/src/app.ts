@@ -17,18 +17,16 @@ export type RelayEnv = { Variables: { userId: string } };
 export function createRelayApp(input: {
   registry: Registry;
   readUserId: (request: Request) => Promise<string | undefined>;
-  origins: readonly string[];
   clients: PublicClients;
   publicUrl: string;
 }) {
   const app = new Hono<RelayEnv>();
   const sockets = createNodeWebSocket({ app });
-  const allowed = new Set(input.origins);
 
   app.use(
     "/api/*",
     cors({
-      origin: (origin) => (allowed.has(origin) ? origin : null),
+      origin: "*",
       allowHeaders: ["Authorization", "Content-Type"],
       allowMethods: ["GET", "POST", "OPTIONS"],
     }),

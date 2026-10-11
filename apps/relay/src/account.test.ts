@@ -16,7 +16,6 @@ test("github sign-in sends the state cookie the callback checks", async () => {
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
   const app = new Hono<RelayEnv>();
   mountAccountPages(app, mukae, true);
@@ -50,7 +49,6 @@ test("approving a web app redirects back with an authorization code", async () =
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
   const context = await mukae.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
@@ -100,7 +98,6 @@ test("approving a machine claims the code before it is approved", async () => {
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
   const daemonClientId = await ensureDaemonClient(mukae);
   const context = await mukae.auth.$context;

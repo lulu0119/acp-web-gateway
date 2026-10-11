@@ -15,7 +15,6 @@ const publicUrl = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8787";
 const secret = process.env.BETTER_AUTH_SECRET;
 const githubClientId = process.env.GITHUB_CLIENT_ID ?? "";
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET ?? "";
-const origins = (process.env.MUKAE_CLIENT_ORIGINS ?? "http://127.0.0.1:47100").split(",").map((origin) => origin.trim()).filter(Boolean);
 const port = Number(process.env.PORT ?? (new URL(publicUrl).port || 8787));
 
 if (!secret || secret.length < 32) {
@@ -30,13 +29,11 @@ const mukae = await openMukaeAuth({
   publicUrl,
   githubClientId,
   githubClientSecret,
-  origins,
 });
 const daemonClientId = await ensureDaemonClient(mukae);
 const registry = createRegistry();
 const { app, injectWebSocket } = createRelayApp({
   registry,
-  origins,
   clients: { daemonClientId },
   publicUrl,
   readUserId: (request) => readUserId(request, { jwksUrl: mukae.jwksUrl, issuer: mukae.issuer, audience: mukae.resource }),

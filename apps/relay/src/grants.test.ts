@@ -213,7 +213,6 @@ async function openRegistry() {
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
   const context = await mukae.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });

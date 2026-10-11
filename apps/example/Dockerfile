@@ -6,8 +6,6 @@ WORKDIR /app
 COPY . .
 ARG VITE_MUKAE_URL
 ENV VITE_MUKAE_URL=$VITE_MUKAE_URL
-ARG VITE_MUKAE_CLIENT_ID
-ENV VITE_MUKAE_CLIENT_ID=$VITE_MUKAE_CLIENT_ID
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @mukae/example... build
 

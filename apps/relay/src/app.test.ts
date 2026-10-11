@@ -10,7 +10,6 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
   const registry = createRegistry({ openTimeoutMs: 2_000 });
   const { app, injectWebSocket } = createRelayApp({
     registry,
-    origins: ["http://127.0.0.1:47100"],
     clients: { daemonClientId: "daemon-client" },
     publicUrl: "https://relay.example.test",
     readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
@@ -63,7 +62,6 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
 test("the health check answers without signing in", async () => {
   const { app } = createRelayApp({
     registry: createRegistry(),
-    origins: ["http://127.0.0.1:47100"],
     clients: { daemonClientId: "daemon-client" },
     publicUrl: "https://relay.example.test",
     readUserId: async () => undefined,
@@ -71,6 +69,18 @@ test("the health check answers without signing in", async () => {
   const response = await app.request("/health");
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: "ok" });
+});
+
+test("a web page on another site can read the api", async () => {
+  const { app } = createRelayApp({
+    registry: createRegistry(),
+    clients: { daemonClientId: "daemon-client" },
+    publicUrl: "https://relay.example.test",
+    readUserId: async () => undefined,
+  });
+  const response = await app.request("/api/clients", { headers: { origin: "https://app.example.test" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), "*");
 });
 
 async function waitForMachine(base: string): Promise<string> {

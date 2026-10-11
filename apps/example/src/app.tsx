@@ -8,7 +8,7 @@ import { RowMenu } from "@/components/app/row-menu";
 import type { AccountSession } from "@mukae/client/react";
 import { useAccount } from "@mukae/client/react";
 import { Button } from "@/components/ui/button";
-import { mukaeClientId, mukaeRelayUrl } from "@/lib/relay-url";
+import { mukaeRelayUrl } from "@/lib/relay-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
@@ -53,7 +53,7 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
-  const session = useAccount(mukaeRelayUrl(), mukaeClientId() || undefined);
+  const session = useAccount(mukaeRelayUrl());
 
   const handleSignOut = useCallback(() => {
     session.signOut();

@@ -11,7 +11,7 @@ export type AccountSession = {
   signOut: () => void;
 };
 
-export function useAccount(relayUrl: string, clientId?: string): AccountSession {
+export function useAccount(relayUrl: string): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -21,11 +21,11 @@ export function useAccount(relayUrl: string, clientId?: string): AccountSession 
     const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
     const returning = window.location.pathname === browserCallbackPath;
     const token = returning
-      ? finishBrowserSignIn({ relayUrl, clientId, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
+      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
           window.history.replaceState({}, "", "/");
           return tokens.accessToken;
         })
-      : storedAccessToken({ relayUrl, clientId, store });
+      : storedAccessToken({ relayUrl, store });
     let cancelled = false;
     void token
       .then((current) => {
@@ -40,13 +40,13 @@ export function useAccount(relayUrl: string, clientId?: string): AccountSession 
     return () => {
       cancelled = true;
     };
-  }, [relayUrl, clientId]);
+  }, [relayUrl]);
 
   const signIn = useCallback(() => {
     setBusy(true);
     setError("");
     const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
-    void beginBrowserSignIn({ relayUrl, clientId, redirectUri, store: window.sessionStorage })
+    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage })
       .then((url) => {
         window.location.assign(url);
       })
@@ -54,7 +54,7 @@ export function useAccount(relayUrl: string, clientId?: string): AccountSession 
         setError(error instanceof Error ? error.message : "Mukae did not answer.");
         setBusy(false);
       });
-  }, [relayUrl, clientId]);
+  }, [relayUrl]);
 
   const signOut = useCallback(() => {
     clearBrowserSignIn(window.sessionStorage);

@@ -11,7 +11,6 @@ async function openMukae(): Promise<MukaeAuth> {
     publicUrl: "http://127.0.0.1:8787",
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
-    origins: ["http://127.0.0.1:47100"],
   });
 }
 
