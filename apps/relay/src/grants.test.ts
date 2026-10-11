@@ -5,19 +5,40 @@ import test from "node:test";
 import { mountAccountPages } from "./account.js";
 import type { RelayEnv } from "./app.js";
 import { openMukaeAuth, type MukaeAuth } from "./auth.js";
-import { mountClientRegistry } from "./grants.js";
+import { createRateLimit, mountClientRegistry } from "./grants.js";
 
 const publicUrl = "http://127.0.0.1:8787";
 const secret = "test-secret-test-secret-test-secret";
 
-test("registering a client needs a signed-in account and a clean name", async () => {
+test("open registration takes public clients, but secrets need a signed-in account", async () => {
   const { app } = await openRegistry();
-  const anonymous = await app.request(`${publicUrl}/api/clients/register`, {
+  const open = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: false }),
   });
-  assert.equal(anonymous.status, 401);
+  assert.equal(open.status, 201);
+  const created = (await open.json()) as { clientId?: string; clientSecret?: string };
+  assert.ok(created.clientId);
+  assert.equal(created.clientSecret, undefined);
+
+  const gated = await app.request(`${publicUrl}/api/clients/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ clientName: "Vault", redirectUris: ["https://vault.example.test/callback"], confidential: true }),
+  });
+  assert.equal(gated.status, 401);
+});
+
+test("the open registration limit resets after its window", () => {
+  let at = 0;
+  const take = createRateLimit({ max: 2, windowMs: 1_000, now: () => at });
+  assert.equal(take("same-ip"), true);
+  assert.equal(take("same-ip"), true);
+  assert.equal(take("same-ip"), false);
+  assert.equal(take("other-ip"), true);
+  at = 1_001;
+  assert.equal(take("same-ip"), true);
 });
 
 test("a signed-in account registers, lists, revokes, and re-approves", async () => {

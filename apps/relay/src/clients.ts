@@ -5,6 +5,7 @@ import type { MukaeAuth } from "./auth.js";
 
 const daemonSoftwareId = "mukae-daemon";
 const userSoftwarePrefix = "mukae-user-client:";
+const openSoftwarePrefix = "mukae-open-client:";
 export const maxClientsPerUser = 10;
 
 export type ClientRegistration = {
@@ -111,14 +112,24 @@ export async function ensureDaemonClient(mukae: MukaeAuth): Promise<string> {
   return created.client_id;
 }
 
-export async function registerClient(mukae: MukaeAuth, ownerUserId: string, input: ClientRegistration): Promise<RegisteredClient> {
-  const owned = await userClientCount(mukae, ownerUserId);
-  if (owned >= maxClientsPerUser) throw new Error(`Each account can register at most ${maxClientsPerUser} clients.`);
+export async function registerClient(
+  mukae: MukaeAuth,
+  ownerUserId: string | undefined,
+  input: ClientRegistration,
+): Promise<RegisteredClient> {
+  if (input.confidential && !ownerUserId) throw new Error("Sign in again.");
+  if (ownerUserId) {
+    const owned = await userClientCount(mukae, ownerUserId);
+    if (owned >= maxClientsPerUser) throw new Error(`Each account can register at most ${maxClientsPerUser} clients.`);
+  }
+  const softwareId = ownerUserId
+    ? `${userSoftwarePrefix}${ownerUserId}:${randomBytes(4).toString("hex")}`
+    : `${openSoftwarePrefix}${randomBytes(8).toString("hex")}`;
   const created = await withOwner(mukae, (headers) =>
     mukae.auth.api.adminCreateOAuthClient({
       headers,
       body: {
-        software_id: `${userSoftwarePrefix}${ownerUserId}:${randomBytes(4).toString("hex")}`,
+        software_id: softwareId,
         client_name: input.clientName,
         client_uri: input.clientUri,
         logo_uri: input.logoUri,

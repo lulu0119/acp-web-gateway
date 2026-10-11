@@ -1,19 +1,51 @@
 import { clientRegistryPath, grantsPath } from "@mukae/contract";
-import type { Hono } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import type { Context, Hono } from "hono";
 import { readAccount, type Account } from "./account-session.js";
 import type { RelayEnv } from "./app.js";
 import type { MukaeAuth } from "./auth.js";
 import { parseClientRegistration, registerClient } from "./clients.js";
 import type { ClientMeta, GrantedApp } from "./dashboard-data.js";
 
+export function createRateLimit(input: { max: number; windowMs: number; now?: () => number }): (key: string) => boolean {
+  const taken = new Map<string, number[]>();
+  const now = input.now ?? Date.now;
+  return (key) => {
+    const at = now();
+    const recent = (taken.get(key) ?? []).filter((stamp) => at - stamp < input.windowMs);
+    if (recent.length >= input.max) {
+      taken.set(key, recent);
+      return false;
+    }
+    recent.push(at);
+    taken.set(key, recent);
+    return true;
+  };
+}
+
+const openRegistrationLimit = createRateLimit({ max: 30, windowMs: 3_600_000 });
+
+function requestIp(c: Context<RelayEnv>): string {
+  const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  try {
+    return getConnInfo(c).remote.address ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export function mountClientRegistry(app: Hono<RelayEnv>, mukae: MukaeAuth): void {
   app.post(clientRegistryPath, async (c) => {
     const account = await readAccount(c.req.raw, mukae);
-    if (!account) return c.json({ message: "Sign in again." }, 401);
     const parsed = parseClientRegistration(await c.req.json().catch(() => undefined));
     if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
+    if (parsed.value.confidential && !account) return c.json({ message: "Sign in again." }, 401);
+    if (!account && !openRegistrationLimit(requestIp(c))) {
+      return c.json({ message: "Too many registrations. Try again later." }, 429);
+    }
     try {
-      const registered = await registerClient(mukae, account.userId, parsed.value);
+      const registered = await registerClient(mukae, account?.userId, parsed.value);
       return c.json(registered, 201);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Mukae could not register the client.";
