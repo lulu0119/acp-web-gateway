@@ -8,7 +8,7 @@ test("shellQuote keeps spaces and single quotes inside one shell word", () => {
   assert.equal(shellQuote("/Users/me/My Repo/it's"), "'/Users/me/My Repo/it'\\''s'");
 });
 
-test("the prompt installs mukae with npx and checks the configurations", () => {
+test("the prompt installs the preview package and checks the configurations", () => {
   const prompt = buildAgentSetupPrompt();
   assert.ok(prompt.includes(installCommand));
   assert.ok(prompt.includes(listAgentConfigsCommand));
