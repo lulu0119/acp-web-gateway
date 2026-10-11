@@ -35,6 +35,7 @@ const { app, injectWebSocket } = createRelayApp({
   registry: createRegistry(),
   origins,
   clients,
+  publicUrl,
   readUserId: (request) => readUserId(request, { jwksUrl: mukae.jwksUrl, issuer: mukae.issuer, audience: mukae.resource }),
 });
 mountAccountPages(app, mukae, githubClientId.length > 0 && githubClientSecret.length > 0);

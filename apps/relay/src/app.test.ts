@@ -12,6 +12,7 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
     registry,
     origins: ["http://127.0.0.1:47100"],
     clients: { exampleClientId: "example-client", daemonClientId: "daemon-client" },
+    publicUrl: "https://relay.example.test",
     readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
   });
   const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
@@ -38,8 +39,12 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
     const body = (await opened.json()) as { url: string; agentType: string };
     const sessionId = await openedSession;
     assert.equal(body.agentType, "opencode");
-    assert.ok(new URL(body.url).searchParams.get("ticket"));
-    const browser = new WebSocket(body.url);
+    const ticketUrl = new URL(body.url);
+    assert.equal(ticketUrl.protocol, "wss:");
+    assert.equal(ticketUrl.host, "relay.example.test");
+    const ticket = ticketUrl.searchParams.get("ticket");
+    assert.ok(ticket);
+    const browser = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
     await once(browser, "open");
     const fromBrowser = nextText(daemon);
     browser.send('{"id":1}');

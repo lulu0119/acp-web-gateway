@@ -19,6 +19,7 @@ export function createRelayApp(input: {
   readUserId: (request: Request) => Promise<string | undefined>;
   origins: readonly string[];
   clients: PublicClients;
+  publicUrl: string;
 }) {
   const app = new Hono<RelayEnv>();
   const sockets = createNodeWebSocket({ app });
@@ -59,7 +60,7 @@ export function createRelayApp(input: {
       const result = await input.registry.openSession({ userId: c.get("userId"), machineId, agentName });
       if (!result.ok) return c.json({ message: result.message }, result.status);
       return c.json({
-        url: ticketUrl(c.req.url, result.ticket),
+        url: sessionSocketUrl(input.publicUrl, result.ticket),
         agentType: result.agentType,
         agentName: result.agentName,
       });
@@ -135,10 +136,9 @@ export function createRelayApp(input: {
   return { app, injectWebSocket: sockets.injectWebSocket };
 }
 
-function ticketUrl(requestUrl: string, ticket: string): string {
-  const current = new URL(requestUrl);
-  const socket = new URL(acpPath, current);
-  socket.protocol = current.protocol === "https:" ? "wss:" : "ws:";
+function sessionSocketUrl(publicUrl: string, ticket: string): string {
+  const socket = new URL(acpPath, publicUrl);
+  socket.protocol = socket.protocol === "https:" ? "wss:" : "ws:";
   socket.search = "";
   socket.searchParams.set("ticket", ticket);
   return socket.toString();
