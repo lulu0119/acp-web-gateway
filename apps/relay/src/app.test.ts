@@ -60,6 +60,19 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
   }
 });
 
+test("the health check answers without signing in", async () => {
+  const { app } = createRelayApp({
+    registry: createRegistry(),
+    origins: ["http://127.0.0.1:47100"],
+    clients: { daemonClientId: "daemon-client" },
+    publicUrl: "https://relay.example.test",
+    readUserId: async () => undefined,
+  });
+  const response = await app.request("/health");
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: "ok" });
+});
+
 async function waitForMachine(base: string): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const response = await fetch(`${base}/api/machines`, { headers: { "x-user-id": "ada" } });

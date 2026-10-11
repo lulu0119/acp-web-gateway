@@ -34,6 +34,7 @@ export function createRelayApp(input: {
     }),
   );
   app.get(publicClientsPath, (c) => c.json(input.clients));
+  app.get("/health", (c) => c.json({ status: "ok" }));
   app.get(
     machinesPath,
     async (c, next) => {
