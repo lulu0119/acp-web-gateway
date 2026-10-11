@@ -10,7 +10,7 @@ import {
 import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Registry } from "./registry.js";
+import type { BrowserLink, Registry } from "./registry.js";
 
 export type RelayEnv = { Variables: { userId: string } };
 
@@ -104,10 +104,10 @@ export function createRelayApp(input: {
     acpPath,
     sockets.upgradeWebSocket((c) => {
       const ticket = c.req.query("ticket") ?? "";
-      let link: ReturnType<Registry["takeTicket"]>;
+      let link: BrowserLink | undefined;
       return {
         onOpen(_event, ws) {
-          link = input.registry.takeTicket(ticket, {
+          const taken = input.registry.takeTicket(ticket, {
             send(payload) {
               ws.send(payload);
             },
@@ -115,7 +115,11 @@ export function createRelayApp(input: {
               ws.close();
             },
           });
-          if (!link) ws.close(1008, "ticket");
+          if (!taken.ok) {
+            ws.close(1008, ticketCloseReason(taken.reason));
+            return;
+          }
+          link = taken.link;
         },
         onMessage(event, ws) {
           const text = eventText(event.data);
@@ -162,4 +166,12 @@ function eventText(data: unknown): string | undefined {
   if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
   if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
   return undefined;
+}
+
+// Wire contract with web apps: the close reason tells the client whether a
+// fresh ticket is worth opening. Old clients ignore the detail.
+function ticketCloseReason(reason: "used" | "expired" | "gone"): string {
+  if (reason === "used") return "ticket-used";
+  if (reason === "expired") return "ticket-expired";
+  return "ticket-gone";
 }

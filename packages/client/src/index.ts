@@ -1,4 +1,13 @@
 export {
+  createAgentConnector,
+  needsFreshTicket,
+  parseTicketCloseReason,
+  type AgentTarget,
+  type OpenAgent,
+  type OpenedAgent,
+  type TicketCloseReason,
+} from "./connection.js";
+export {
   beginBrowserSignIn,
   beginDeviceAuthorization,
   browserCallbackPath,

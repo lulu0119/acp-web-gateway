@@ -23,3 +23,7 @@ _Avoid_: Example (Example is one web app in this repo, not the product)
 **Connection**:
 One live ACP session with one agent on one machine.
 _Avoid_: port, nonce, gateway process
+
+**Ticket**:
+The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. An infant socket that dies before any ACP frame flows does not consume it.
+_Avoid_: token, code, reusable URL
