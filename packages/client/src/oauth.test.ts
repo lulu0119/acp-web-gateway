@@ -7,6 +7,7 @@ import {
   beginBrowserSignIn,
   beginDeviceAuthorization,
   clearBrowserSignIn,
+  fetchMukaeUser,
   finishBrowserSignIn,
   listMachines,
   openConnection,
@@ -18,7 +19,7 @@ test("a browser sign-in keeps the code verifier and exchanges the callback", asy
   const relay = await fakeRelay();
   const store = memoryStore();
   try {
-    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
+    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, clientId: "example-client", redirectUri: `${relay.origin}/oauth/callback`, store }));
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
     assert.equal(url.searchParams.get("scope"), machinesScope);
@@ -33,6 +34,7 @@ test("a browser sign-in keeps the code verifier and exchanges the callback", asy
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     const tokens = await finishBrowserSignIn({
       relayUrl: relay.origin,
+      clientId: "example-client",
       redirectUri: `${relay.origin}/oauth/callback`,
       callbackUrl: callback.href,
       store,
@@ -71,8 +73,16 @@ test("machine list and session open use the access token", async () => {
   }
 });
 
-test("signing out clears the stored browser tokens", () => {
-  const store = memoryStore();
+test("the account behind an access token identifies itself", async () => {
+  const relay = await fakeRelay();
+  try {
+    assert.deepEqual(await fetchMukaeUser({ relayUrl: relay.origin, accessToken: "access-1" }), { sub: "user-1" });
+  } finally {
+    relay.close();
+  }
+});
+
+test("signing out clears the stored browser tokens", () => {  const store = memoryStore();
   store.setItem("mukae.accessToken", "access-1");
   store.setItem("mukae.refreshToken", "refresh-1");
   store.setItem("mukae.expiresAt", String(Date.now() + 3_600_000));
@@ -120,7 +130,8 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
         token_endpoint_auth_methods_supported: ["none"],
       });
     }
-    if (url.pathname === "/api/clients") return json(response, { exampleClientId: "example-client", daemonClientId: "daemon-client" });
+    if (url.pathname === "/api/clients") return json(response, { daemonClientId: "daemon-client" });
+    if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
       return json(response, {
         device_code: "device-code-1",

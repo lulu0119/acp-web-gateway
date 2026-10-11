@@ -31,10 +31,10 @@ export async function fetchPublicClients(relayUrl: string): Promise<PublicClient
   const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)));
   if (!response.ok) throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
   const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || typeof body.exampleClientId !== "string" || typeof body.daemonClientId !== "string") {
+  if (!isRecord(body) || typeof body.daemonClientId !== "string") {
     throw new Error("Mukae did not list its clients.");
   }
-  return { exampleClientId: body.exampleClientId, daemonClientId: body.daemonClientId };
+  return { daemonClientId: body.daemonClientId };
 }
 
 export async function createAuthorizationRequest(input: {
@@ -65,6 +65,7 @@ export async function exchangeAuthorizationCode(input: {
   callbackUrl: string;
   codeVerifier: string;
   state: string;
+  clientSecret?: string;
 }): Promise<MukaeTokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
@@ -75,10 +76,11 @@ export async function exchangeAuthorizationCode(input: {
   } catch (error) {
     throw new Error(oauthMessage(error, "Sign in again."));
   }
+  const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
   const response = await oauth.authorizationCodeGrantRequest(
     server,
     client,
-    oauth.None(),
+    auth,
     params,
     input.redirectUri,
     input.codeVerifier,
@@ -94,10 +96,12 @@ export async function refreshMukaeAccessToken(input: {
   relayUrl: string;
   clientId: string;
   refreshToken: string;
+  clientSecret?: string;
 }): Promise<MukaeTokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
-  const response = await oauth.refreshTokenGrantRequest(server, client, oauth.None(), input.refreshToken, requestOptions(input.relayUrl, originOf(input.relayUrl)));
+  const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
+  const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, requestOptions(input.relayUrl, originOf(input.relayUrl)));
   const tokens = await oauth.processRefreshTokenResponse(server, client, response).catch((error: unknown) => {
     throw new Error(oauthMessage(error, "Sign in again."));
   });
@@ -209,11 +213,20 @@ const accessKey = "mukae.accessToken";
 const refreshKey = "mukae.refreshToken";
 const expiresKey = "mukae.expiresAt";
 
-export async function beginBrowserSignIn(input: { relayUrl: string; redirectUri: string; store: BrowserStore }): Promise<string> {
-  const clients = await fetchPublicClients(input.relayUrl);
+export async function fetchMukaeUser(input: { relayUrl: string; accessToken: string }): Promise<{ sub: string }> {
+  const response = await fetch(new URL("/api/auth/oauth2/userinfo", originOf(input.relayUrl)), {
+    headers: { authorization: `Bearer ${input.accessToken}` },
+  });
+  if (!response.ok) throw new Error("Mukae did not identify the account.");
+  const body: unknown = await response.json().catch(() => undefined);
+  if (!isRecord(body) || typeof body.sub !== "string") throw new Error("Mukae did not identify the account.");
+  return { sub: body.sub };
+}
+
+export async function beginBrowserSignIn(input: { relayUrl: string; clientId: string; redirectUri: string; store: BrowserStore }): Promise<string> {
   const request = await createAuthorizationRequest({
     relayUrl: input.relayUrl,
-    clientId: clients.exampleClientId,
+    clientId: input.clientId,
     redirectUri: input.redirectUri,
   });
   input.store.setItem(verifierKey, request.codeVerifier);
@@ -223,21 +236,23 @@ export async function beginBrowserSignIn(input: { relayUrl: string; redirectUri:
 
 export async function finishBrowserSignIn(input: {
   relayUrl: string;
+  clientId: string;
   redirectUri: string;
   callbackUrl: string;
   store: BrowserStore;
+  clientSecret?: string;
 }): Promise<MukaeTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
   if (!codeVerifier || !state) throw new Error("Sign in again.");
-  const clients = await fetchPublicClients(input.relayUrl);
   const tokens = await exchangeAuthorizationCode({
     relayUrl: input.relayUrl,
-    clientId: clients.exampleClientId,
+    clientId: input.clientId,
     redirectUri: input.redirectUri,
     callbackUrl: input.callbackUrl,
     codeVerifier,
     state,
+    clientSecret: input.clientSecret,
   });
   writeBrowserTokens(input.store, tokens);
   input.store.removeItem(verifierKey);
@@ -245,15 +260,14 @@ export async function finishBrowserSignIn(input: {
   return tokens;
 }
 
-export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore }): Promise<string | undefined> {
+export async function storedAccessToken(input: { relayUrl: string; clientId: string; store: BrowserStore; clientSecret?: string }): Promise<string | undefined> {
   const accessToken = input.store.getItem(accessKey);
   const expiresAt = Number(input.store.getItem(expiresKey));
   if (accessToken && Number.isFinite(expiresAt) && expiresAt - Date.now() > refreshWindowMs) return accessToken;
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
   try {
-    const clients = await fetchPublicClients(input.relayUrl);
-    const tokens = await refreshMukaeAccessToken({ relayUrl: input.relayUrl, clientId: clients.exampleClientId, refreshToken });
+    const tokens = await refreshMukaeAccessToken({ relayUrl: input.relayUrl, clientId: input.clientId, refreshToken, clientSecret: input.clientSecret });
     writeBrowserTokens(input.store, tokens);
     return tokens.accessToken;
   } catch {

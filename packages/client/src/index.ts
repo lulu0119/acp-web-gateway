@@ -5,6 +5,7 @@ export {
   clearBrowserSignIn,
   createAuthorizationRequest,
   exchangeAuthorizationCode,
+  fetchMukaeUser,
   fetchPublicClients,
   finishBrowserSignIn,
   listMachines,

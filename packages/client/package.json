@@ -18,6 +18,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
     }
   },
   "scripts": {
@@ -29,8 +33,13 @@
     "@mukae/contract": "workspace:*",
     "oauth4webapi": "^3.8.8"
   },
+  "peerDependencies": {
+    "react": "^19"
+  },
   "devDependencies": {
     "@types/node": "^24.6.0",
+    "@types/react": "^19.2.0",
+    "react": "^19.2.0",
     "typescript": "^5.9.2"
   }
 }
