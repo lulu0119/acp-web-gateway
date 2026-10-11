@@ -1,40 +1,33 @@
-import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, listMachines, openConnection, storedAccessToken } from "@mukae/client";
+import { listMachines, openConnection } from "@mukae/client";
 import type { Machine } from "@mukae/contract";
 import { useEffect, useState } from "react";
+import type { AccountSession } from "@mukae/client/react";
 import { Button } from "@/components/ui/button";
 import { mukaeRelayUrl } from "@/lib/relay-url";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ConnectedAgent = { agentType: string; url: string; label: string };
 
-export function ConnectForm({ onConnected, onSignOut }: { onConnected: (agent: ConnectedAgent) => void; onSignOut: () => void }) {
+export function ConnectForm({ session, onConnected }: { session: AccountSession; onConnected: (agent: ConnectedAgent) => void }) {
   const relayUrl = mukaeRelayUrl();
-  const [status, setStatus] = useState("Checking the sign-in.");
-  const [accessToken, setAccessToken] = useState<string>();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [selection, setSelection] = useState("");
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+
+  const accessToken = session.account.phase === "signed-in" ? session.account.accessToken : undefined;
 
   useEffect(() => {
-    const store = window.sessionStorage;
-    const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
-    const returning = window.location.pathname === browserCallbackPath;
-    const token = returning
-      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
-          window.history.replaceState({}, "", "/");
-          return tokens.accessToken;
-        })
-      : storedAccessToken({ relayUrl, store });
+    if (!accessToken) {
+      setMachines([]);
+      setSelection("");
+      setStatus("");
+      return;
+    }
+    setStatus("Checking the sign-in.");
     let cancelled = false;
-    void token
-      .then(async (current) => {
-        if (cancelled) return;
-        if (!current) {
-          setStatus("");
-          return;
-        }
-        setAccessToken(current);
-        const listed = await listMachines(relayUrl, current);
+    void listMachines(relayUrl, accessToken)
+      .then((listed) => {
         if (cancelled) return;
         setMachines(listed);
         const first = listed.find((machine) => machine.agents.length > 0);
@@ -48,7 +41,7 @@ export function ConnectForm({ onConnected, onSignOut }: { onConnected: (agent: C
     return () => {
       cancelled = true;
     };
-  }, [relayUrl]);
+  }, [relayUrl, accessToken]);
 
   const items = machines.flatMap((machine) =>
     machine.agents.map((agent) => ({
@@ -60,44 +53,15 @@ export function ConnectForm({ onConnected, onSignOut }: { onConnected: (agent: C
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">Connect an agent</h2>
-        {accessToken && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              clearBrowserSignIn(window.sessionStorage);
-              onSignOut();
-              setAccessToken(undefined);
-              setMachines([]);
-              setSelection("");
-              setBusy(false);
-              setStatus("");
-            }}
-          >
-            Sign out
+      <h2 className="text-lg font-medium">Connect an agent</h2>
+      {session.account.phase === "checking" && <p className="text-muted-foreground text-sm">Checking the sign-in.</p>}
+      {session.account.phase === "signed-out" && (
+        <>
+          <Button disabled={session.busy} onClick={session.signIn}>
+            Sign in with Mukae
           </Button>
-        )}
-      </div>
-      {!accessToken && (
-        <Button
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
-            void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage })
-              .then((url) => {
-                window.location.assign(url);
-              })
-              .catch((error: unknown) => {
-                setStatus(error instanceof Error ? error.message : "Mukae did not answer.");
-                setBusy(false);
-              });
-          }}
-        >
-          Sign in with Mukae
-        </Button>
+          {session.error ? <p className="text-muted-foreground text-sm">{session.error}</p> : null}
+        </>
       )}
       {accessToken && items.length > 0 && (
         <>
@@ -140,7 +104,7 @@ export function ConnectForm({ onConnected, onSignOut }: { onConnected: (agent: C
           </Button>
         </>
       )}
-      <p className="text-muted-foreground min-h-5 text-sm">{status}</p>
+      <p className="text-muted-foreground min-h-5 text-sm">{accessToken ? status : ""}</p>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_MUKAE_URL?: string;
+  readonly VITE_MUKAE_CLIENT_ID?: string;
 }
 
 interface ImportMeta {

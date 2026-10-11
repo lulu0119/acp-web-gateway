@@ -5,11 +5,16 @@ import { ConnectForm, type ConnectedAgent } from "@/components/app/connect-form"
 import { ConnectionPane, type Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
+import type { AccountSession } from "@mukae/client/react";
+import { useAccount } from "@mukae/client/react";
+import { Button } from "@/components/ui/button";
+import { mukaeClientId, mukaeRelayUrl } from "@/lib/relay-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
@@ -48,11 +53,14 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
-  const signOut = useCallback(() => {
+  const session = useAccount(mukaeRelayUrl(), mukaeClientId());
+
+  const handleSignOut = useCallback(() => {
+    session.signOut();
     setConnections([]);
     setActiveId(undefined);
     setStatuses({});
-  }, []);
+  }, [session.signOut]);
 
   return (
     <TooltipProvider>
@@ -91,12 +99,37 @@ export function App() {
             </SidebarGroup>
             <div ref={setTreeSlot} />
           </SidebarContent>
+          <SidebarFooter>
+            {session.account.phase === "signed-in" ? (
+              <div className="flex items-center justify-between gap-2 px-2 py-1">
+                <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                  <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  Signed in
+                </span>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  Sign out
+                </Button>
+              </div>
+            ) : (
+              <div className="px-2 py-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start"
+                  disabled={session.busy || session.account.phase === "checking"}
+                  onClick={session.signIn}
+                >
+                  {session.account.phase === "checking" ? "Checking…" : "Sign in"}
+                </Button>
+              </div>
+            )}
+          </SidebarFooter>
           <SidebarRail />
         </Sidebar>
         <SidebarInset className="min-h-0">
           {connections.length === 0 && (
             <div className="flex flex-1 items-center justify-center p-6">
-              <ConnectForm onConnected={addConnection} onSignOut={signOut} />
+              <ConnectForm session={session} onConnected={addConnection} />
             </div>
           )}
           {connections.map((connection) => (
@@ -115,7 +148,7 @@ export function App() {
           <DialogHeader className="sr-only">
             <DialogTitle>Add a connection</DialogTitle>
           </DialogHeader>
-          <ConnectForm onConnected={addConnection} onSignOut={signOut} />
+          <ConnectForm session={session} onConnected={addConnection} />
         </DialogContent>
       </Dialog>
     </TooltipProvider>
