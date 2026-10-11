@@ -6,10 +6,11 @@ export const sessionsPath = "/api/sessions";
 export const exampleCallbackPath = "/oauth/callback";
 
 export const publicClientsPath = "/api/clients";
+export const clientRegistryPath = "/api/clients/register";
+export const grantsPath = "/api/grants";
 export const machinesScope = "machines offline_access";
 
 export type PublicClients = {
-  exampleClientId: string;
   daemonClientId: string;
 };
 
