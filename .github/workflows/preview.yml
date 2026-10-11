@@ -1,11 +1,6 @@
 name: Preview packages
 
 on:
-  push:
-    branches:
-      - "**"
-    tags:
-      - "!**"
   workflow_dispatch:
     inputs:
       sha:
@@ -30,4 +25,4 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mukae/client... --filter mukae... build
-      - run: pnpm exec pkg-pr-new publish --pnpm --previewVersion --no-compact --commentWithSha --packageManager=pnpm ./packages/contract ./packages/client ./packages/gateway
+      - run: pnpm exec pkg-pr-new publish --pnpm --previewVersion --no-compact --comment=off --no-template --packageManager=pnpm ./packages/contract ./packages/client ./packages/gateway
