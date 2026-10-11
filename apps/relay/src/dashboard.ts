@@ -3,6 +3,7 @@ import type { RelayEnv } from "./app.js";
 import type { MukaeAuth } from "./auth.js";
 import type { DashboardData } from "./dashboard-data.js";
 import type { Registry } from "./registry.js";
+import { readAccount, type Account } from "./account-session.js";
 import { dashboardShell } from "./web.js";
 
 export function mountDashboard(app: Hono<RelayEnv>, mukae: MukaeAuth, registry: Registry): void {
@@ -17,14 +18,6 @@ export function mountDashboard(app: Hono<RelayEnv>, mukae: MukaeAuth, registry: 
     if (!account) return c.json({ message: "Sign in again." }, 401);
     return c.json(readDashboard(account, registry));
   });
-}
-
-type Account = { userId: string; userName: string };
-
-async function readAccount(request: Request, mukae: MukaeAuth): Promise<Account | undefined> {
-  const session = await mukae.auth.api.getSession({ headers: request.headers });
-  if (!session) return undefined;
-  return { userId: session.session.userId, userName: session.user.name ?? "" };
 }
 
 function readDashboard(account: Account, registry: Registry): DashboardData {

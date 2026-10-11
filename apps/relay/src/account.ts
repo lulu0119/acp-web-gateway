@@ -2,6 +2,8 @@ import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
 import type { Hono } from "hono";
 import type { MukaeAuth } from "./auth.js";
 import type { RelayEnv } from "./app.js";
+import { readAccount } from "./account-session.js";
+import { findClientMeta, hasRememberedGrant } from "./grants.js";
 import { consentPage, deviceCodePage, devicePage, messagePage, signInPage } from "./pages.js";
 
 export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubConfigured: boolean): void {
@@ -34,7 +36,28 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
     const secret = (await mukae.auth.$context).secret;
     if (!(await verifyOAuthQueryParams(query, secret))) return c.html(messagePage("Approve", "This approval link is no longer valid."), 400);
     const params = new URLSearchParams(query);
-    return c.html(consentPage({ query, clientId: params.get("client_id") ?? "", scope: params.get("scope") ?? "" }));
+    const clientId = params.get("client_id") ?? "";
+    const scopes = (params.get("scope") ?? "").split(" ").filter((scope) => scope.length > 0);
+    const account = await readAccount(c.req.raw, mukae);
+    if (account && clientId && (await hasRememberedGrant(mukae, account, clientId, scopes))) {
+      const approved = await mukae.auth.api.oauth2Consent({
+        body: { accept: true, oauth_query: query },
+        headers: c.req.raw.headers,
+        request: c.req.raw,
+        asResponse: false,
+      });
+      if (approved.redirect) return c.redirect(approved.url);
+    }
+    const meta = clientId ? await findClientMeta(mukae, clientId) : undefined;
+    return c.html(
+      consentPage({
+        query,
+        clientId,
+        clientName: meta?.clientName ?? clientId,
+        redirectUri: params.get("redirect_uri") ?? "",
+        scope: params.get("scope") ?? "",
+      }),
+    );
   });
 
   app.post("/consent", async (c) => {

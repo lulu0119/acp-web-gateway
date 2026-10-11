@@ -11,7 +11,7 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
   const { app, injectWebSocket } = createRelayApp({
     registry,
     origins: ["http://127.0.0.1:47100"],
-    clients: { exampleClientId: "example-client", daemonClientId: "daemon-client" },
+    clients: { daemonClientId: "daemon-client" },
     publicUrl: "https://relay.example.test",
     readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
   });

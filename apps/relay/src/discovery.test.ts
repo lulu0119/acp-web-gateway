@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import { Hono } from "hono";
 import test from "node:test";
 import { openMukaeAuth } from "./auth.js";
-import { ensurePublicClients } from "./clients.js";
+import { ensureDaemonClient } from "./clients.js";
 
 test("discovery lists sign-in and device sign-in", async () => {
   const mukae = await openMukaeAuth({
@@ -15,7 +15,7 @@ test("discovery lists sign-in and device sign-in", async () => {
     githubClientSecret: "github-secret",
     origins: ["http://127.0.0.1:47100"],
   });
-  const clients = await ensurePublicClients(mukae, { redirectUri: "http://127.0.0.1:47100/oauth/callback" });
+  const daemonClientId = await ensureDaemonClient(mukae);
   const app = new Hono();
   app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
   const discovery = await app.request("http://127.0.0.1:8787/api/auth/.well-known/openid-configuration");
@@ -28,7 +28,7 @@ test("discovery lists sign-in and device sign-in", async () => {
   const device = await app.request("http://127.0.0.1:8787/api/auth/device/code", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: clients.daemonClientId, scope: machinesScope, resource: "http://127.0.0.1:8787" }),
+    body: new URLSearchParams({ client_id: daemonClientId, scope: machinesScope, resource: "http://127.0.0.1:8787" }),
   });
   assert.equal(device.status, 200);
   const body = (await device.json()) as { user_code?: string; verification_uri?: string };

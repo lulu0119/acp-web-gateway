@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { DashboardData } from "../../src/dashboard-data.js";
 import { Badge } from "./ui/badge";
 import { readProps } from "./lib/props";
+import { GrantsSection } from "./components/grants-section";
 import { SetupGuide } from "./components/setup-guide";
 import { UserMenu } from "./components/user-menu";
 
@@ -97,6 +98,7 @@ export function Dashboard() {
         </div>
       )}
 
+      <GrantsSection />
 
       <p className="text-sm text-muted-foreground">
         <a href="/device" className="underline underline-offset-4">

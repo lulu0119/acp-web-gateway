@@ -1,0 +1,125 @@
+import assert from "node:assert/strict";
+import Database from "better-sqlite3";
+import { Hono } from "hono";
+import test from "node:test";
+import { mountAccountPages } from "./account.js";
+import type { RelayEnv } from "./app.js";
+import { openMukaeAuth, type MukaeAuth } from "./auth.js";
+import { mountClientRegistry } from "./grants.js";
+
+const publicUrl = "http://127.0.0.1:8787";
+const secret = "test-secret-test-secret-test-secret";
+
+test("registering a client needs a signed-in account and a clean name", async () => {
+  const { app } = await openRegistry();
+  const anonymous = await app.request(`${publicUrl}/api/clients/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: false }),
+  });
+  assert.equal(anonymous.status, 401);
+});
+
+test("a signed-in account registers, lists, revokes, and re-approves", async () => {
+  const { app, cookie } = await openRegistry();
+  const registered = await app.request(`${publicUrl}/api/clients/register`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: true }),
+  });
+  assert.equal(registered.status, 201);
+  const created = (await registered.json()) as { clientId?: string; clientSecret?: string };
+  assert.ok(created.clientId);
+  assert.ok(created.clientSecret);
+
+  const rejected = await app.request(`${publicUrl}/api/clients/register`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ clientName: "Mukae Clone", redirectUris: ["https://app.example.test/callback"], confidential: false }),
+  });
+  assert.equal(rejected.status, 400);
+
+  const clientId = created.clientId ?? "";
+  const firstLocation = await authorizeLocation(app, cookie, clientId, "https://app.example.test/callback");
+  assert.equal(new URL(firstLocation, publicUrl).pathname, "/consent");
+  const query = new URL(firstLocation, publicUrl).search.slice(1);
+
+  const first = await app.request(`${publicUrl}/consent?${query}`, { headers: { cookie } });
+  assert.equal(first.status, 200);
+  const approved = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query }),
+  });
+  assert.equal(approved.status, 302);
+
+  const listed = await app.request(`${publicUrl}/api/grants`, { headers: { cookie } });
+  assert.equal(listed.status, 200);
+  const grants = (await listed.json()) as { apps: { clientId: string; clientName: string }[] };
+  assert.deepEqual(
+    grants.apps.map((item) => ({ clientId: item.clientId, clientName: item.clientName })),
+    [{ clientId, clientName: "Studio" }],
+  );
+
+  const secondLocation = await authorizeLocation(app, cookie, clientId, "https://app.example.test/callback");
+  const remembered = new URL(secondLocation);
+  assert.equal(remembered.origin + remembered.pathname, "https://app.example.test/callback");
+  assert.equal(typeof remembered.searchParams.get("code"), "string");
+
+  const revoked = await app.request(`${publicUrl}/api/grants/revoke`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ clientId }),
+  });
+  assert.equal(revoked.status, 200);
+
+  const emptied = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: unknown[] };
+  assert.deepEqual(emptied.apps, []);
+
+  const thirdLocation = await authorizeLocation(app, cookie, clientId, "https://app.example.test/callback");
+  assert.equal(new URL(thirdLocation, publicUrl).pathname, "/consent");
+  const thirdQuery = new URL(thirdLocation, publicUrl).search.slice(1);
+  const asked = await app.request(`${publicUrl}/consent?${thirdQuery}`, { headers: { cookie } });
+  assert.equal(asked.status, 200);
+});
+
+async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: string, redirectUri: string): Promise<string> {
+  const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
+  authorize.searchParams.set("client_id", clientId);
+  authorize.searchParams.set("redirect_uri", redirectUri);
+  authorize.searchParams.set("response_type", "code");
+  authorize.searchParams.set("scope", "machines offline_access");
+  authorize.searchParams.set("state", "browser-state");
+  authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+  authorize.searchParams.set("code_challenge_method", "S256");
+  authorize.searchParams.set("resource", publicUrl);
+  const prompted = await app.request(authorize, { headers: { cookie } });
+  assert.equal(prompted.status, 302);
+  return prompted.headers.get("location") ?? "";
+}
+
+async function openRegistry() {
+  const mukae: MukaeAuth = await openMukaeAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+    origins: ["http://127.0.0.1:47100"],
+  });
+  const context = await mukae.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  const app = new Hono<RelayEnv>();
+  mountAccountPages(app, mukae, true);
+  mountClientRegistry(app, mukae);
+  app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
+  return { app, cookie: await sessionCookie(session.token, secret) };
+}
+
+async function sessionCookie(token: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
+  const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  return `better-auth.session_token=${token}.${encoded}`;
+}

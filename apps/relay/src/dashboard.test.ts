@@ -37,6 +37,18 @@ test("a signed-in account sees its own machines and connections", async () => {
   daemon.close();
 });
 
+test("signing out ends the cookie session", async () => {
+  const { app, cookie } = await openDashboard();
+  const signedOut = await app.request("http://127.0.0.1:8787/api/auth/sign-out", {
+    method: "POST",
+    headers: { cookie, origin: "http://127.0.0.1:8787" },
+  });
+  assert.equal(signedOut.status, 200);
+  const home = await app.request("http://127.0.0.1:8787/", { headers: { cookie } });
+  assert.equal(home.status, 302);
+  assert.equal(home.headers.get("location"), "/sign-in?next=%2F");
+});
+
 async function openDashboard() {
   const publicUrl = "http://127.0.0.1:8787";
   const secret = "test-secret-test-secret-test-secret";
@@ -57,6 +69,7 @@ async function openDashboard() {
   const registry = createRegistry();
   const app = new Hono<RelayEnv>();
   mountDashboard(app, mukae, registry);
+  app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
   return { app, registry, userId: user.id, cookie: await sessionCookie(created.token, secret) };
 }
 

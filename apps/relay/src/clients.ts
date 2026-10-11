@@ -1,34 +1,169 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
-import type { PublicClients } from "@mukae/contract";
+import { randomBytes } from "node:crypto";
 import { machinesScope } from "@mukae/contract";
 import type { MukaeAuth } from "./auth.js";
 
-const exampleSoftwareId = "mukae-example";
 const daemonSoftwareId = "mukae-daemon";
+const userSoftwarePrefix = "mukae-user-client:";
+export const maxClientsPerUser = 10;
+
+export type ClientRegistration = {
+  clientName: string;
+  redirectUris: string[];
+  logoUri?: string;
+  clientUri?: string;
+  confidential: boolean;
+};
+
+export type RegisteredClient = {
+  clientId: string;
+  clientSecret?: string;
+};
+
+export type RegistrationParse =
+  | { ok: true; value: ClientRegistration }
+  | { ok: false; errors: string[] };
+
+export function parseClientRegistration(body: unknown): RegistrationParse {
+  const errors: string[] = [];
+  const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const clientName = typeof record.clientName === "string" ? record.clientName.trim() : "";
+  const redirectUris = Array.isArray(record.redirectUris) ? record.redirectUris.filter((uri): uri is string => typeof uri === "string") : [];
+  const logoUri = record.logoUri === undefined ? undefined : typeof record.logoUri === "string" ? record.logoUri.trim() : "";
+  const clientUri = record.clientUri === undefined ? undefined : typeof record.clientUri === "string" ? record.clientUri.trim() : "";
+  const confidential = record.confidential;
+
+  if (clientName.length === 0) errors.push("Give the client a name.");
+  if (clientName.length > 64) errors.push("Keep the name under 64 characters.");
+  if (/^mukae/i.test(clientName)) errors.push("Names starting with Mukae are reserved.");
+  if (redirectUris.length === 0) errors.push("Add at least one redirect address.");
+  if (redirectUris.length > 8) errors.push("Keep at most 8 redirect addresses.");
+  for (const uri of redirectUris) {
+    const problem = redirectProblem(uri);
+    if (problem) errors.push(problem);
+  }
+  if (logoUri !== undefined && logoUri.length > 0 && !isHttpsUrl(logoUri)) errors.push("The logo must be an https address.");
+  if (clientUri !== undefined && clientUri.length > 0 && !isHttpsUrl(clientUri)) errors.push("The homepage must be an https address.");
+  if (typeof confidential !== "boolean") errors.push("Say whether the client keeps a secret.");
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      clientName,
+      redirectUris,
+      logoUri: logoUri && logoUri.length > 0 ? logoUri : undefined,
+      clientUri: clientUri && clientUri.length > 0 ? clientUri : undefined,
+      confidential: confidential as boolean,
+    },
+  };
+}
+
+function redirectProblem(uri: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    return `Redirect ${uri} is not an address.`;
+  }
+  if (url.hash) return `Redirect ${uri} must not carry a fragment.`;
+  if (url.username || url.password) return `Redirect ${uri} must not carry credentials.`;
+  if (url.protocol === "https:") return undefined;
+  if (url.protocol === "http:" && isLoopback(url.hostname)) return undefined;
+  return `Redirect ${uri} must be https, or http on this computer.`;
+}
+
+function isLoopback(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+function isHttpsUrl(uri: string): boolean {
+  try {
+    return new URL(uri).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export async function ensureDaemonClient(mukae: MukaeAuth): Promise<string> {
+  const existing = await findClientId(mukae, daemonSoftwareId);
+  if (existing) {
+    await linkResource(mukae, existing);
+    return existing;
+  }
+  const created = await withOwner(mukae, (headers) =>
+    mukae.auth.api.adminCreateOAuthClient({
+      headers,
+      body: {
+        software_id: daemonSoftwareId,
+        client_name: "Mukae daemon",
+        application_type: "native",
+        redirect_uris: [`${mukae.publicUrl}/device/done`],
+        grant_types: [DEVICE_CODE_GRANT_TYPE, "refresh_token"],
+        token_endpoint_auth_method: "none",
+        response_types: [],
+        scope: machinesScope,
+        skip_consent: false,
+      },
+    }),
+  );
+  if (!created.client_id) throw new Error("Mukae could not register the daemon client.");
+  await linkResource(mukae, created.client_id);
+  return created.client_id;
+}
+
+export async function registerClient(mukae: MukaeAuth, ownerUserId: string, input: ClientRegistration): Promise<RegisteredClient> {
+  const owned = await userClientCount(mukae, ownerUserId);
+  if (owned >= maxClientsPerUser) throw new Error(`Each account can register at most ${maxClientsPerUser} clients.`);
+  const created = await withOwner(mukae, (headers) =>
+    mukae.auth.api.adminCreateOAuthClient({
+      headers,
+      body: {
+        software_id: `${userSoftwarePrefix}${ownerUserId}:${randomBytes(4).toString("hex")}`,
+        client_name: input.clientName,
+        client_uri: input.clientUri,
+        logo_uri: input.logoUri,
+        application_type: applicationTypeForRedirects(input.redirectUris),
+        redirect_uris: input.redirectUris,
+        grant_types: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_method: input.confidential ? "client_secret_basic" : "none",
+        response_types: ["code"],
+        scope: machinesScope,
+        skip_consent: false,
+      },
+    }),
+  );
+  if (!created.client_id) throw new Error("Mukae could not register the client.");
+  await linkResource(mukae, created.client_id);
+  return { clientId: created.client_id, clientSecret: input.confidential ? created.client_secret ?? undefined : undefined };
+}
+
+function applicationTypeForRedirects(redirectUris: string[]): "web" | "native" {
+  const loopbackOnly = redirectUris.every((uri) => {
+    try {
+      const url = new URL(uri);
+      return url.protocol === "http:" && isLoopback(url.hostname);
+    } catch {
+      return false;
+    }
+  });
+  return loopbackOnly ? "native" : "web";
+}
 
 type StoredClient = { clientId?: string; softwareId?: string | null };
 
-export async function ensurePublicClients(
-  mukae: MukaeAuth,
-  input: { redirectUri: string },
-): Promise<PublicClients> {
-  const exampleClientId = await ensureClient(mukae, {
-    softwareId: exampleSoftwareId,
-    clientName: "Example",
-    applicationType: applicationTypeForRedirect(input.redirectUri),
-    redirectUris: [input.redirectUri],
-    grantTypes: ["authorization_code", "refresh_token"],
+async function userClientCount(mukae: MukaeAuth, ownerUserId: string): Promise<number> {
+  const context = await mukae.auth.$context;
+  const rows = await context.adapter.findMany<StoredClient>({ model: "oauthClient", where: [] });
+  return rows.filter((row) => row.softwareId?.startsWith(`${userSoftwarePrefix}${ownerUserId}:`)).length;
+}
+
+async function findClientId(mukae: MukaeAuth, softwareId: string): Promise<string | undefined> {
+  const context = await mukae.auth.$context;
+  const rows = await context.adapter.findMany<StoredClient>({
+    model: "oauthClient",
+    where: [{ field: "softwareId", value: softwareId }],
   });
-  const daemonClientId = await ensureClient(mukae, {
-    softwareId: daemonSoftwareId,
-    clientName: "Mukae daemon",
-    applicationType: "native",
-    redirectUris: [`${mukae.publicUrl}/device/done`],
-    grantTypes: [DEVICE_CODE_GRANT_TYPE, "refresh_token"],
-  });
-  await linkResource(mukae, exampleClientId);
-  await linkResource(mukae, daemonClientId);
-  return { exampleClientId, daemonClientId };
+  return rows.find((row) => row.softwareId === softwareId)?.clientId;
 }
 
 async function withOwner<T>(mukae: MukaeAuth, run: (headers: Headers) => Promise<T>): Promise<T> {
@@ -51,52 +186,6 @@ async function withOwner<T>(mukae: MukaeAuth, run: (headers: Headers) => Promise
 }
 
 const ownerEmail = "setup@mukae.invalid";
-
-function applicationTypeForRedirect(redirectUri: string): "web" | "native" {
-  const url = new URL(redirectUri);
-  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
-  if (url.protocol === "http:" && loopback) return "native";
-  return "web";
-}
-
-async function ensureClient(
-  mukae: MukaeAuth,
-  input: {
-    softwareId: string;
-    clientName: string;
-    applicationType: "web" | "native";
-    redirectUris: string[];
-    grantTypes: string[];
-  },
-): Promise<string> {
-  const existing = await findClientId(mukae, input.softwareId);
-  if (existing) return existing;
-  const created = await withOwner(mukae, (headers) => mukae.auth.api.adminCreateOAuthClient({
-    headers,
-    body: {
-      software_id: input.softwareId,
-      client_name: input.clientName,
-      application_type: input.applicationType,
-      redirect_uris: input.redirectUris,
-      grant_types: input.grantTypes,
-      token_endpoint_auth_method: "none",
-      response_types: input.grantTypes.includes("authorization_code") ? ["code"] : [],
-      scope: machinesScope,
-      skip_consent: false,
-    },
-  }));
-  if (!created.client_id) throw new Error(`Mukae could not register the ${input.clientName} client.`);
-  return created.client_id;
-}
-
-async function findClientId(mukae: MukaeAuth, softwareId: string): Promise<string | undefined> {
-  const context = await mukae.auth.$context;
-  const rows = await context.adapter.findMany<StoredClient>({
-    model: "oauthClient",
-    where: [{ field: "softwareId", value: softwareId }],
-  });
-  return rows.find((row) => row.softwareId === softwareId)?.clientId;
-}
 
 async function linkResource(mukae: MukaeAuth, clientId: string): Promise<void> {
   await withOwner(mukae, (headers) => mukae.auth.api.adminLinkClientResource({

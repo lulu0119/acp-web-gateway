@@ -6,7 +6,7 @@ import test from "node:test";
 import { mountAccountPages } from "./account.js";
 import type { RelayEnv } from "./app.js";
 import { openMukaeAuth } from "./auth.js";
-import { ensurePublicClients } from "./clients.js";
+import { ensureDaemonClient, registerClient } from "./clients.js";
 
 test("github sign-in sends the state cookie the callback checks", async () => {
   const publicUrl = "http://127.0.0.1:8787";
@@ -52,9 +52,13 @@ test("approving a web app redirects back with an authorization code", async () =
     githubClientSecret: "github-secret",
     origins: ["http://127.0.0.1:47100"],
   });
-  const clients = await ensurePublicClients(mukae, { redirectUri });
   const context = await mukae.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const registered = await registerClient(mukae, user.id, {
+    clientName: "Example",
+    redirectUris: [redirectUri],
+    confidential: false,
+  });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
   const app = new Hono<RelayEnv>();
@@ -62,7 +66,7 @@ test("approving a web app redirects back with an authorization code", async () =
   app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
 
   const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
-  authorize.searchParams.set("client_id", clients.exampleClientId);
+  authorize.searchParams.set("client_id", registered.clientId);
   authorize.searchParams.set("redirect_uri", redirectUri);
   authorize.searchParams.set("response_type", "code");
   authorize.searchParams.set("scope", machinesScope);
@@ -98,7 +102,7 @@ test("approving a machine claims the code before it is approved", async () => {
     githubClientSecret: "github-secret",
     origins: ["http://127.0.0.1:47100"],
   });
-  const clients = await ensurePublicClients(mukae, { redirectUri: "http://127.0.0.1:47100/oauth/callback" });
+  const daemonClientId = await ensureDaemonClient(mukae);
   const context = await mukae.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
@@ -110,7 +114,7 @@ test("approving a machine claims the code before it is approved", async () => {
   const started = await app.request(`${publicUrl}/api/auth/device/code`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: clients.daemonClientId, scope: machinesScope, resource: publicUrl }),
+    body: new URLSearchParams({ client_id: daemonClientId, scope: machinesScope, resource: publicUrl }),
   });
   assert.equal(started.status, 200);
   const pending = (await started.json()) as { user_code?: string; device_code?: string };
@@ -137,7 +141,7 @@ test("approving a machine claims the code before it is approved", async () => {
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       device_code: pending.device_code ?? "",
-      client_id: clients.daemonClientId,
+      client_id: daemonClientId,
       resource: publicUrl,
     }),
   });

@@ -6,3 +6,19 @@ export type DashboardData = {
   machines: Machine[];
   sessions: LiveSessionInfo[];
 };
+
+export type GrantedApp = {
+  clientId: string;
+  clientName: string;
+  logoUri?: string;
+  clientUri?: string;
+  scopes: string[];
+  grantedAt: string;
+};
+
+export type ClientMeta = {
+  clientId: string;
+  clientName: string;
+  logoUri?: string;
+  clientUri?: string;
+};

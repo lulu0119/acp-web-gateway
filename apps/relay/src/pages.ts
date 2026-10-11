@@ -21,17 +21,21 @@ export function signInPage(input: { query: string; configured: boolean }): strin
   );
 }
 
-export function consentPage(input: { query: string; clientId: string; scope: string }): string {
+export function consentPage(input: { query: string; clientId: string; clientName: string; redirectUri: string; scope: string }): string {
   const fields = `${hidden("query", input.query)}`;
+  const callback = input.redirectUri
+    ? `<p class="mt-3 font-mono text-xs break-all text-muted-foreground">${escapeHtml(input.redirectUri)}</p>`
+    : "";
+  const heading = input.clientName === input.clientId ? "Approve this web app" : `Approve ${escapeHtml(input.clientName)}`;
   return layout(
     "Approve",
     `<p class="text-sm text-muted-foreground">mukae</p>
-     <h1 class="text-4xl font-semibold tracking-tight">Approve this web app</h1>
+     <h1 class="text-4xl font-semibold tracking-tight">${heading}</h1>
      ${chain(1)}
      <div class="rounded-xl border border-border bg-card p-5">
        <p class="font-mono text-sm">${escapeHtml(input.clientId)}</p>
        <p class="mt-1 text-sm text-muted-foreground">is asking for ${escapeHtml(input.scope || "access")}.</p>
-       <p class="mt-3 text-sm">Approving lets that site see your online machines and open an agent on one of them.</p>
+       <p class="mt-3 text-sm">Approving lets that site see your online machines and open an agent on one of them.</p>${callback}
      </div>
      <div class="flex gap-3">
        <form method="post" action="/consent">${fields}<button name="accept" value="yes" type="submit" class="${primaryButton}">Approve</button></form>
