@@ -3,22 +3,29 @@ import type { DashboardData } from "../../src/dashboard-data.js";
 import { Badge } from "./ui/badge";
 import { readProps } from "./lib/props";
 import { SetupGuide } from "./components/setup-guide";
+import { UserMenu } from "./components/user-menu";
 
 const fallback: DashboardData = { userName: "", machines: [], sessions: [] };
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData>(() => readProps(fallback));
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
         const response = await fetch("/api/dashboard", { headers: { accept: "application/json" } });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) setStale(true);
+          return;
+        }
         const next = (await response.json()) as DashboardData;
-        if (!cancelled) setData(next);
+        if (cancelled) return;
+        setData(next);
+        setStale(false);
       } catch {
-        return;
+        if (!cancelled) setStale(true);
       }
     };
     const timer = setInterval(load, 5000);
@@ -36,18 +43,22 @@ export function Dashboard() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-10 px-6 pt-20 pb-24">
       <header className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">mukae</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">mukae</p>
+          <UserMenu userName={data.userName} />
+        </div>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Machines</h1>
         <p className="text-lg leading-relaxed text-muted-foreground">
           {data.userName ? `Signed in as ${data.userName}. ` : ""}A web app reaches an agent on one of these
           computers through your account.
         </p>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Badge variant="secondary">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             {data.machines.length} online
           </Badge>
           <Badge variant="secondary">{data.sessions.length} connections</Badge>
+          {stale ? <span className="text-sm text-muted-foreground">Couldn't refresh just now. Retrying…</span> : null}
         </div>
       </header>
 
@@ -85,6 +96,7 @@ export function Dashboard() {
           ))}
         </div>
       )}
+
 
       <p className="text-sm text-muted-foreground">
         <a href="/device" className="underline underline-offset-4">
