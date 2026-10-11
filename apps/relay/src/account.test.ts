@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { machinesScope } from "@mukae/contract";
 import Database from "better-sqlite3";
 import { Hono } from "hono";
 import test from "node:test";
 import { mountAccountPages } from "./account.js";
 import type { RelayEnv } from "./app.js";
 import { openMukaeAuth } from "./auth.js";
+import { ensurePublicClients } from "./clients.js";
 
 test("github sign-in sends the state cookie the callback checks", async () => {
   const publicUrl = "http://127.0.0.1:8787";
@@ -37,3 +39,57 @@ test("github sign-in sends the state cookie the callback checks", async () => {
   const error = new URL(callback.headers.get("location") ?? publicUrl).searchParams.get("error");
   assert.equal(error, "invalid_code");
 });
+
+test("approving a web app redirects back with an authorization code", async () => {
+  const publicUrl = "http://127.0.0.1:8787";
+  const redirectUri = "http://127.0.0.1:47100/oauth/callback";
+  const secret = "test-secret-test-secret-test-secret";
+  const mukae = await openMukaeAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+    origins: ["http://127.0.0.1:47100"],
+  });
+  const clients = await ensurePublicClients(mukae, { redirectUri });
+  const context = await mukae.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  const cookie = await sessionCookie(session.token, secret);
+  const app = new Hono<RelayEnv>();
+  mountAccountPages(app, mukae, true);
+  app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
+
+  const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
+  authorize.searchParams.set("client_id", clients.exampleClientId);
+  authorize.searchParams.set("redirect_uri", redirectUri);
+  authorize.searchParams.set("response_type", "code");
+  authorize.searchParams.set("scope", machinesScope);
+  authorize.searchParams.set("state", "browser-state");
+  authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+  authorize.searchParams.set("code_challenge_method", "S256");
+  authorize.searchParams.set("resource", publicUrl);
+  const prompted = await app.request(authorize, { headers: { cookie } });
+  assert.equal(prompted.status, 302);
+  const consent = new URL(prompted.headers.get("location") ?? "", publicUrl);
+  assert.equal(consent.pathname, "/consent");
+
+  const approved = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query: consent.search.slice(1) }),
+  });
+  assert.equal(approved.status, 302);
+  const back = new URL(approved.headers.get("location") ?? "");
+  assert.equal(back.origin + back.pathname, redirectUri);
+  assert.equal(back.searchParams.get("state"), "browser-state");
+  assert.equal(typeof back.searchParams.get("code"), "string");
+});
+
+async function sessionCookie(token: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
+  const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  return `better-auth.session_token=${token}.${encoded}`;
+}

@@ -44,6 +44,8 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
     const result = await mukae.auth.api.oauth2Consent({
       body: { accept, oauth_query: query },
       headers: c.req.raw.headers,
+      request: c.req.raw,
+      asResponse: false,
     });
     if (result.redirect) return c.redirect(result.url);
     return c.html(messagePage("Approve", "Mukae could not finish approval."), 502);
