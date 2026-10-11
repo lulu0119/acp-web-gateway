@@ -15,7 +15,7 @@ pnpm workspace:
 - `packages/gateway` — the `mukae` daemon and `agent-config`
 - `packages/client` — sign-in and session open for a web app or the daemon
 - `packages/react-hooks` — React hooks shared by the apps, such as `useCopyToClipboard`
-- `apps/example` — a page that signs in, lists machines, and opens an agent. The preview workflow publishes it at https://example.mukae.workers.dev/
+- `apps/example` — a page that signs in, lists machines, and opens an agent. Coolify builds this image and the relay image from their Dockerfiles.
 
 ## Flow
 
@@ -33,7 +33,7 @@ pnpm workspace:
 3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
 4. The web app lists the account's online machines and asks Mukae to open one agent. Mukae returns a one-time WebSocket address. The page uses that address as the ACP connection.
 
-Pass `--relay` to `login` and `daemon` when Mukae is not `http://127.0.0.1:8787`. Example reads `VITE_MUKAE_URL` at build time for the same reason.
+Pass `--relay` to `login` and `daemon` when Mukae is not `http://127.0.0.1:8787`. Example reads `VITE_MUKAE_URL` at image build time for the same reason. A push to `main` publishes `mukae`, `@mukae/contract`, and `@mukae/client` from this repository. npm comes later, when the product is ready.
 
 ## Scripts
 
@@ -50,6 +50,7 @@ node packages/gateway/dist/cli.js daemon
 ## Decisions
 
 - [An account relays a web app to a machine](docs/adr/0008-account-relay.md)
+- [Coolify hosts Mukae](docs/adr/0010-coolify-hosts-mukae.md)
 - [The daemon launches agents from the ACP Registry](docs/adr/0009-acp-registry-launch.md)
 - [ACP frames pass through](docs/adr/0002-passthrough-acp-frames.md)
 - [Product name: Mukae](docs/adr/0004-product-name-mukae.md)
