@@ -73,15 +73,27 @@ test("machine list and session open use the access token", async () => {
   }
 });
 
-test("a web app without a client id registers once and reuses it", async () => {
+test("a web app without a client id starts approval without one", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
   try {
-    const first = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
-    assert.equal(first.searchParams.get("client_id"), "auto-client");
-    const second = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
-    assert.equal(second.searchParams.get("client_id"), "auto-client");
-    assert.equal(relay.registerCalls(), 1);
+    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
+    assert.equal(url.searchParams.get("client_id"), "pending-client");
+    assert.ok(store.getItem("mukae.codeVerifier"));
+    assert.ok(store.getItem("mukae.state"));
+    const callback = new URL("/oauth/callback", relay.origin);
+    callback.searchParams.set("code", "code-1");
+    callback.searchParams.set("state", store.getItem("mukae.state") ?? "");
+    callback.searchParams.set("iss", `${relay.origin}/api/auth`);
+    callback.searchParams.set("client_id", "pending-client");
+    const tokens = await finishBrowserSignIn({
+      relayUrl: relay.origin,
+      redirectUri: `${relay.origin}/oauth/callback`,
+      callbackUrl: callback.href,
+      store,
+    });
+    assert.equal(tokens.accessToken, "access-1");
+    assert.equal(store.getItem(`mukae.clientId:${relay.origin}`), "pending-client");
   } finally {
     relay.close();
   }
@@ -115,9 +127,8 @@ function memoryStore(): BrowserStore {
   };
 }
 
-async function fakeRelay(): Promise<{ origin: string; close: () => void; registerCalls: () => number }> {
-  let devicePolls = 0;
-  let registerCalls = 0;  const server: Server = createServer((request, response) => {
+async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
+  let devicePolls = 0;  const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -145,9 +156,8 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void; registe
       });
     }
     if (url.pathname === "/api/clients") return json(response, { daemonClientId: "daemon-client" });
-    if (url.pathname === "/api/clients/register") {
-      registerCalls += 1;
-      return json(response, { clientId: "auto-client", clientSecret: undefined });
+    if (url.pathname === "/api/authorize-request") {
+      return json(response, { url: `${origin}/api/auth/oauth2/authorize?client_id=pending-client` });
     }
     if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
@@ -179,7 +189,7 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void; registe
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The fake relay did not bind.");
-  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close(), registerCalls: () => registerCalls };
+  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close() };
 }
 
 function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {

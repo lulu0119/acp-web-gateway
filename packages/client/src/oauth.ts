@@ -1,5 +1,5 @@
 import {
-  clientRegistryPath,
+  authorizeRequestPath,
   exampleCallbackPath,
   machinesPath,
   machinesScope,
@@ -224,18 +224,33 @@ export async function fetchMukaeUser(input: { relayUrl: string; accessToken: str
   return { sub: body.sub };
 }
 
-export async function registerPublicClient(input: { relayUrl: string; clientName: string; redirectUri: string }): Promise<string> {
-  const response = await fetch(new URL(clientRegistryPath, originOf(input.relayUrl)), {
+export async function requestApprovalUrl(input: {
+  relayUrl: string;
+  redirectUri: string;
+  clientName?: string;
+  logoUri?: string;
+  scope?: string;
+  state: string;
+  codeChallenge: string;
+}): Promise<string> {
+  const response = await fetch(new URL(authorizeRequestPath, originOf(input.relayUrl)), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ clientName: input.clientName, redirectUris: [input.redirectUri], confidential: false }),
+    body: JSON.stringify({
+      clientName: input.clientName ?? `Web app at ${new URL(input.redirectUri).origin}`,
+      logoUri: input.logoUri,
+      redirectUri: input.redirectUri,
+      scopes: (input.scope ?? machinesScope).split(" ").filter((scope) => scope.length > 0),
+      state: input.state,
+      codeChallenge: input.codeChallenge,
+    }),
   });
   const body: unknown = await response.json().catch(() => undefined);
-  if (!response.ok || !isRecord(body) || typeof body.clientId !== "string") {
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Mukae did not register the app.";
+  if (!response.ok || !isRecord(body) || typeof body.url !== "string") {
+    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Mukae did not start the approval.";
     throw new Error(message);
   }
-  return body.clientId;
+  return body.url;
 }
 
 function cachedClientId(store: BrowserStore, relayUrl: string): string | undefined {
@@ -257,27 +272,28 @@ export async function beginBrowserSignIn(input: {
   clientId?: string;
   clientName?: string;
 }): Promise<string> {
-  const clientId =
-    input.clientId ?? cachedClientId(input.store, input.relayUrl) ?? (await registerAndCache(input));
-  const request = await createAuthorizationRequest({
+  if (input.clientId) {
+    const request = await createAuthorizationRequest({
+      relayUrl: input.relayUrl,
+      clientId: input.clientId,
+      redirectUri: input.redirectUri,
+    });
+    input.store.setItem(verifierKey, request.codeVerifier);
+    input.store.setItem(stateKey, request.state);
+    return request.url;
+  }
+  const codeVerifier = oauth.generateRandomCodeVerifier();
+  const state = oauth.generateRandomState();
+  const url = await requestApprovalUrl({
     relayUrl: input.relayUrl,
-    clientId,
     redirectUri: input.redirectUri,
+    clientName: input.clientName,
+    state,
+    codeChallenge: await oauth.calculatePKCECodeChallenge(codeVerifier),
   });
-  input.store.setItem(verifierKey, request.codeVerifier);
-  input.store.setItem(stateKey, request.state);
-  return request.url;
-}
-
-async function registerAndCache(input: { relayUrl: string; redirectUri: string; store: BrowserStore; clientName?: string }): Promise<string> {
-  const origin = new URL(input.redirectUri).origin;
-  const clientId = await registerPublicClient({
-    relayUrl: input.relayUrl,
-    clientName: input.clientName ?? `Web app at ${origin}`,
-    redirectUri: input.redirectUri,
-  });
-  cacheClientId(input.store, input.relayUrl, clientId);
-  return clientId;
+  input.store.setItem(verifierKey, codeVerifier);
+  input.store.setItem(stateKey, state);
+  return url;
 }
 
 export async function finishBrowserSignIn(input: {
@@ -290,7 +306,7 @@ export async function finishBrowserSignIn(input: {
 }): Promise<MukaeTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
-  const clientId = input.clientId ?? cachedClientId(input.store, input.relayUrl);
+  const clientId = input.clientId ?? callbackClientId(input.callbackUrl) ?? cachedClientId(input.store, input.relayUrl);
   if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
   const tokens = await exchangeAuthorizationCode({
     relayUrl: input.relayUrl,
@@ -302,9 +318,18 @@ export async function finishBrowserSignIn(input: {
     clientSecret: input.clientSecret,
   });
   writeBrowserTokens(input.store, tokens);
+  cacheClientId(input.store, input.relayUrl, clientId);
   input.store.removeItem(verifierKey);
   input.store.removeItem(stateKey);
   return tokens;
+}
+
+function callbackClientId(callbackUrl: string): string | undefined {
+  try {
+    return new URL(callbackUrl).searchParams.get("client_id") ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore; clientId?: string; clientSecret?: string }): Promise<string | undefined> {
