@@ -53,7 +53,7 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
-  const session = useAccount(mukaeRelayUrl(), mukaeClientId());
+  const session = useAccount(mukaeRelayUrl(), mukaeClientId() || undefined);
 
   const handleSignOut = useCallback(() => {
     session.signOut();
