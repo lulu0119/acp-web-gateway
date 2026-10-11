@@ -87,6 +87,66 @@ test("approving a web app redirects back with an authorization code", async () =
   assert.equal(typeof back.searchParams.get("code"), "string");
 });
 
+test("approving a machine claims the code before it is approved", async () => {
+  const publicUrl = "http://127.0.0.1:8787";
+  const secret = "test-secret-test-secret-test-secret";
+  const mukae = await openMukaeAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+    origins: ["http://127.0.0.1:47100"],
+  });
+  const clients = await ensurePublicClients(mukae, { redirectUri: "http://127.0.0.1:47100/oauth/callback" });
+  const context = await mukae.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  const cookie = await sessionCookie(session.token, secret);
+  const app = new Hono<RelayEnv>();
+  mountAccountPages(app, mukae, true);
+  app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
+
+  const started = await app.request(`${publicUrl}/api/auth/device/code`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clients.daemonClientId, scope: machinesScope, resource: publicUrl }),
+  });
+  assert.equal(started.status, 200);
+  const pending = (await started.json()) as { user_code?: string; device_code?: string };
+  assert.equal(typeof pending.user_code, "string");
+  assert.equal(typeof pending.device_code, "string");
+
+  const page = await app.request(`${publicUrl}/device?user_code=${pending.user_code}`, { headers: { cookie } });
+  assert.equal(page.status, 200);
+
+  const approved = await app.request(`${publicUrl}/device`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ userCode: pending.user_code ?? "", decision: "approve" }),
+  });
+  const approvedText = await approved.text();
+  assert.equal(approved.status, 200, approvedText);
+  assert.match(approvedText, /Machine approved/);
+
+  const discovery = await app.request(`${publicUrl}/api/auth/.well-known/openid-configuration`);
+  const metadata = (await discovery.json()) as { token_endpoint?: string };
+  const token = await app.request(metadata.token_endpoint ?? "", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      device_code: pending.device_code ?? "",
+      client_id: clients.daemonClientId,
+      resource: publicUrl,
+    }),
+  });
+  const tokenText = await token.text();
+  assert.equal(token.status, 200, tokenText);
+  const body = JSON.parse(tokenText) as { access_token?: string };
+  assert.equal(typeof body.access_token, "string");
+});
+
 async function sessionCookie(token: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));

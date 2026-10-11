@@ -59,6 +59,11 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
       return c.redirect(`/sign-in?next=${encodeURIComponent(next)}`);
     }
     if (!userCode) return c.html(deviceCodePage());
+    try {
+      await mukae.auth.api.deviceVerify({ query: { user_code: userCode }, headers: c.req.raw.headers });
+    } catch (error) {
+      return c.html(messagePage("Approve machine", described(error)), 400);
+    }
     return c.html(devicePage({ userCode }));
   });
 
@@ -68,7 +73,11 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
     const decision = body.decision === "approve" ? "approve" : "deny";
     if (!userCode) return c.html(messagePage("Approve machine", "Enter the code from the machine."), 400);
     const endpoint = decision === "approve" ? mukae.auth.api.deviceApprove : mukae.auth.api.deviceDeny;
-    await endpoint({ body: { userCode }, headers: c.req.raw.headers });
+    try {
+      await endpoint({ body: { userCode }, headers: c.req.raw.headers });
+    } catch (error) {
+      return c.html(messagePage("Approve machine", described(error)), 400);
+    }
     const title = decision === "approve" ? "Machine approved" : "Machine denied";
     return c.html(messagePage(title, decision === "approve" ? "Return to the machine. It will connect on its own." : "The machine was not approved."));
   });
@@ -77,6 +86,16 @@ export function mountAccountPages(app: Hono<RelayEnv>, mukae: MukaeAuth, githubC
 function continuationQuery(requestUrl: string): string {
   const query = new URL(requestUrl).search.slice(1);
   return query.startsWith("next=") ? "" : query;
+}
+
+function described(error: unknown): string {
+  if (typeof error === "object" && error !== null && "body" in error) {
+    const body = error.body;
+    if (typeof body === "object" && body !== null && "error_description" in body && typeof body.error_description === "string") {
+      return body.error_description;
+    }
+  }
+  return "Mukae could not finish approval.";
 }
 
 function safeNext(value: string | undefined): string | undefined {
