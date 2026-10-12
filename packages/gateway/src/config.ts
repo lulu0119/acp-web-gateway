@@ -1,5 +1,5 @@
 import { isAgentType, isEnvName } from "@mukae/contract";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -63,8 +63,10 @@ export async function readGatewayConfigForWrite(homeDirectory = homedir()): Prom
 
 export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = homedir()): Promise<void> {
   const path = configFilePath(homeDirectory);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, configText(config), "utf8");
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  // Agent environment values can be API keys.
+  await writeFile(path, configText(config), { encoding: "utf8", mode: 0o600 });
+  await chmod(path, 0o600);
 }
 
 type LoadedGatewayConfig =

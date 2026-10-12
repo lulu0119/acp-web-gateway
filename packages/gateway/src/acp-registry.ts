@@ -44,7 +44,7 @@ export type AgentLaunch = {
   env: Record<string, string>;
 };
 
-function acpRegistryCachePath(homeDirectory = homedir()): string {
+export function acpRegistryCachePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "mukae", "acp-registry.json");
 }
 

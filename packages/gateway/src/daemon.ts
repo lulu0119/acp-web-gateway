@@ -3,7 +3,7 @@ import WebSocket from "ws";
 import { commandOnPath, loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
-import { DaemonLoginRequiredError } from "./login.js";
+import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
 export async function runDaemon(input: {
   relayUrl: string;
@@ -44,7 +44,7 @@ export async function runDaemon(input: {
     const result = await connectOnce({ ...input, accessToken, catalog });
     if (input.signal?.aborted) return;
     if (result === "unauthorized") {
-      if (authentication === "refreshed") throw new DaemonLoginRequiredError("Relay rejected the refreshed access token. Run mukae login again.");
+      if (authentication === "refreshed") throw new DaemonLoginRequiredError(`Relay rejected the refreshed access token. ${loginAgain(input.relayUrl)}`);
       input.inform("Relay rejected the access token (HTTP 401). Refreshing credentials.");
       authentication = "refresh";
       continue;

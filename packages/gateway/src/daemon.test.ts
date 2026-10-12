@@ -8,8 +8,8 @@ import { join } from "node:path";
 import { test, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { runDaemon } from "./daemon.js";
-import { readDaemonSession, writeDaemonSession } from "./daemon-session.js";
-import { usableDaemonSession } from "./login.js";
+import { usableSignIn } from "./login.js";
+import { readSignIn, writeSignIn } from "./sign-ins.js";
 
 test("the daemon connects with its access token and says hello", async () => {
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
@@ -79,7 +79,7 @@ test("the daemon obtains a fresh token when reconnecting after an hour", async (
     await reconnected;
     assert.deepEqual(relay.tokens, ["Bearer access-1", "Bearer access-2", "Bearer access-3"]);
     assert.deepEqual(relay.refreshes, ["refresh-1", "refresh-2"]);
-    const saved = await readDaemonSession(relay.home);
+    const saved = await readSignIn(relay.origin, relay.home);
     assert.equal(saved?.refreshToken, "refresh-3");
     assert.equal(saved?.accessToken, "access-3");
     assert.equal(saved?.expiresAt, now + 3_600_000);
@@ -129,7 +129,7 @@ test("a second 401 after refresh stops instead of refreshing forever", async () 
       inform: () => undefined,
       hostname: "studio", agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
-    }), /Relay rejected the refreshed access token. Run mukae login again./);
+    }), /Relay rejected the refreshed access token. Run mukae login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1", "Bearer access-2"]);
     assert.deepEqual(relay.refreshes, ["refresh-1"]);
   } finally {
@@ -149,10 +149,10 @@ test.each(["invalid_grant", "invalid_client", "unauthorized_client", "access_den
       inform: () => undefined,
       hostname: "studio", agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
-    }), /Run mukae login again./);
+    }), /Run mukae login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1"]);
     assert.deepEqual(relay.refreshes, ["refresh-1"]);
-    assert.equal((await readDaemonSession(relay.home))?.refreshToken, "refresh-1");
+    assert.equal((await readSignIn(relay.origin, relay.home))?.refreshToken, "refresh-1");
   } finally {
     await relay.close();
   }
@@ -175,7 +175,7 @@ test("refresh without a replacement refresh token keeps the previous one", async
   try {
     await hello;
     assert.deepEqual(relay.refreshes, ["refresh-1"]);
-    assert.equal((await readDaemonSession(relay.home))?.refreshToken, "refresh-1");
+    assert.equal((await readSignIn(relay.origin, relay.home))?.refreshToken, "refresh-1");
   } finally {
     controller.abort();
     await running;
@@ -186,7 +186,7 @@ test("refresh without a replacement refresh token keeps the previous one", async
 test("the daemon cannot use credentials saved for a different relay", async () => {
   const relay = await daemonRelay();
   try {
-    await assert.rejects(usableDaemonSession({ relayUrl: "http://127.0.0.1:8787", homeDirectory: relay.home }), /to switch/);
+    await assert.rejects(usableSignIn({ relayUrl: "http://127.0.0.1:8787", homeDirectory: relay.home }), /not signed in to http:\/\/127\.0\.0\.1:8787\. Run mukae login --relay http:\/\/127\.0\.0\.1:8787\./);
     assert.deepEqual(relay.refreshes, []);
     assert.deepEqual(relay.tokens, []);
   } finally {
@@ -328,11 +328,11 @@ async function daemonRelay(input: {
   await once(http, "listening");
   const origin = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
   const home = await mkdtemp(join(tmpdir(), "mukae-daemon-"));
-  await writeDaemonSession({ relayUrl: origin, accessToken: "access-1", refreshToken: "refresh-1", expiresAt: input.expiresAt ?? Date.now() + 3_600_000 }, home);
+  await writeSignIn({ relayUrl: origin, accessToken: "access-1", refreshToken: "refresh-1", expiresAt: input.expiresAt ?? Date.now() + 3_600_000 }, home);
   return {
     origin, home, tokens, refreshes, sockets, http,
     async accessToken(forceRefresh: boolean, signal?: AbortSignal) {
-      return (await usableDaemonSession({ relayUrl: origin, homeDirectory: home, forceRefresh, signal })).accessToken;
+      return (await usableSignIn({ relayUrl: origin, homeDirectory: home, forceRefresh, signal })).accessToken;
     },
     async close() {
       for (const socket of sockets.clients) socket.terminate();

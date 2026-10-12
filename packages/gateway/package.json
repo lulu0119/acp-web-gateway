@@ -12,7 +12,7 @@
     "directory": "packages/gateway"
   },
   "bin": {
-    "mukae": "./dist/cli.js"
+    "mukae": "./dist/bin/mukae.js"
   },
   "files": ["dist"],
   "scripts": {
@@ -23,6 +23,7 @@
   "dependencies": {
     "@mukae/client": "workspace:*",
     "@mukae/contract": "workspace:*",
+    "cac": "^7.1.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {

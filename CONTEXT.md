@@ -16,6 +16,10 @@ _Avoid_: user, workspace, team
 A computer running the daemon for an account.
 _Avoid_: gateway, host, device
 
+**Sign-in**:
+The credentials a machine holds for one relay. A machine has at most one sign-in per relay and may have several relays.
+_Avoid_: session, profile, login
+
 **Web app**:
 A site that redirects the person to Mukae to sign in, then opens an agent.
 _Avoid_: Example (Example is one web app in this repo, not the product)

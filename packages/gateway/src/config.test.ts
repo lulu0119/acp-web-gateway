@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "vitest";
@@ -39,12 +39,13 @@ test("a custom command is stored with the configuration", () => {
   );
 });
 
-test("written config can be read back", async () => {
+test("written config can be read back and is private", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
   await writeGatewayConfig(
     { agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }] },
     homeDirectory,
   );
+  if (process.platform !== "win32") assert.equal((await stat(configFilePath(homeDirectory))).mode & 0o777, 0o600);
   const text = await readFile(configFilePath(homeDirectory), "utf8");
   assert.equal(text.includes("personal"), true);
   assert.deepEqual(await readGatewayConfig(homeDirectory), {
