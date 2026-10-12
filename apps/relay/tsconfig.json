@@ -3,8 +3,10 @@
   "compilerOptions": {
     "declaration": false,
     "declarationMap": false,
+    "jsx": "react-jsx",
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src/main.ts", "src/server", "src/shared"],
+  "exclude": ["src/**/*.test.ts", "src/server/testing.ts"]
 }

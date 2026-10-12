@@ -1,15 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
 import Database from "better-sqlite3";
-import { mountAccountPages } from "./account.js";
-import { openMukaeAuth } from "./auth.js";
-import { createRelayApp } from "./app.js";
-import { ensureDaemonClient } from "./clients.js";
-import { mountDashboard } from "./dashboard.js";
-import { mountClientRegistry } from "./grants.js";
-import { createRegistry } from "./registry.js";
-import { readUserId } from "./session.js";
+import { openMukaeAuth } from "./server/identity/auth.js";
+import { createRelayApp } from "./server/app.js";
+import { ensureDaemonClient } from "./server/identity/clients.js";
+import { createRegistry } from "./server/connections/registry.js";
 
 const publicUrl = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8787";
 const secret = process.env.BETTER_AUTH_SECRET;
@@ -34,15 +29,11 @@ const daemonClientId = await ensureDaemonClient(mukae);
 const registry = createRegistry();
 const { app, injectWebSocket } = createRelayApp({
   registry,
+  mukae,
   clients: { daemonClientId },
-  publicUrl,
-  readUserId: (request) => readUserId(request, { jwksUrl: mukae.jwksUrl, issuer: mukae.issuer, audience: mukae.resource }),
+  githubConfigured: githubClientId.length > 0 && githubClientSecret.length > 0,
+  devServerUrl: process.env.WEB_DEV_SERVER_URL,
 });
-mountAccountPages(app, mukae, githubClientId.length > 0 && githubClientSecret.length > 0);
-mountDashboard(app, mukae, registry);
-mountClientRegistry(app, mukae);
-app.use("/assets/*", serveStatic({ root: "./dist/public" }));
-app.all("/api/auth/*", (c) => mukae.auth.handler(c.req.raw));
 
 const hostname = process.env.HOST ?? "127.0.0.1";
 const server = serve({ fetch: app.fetch, port, hostname }, (info) => {

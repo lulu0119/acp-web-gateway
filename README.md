@@ -16,6 +16,12 @@ pnpm workspace:
 - `packages/client` — sign-in and session open for a web app or the daemon
 - `apps/example` — a page that signs in, lists machines, and opens an agent. Coolify builds this image and the relay image from their Dockerfiles.
 
+Inside `apps/relay`, `src/main.ts` opens dependencies and starts the server. `src/server/app.ts` assembles the complete application; its explicit mounts lead to every route in `src/server/routes/`. Identity operations live in `src/server/identity/`, and the connection registry owns machine, connection, and ticket lifecycles in `src/server/connections/`.
+
+All page markup and UI live in `src/web/`. Account forms render on the server and submit through ordinary HTTP forms; the dashboard runs in the browser. Both use the same UI modules, layout, and stylesheet. `src/shared/` holds the data passed between the relay and its own pages. The public daemon and web-app protocol stays in `packages/contract`.
+
+For UI development, run `pnpm --filter @mukae/relay web` alongside the relay with `WEB_DEV_SERVER_URL=http://127.0.0.1:47102`, then open the relay at `http://127.0.0.1:8787`. It serves the account pages and loads the dashboard and shared CSS from Vite. Account markup changes require rebuilding and restarting the relay. Set the same `BETTER_AUTH_URL` for both processes when using a different relay origin. Production reads the asset manifest once when the application is assembled.
+
 ## Flow
 
 1. Start Mukae with GitHub OAuth credentials. See `apps/relay/.env.example`. From the repo root, `pnpm relay` listens on `127.0.0.1:8787`.
@@ -48,6 +54,7 @@ node packages/gateway/dist/cli.js daemon
 
 ## Decisions
 
+- [Relay pages share React UI](docs/adr/0012-relay-page-rendering.md)
 - [An account relays a web app to a machine](docs/adr/0008-account-relay.md)
 - [Coolify hosts Mukae](docs/adr/0010-coolify-hosts-mukae.md)
 - [The daemon launches agents from the ACP Registry](docs/adr/0009-acp-registry-launch.md)

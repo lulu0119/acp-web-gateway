@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc --noEmit -p web/tsconfig.json && vite build --config web/vite.config.ts && printf '%s\\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
-    "build:web": "vite build --config web/vite.config.ts",
+    "build": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.web.json && vite build",
+    "build:web": "vite build",
     "start": "node --env-file-if-exists=.env dist/main.js",
-    "test": "tsc -p tsconfig.json --noEmit && vitest run",
-    "web": "vite --config web/vite.config.ts"
+    "test": "tsc -p tsconfig.test.json && vitest run",
+    "web": "vite"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
