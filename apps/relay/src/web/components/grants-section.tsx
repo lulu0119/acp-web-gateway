@@ -64,7 +64,7 @@ export function GrantsSection() {
         <EmptyState
           icon={<CircleAlertIcon />}
           title="Couldn't load authorized apps"
-          action={<Button variant="outline" onClick={() => { setLoaded({ state: "loading" }); void load(); }}>Try again</Button>}
+          action={<Button variant="secondary" onClick={() => { setLoaded({ state: "loading" }); void load(); }}>Try again</Button>}
         />
       ) : loaded.apps.length === 0 ? (
         <EmptyState icon={<AppWindowIcon />} title="No apps yet">
@@ -86,7 +86,7 @@ export function GrantsSection() {
                 </div>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 loading={revoking === app.clientId}
                 disabled={revoking !== "" && revoking !== app.clientId}

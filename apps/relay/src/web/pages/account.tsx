@@ -184,7 +184,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
           <PendingForm method="post" action="/device" className="flex flex-col">
             <input type="hidden" name="userCode" value={page.userCode} />
             <input type="hidden" name="decision" value="deny" />
-            <SubmitButton id="deny" variant="outline" size="xl">Deny</SubmitButton>
+            <SubmitButton id="deny" variant="secondary" size="xl">Deny</SubmitButton>
           </PendingForm>
           <PendingForm method="post" action="/device" className="flex flex-col">
             <input type="hidden" name="userCode" value={page.userCode} />
@@ -238,7 +238,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
             Run these on the device to configure an agent and keep it connected. <code className="font-mono">daemon</code> stays in the foreground.
           </p>
           <CodeBlock code={page.guide.afterLogin} />
-          <a href="/" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "self-start")}>
+          <a href="/" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "self-start")}>
             Open dashboard
             <ArrowRightIcon data-icon="inline-end" />
           </a>
@@ -305,7 +305,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           <PendingForm method="post" action="/consent" className="flex flex-col">
             <input type="hidden" name="query" value={page.query} />
             <input type="hidden" name="accept" value="no" />
-            <SubmitButton id="cancel" variant="outline" size="xl">Cancel</SubmitButton>
+            <SubmitButton id="cancel" variant="secondary" size="xl">Cancel</SubmitButton>
           </PendingForm>
           <PendingForm method="post" action="/consent" className="flex flex-col">
             <input type="hidden" name="query" value={page.query} />
@@ -336,7 +336,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
             {page.action.label}
           </a>
         ) : null}
-        <a href="/" className={cn(buttonVariants({ variant: page.action ? "ghost" : "outline", size: "lg" }), "w-full")}>Back to Mukae</a>
+        <a href="/" className={cn(buttonVariants({ variant: page.action ? "ghost" : "secondary", size: "lg" }), "w-full")}>Back to Mukae</a>
       </div>
     </Shell>
   );
