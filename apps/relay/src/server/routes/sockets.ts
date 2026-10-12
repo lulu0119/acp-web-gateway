@@ -2,16 +2,17 @@ import { acpPath, daemonPath, parseDaemonMessage } from "@mukae/contract";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import type { Hono } from "hono";
 import type { BrowserLink, Registry } from "../connections/registry.js";
-import { accessAccount, type RelayEnv, type ReadUserId } from "../http.js";
+import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 
 export function mountSockets(app: Hono<RelayEnv>, input: {
   registry: Registry;
-  readUserId: ReadUserId;
+  readAccess: ReadAccess;
+  daemonClientId: string;
   upgradeWebSocket: ReturnType<typeof createNodeWebSocket>["upgradeWebSocket"];
 }): void {
   app.get(
     daemonPath,
-    accessAccount(input.readUserId, "text"),
+    accessAccount(input.readAccess, (clientId) => clientId === input.daemonClientId, "text"),
     input.upgradeWebSocket((c) => {
       const userId = c.get("userId");
       let connection: ReturnType<Registry["connectDaemon"]> | undefined;

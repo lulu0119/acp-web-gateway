@@ -1,3 +1,4 @@
+import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import {
@@ -27,7 +28,10 @@ export function UserMenu({ userName }: { userName: string }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>{userName || "Account"}</DropdownMenuTrigger>
+      <DropdownMenuTrigger render={<Button variant="ghost" />}>
+        <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase">{(userName || "?").charAt(0)}</span>
+        {userName || "Account"}
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-36">
         {userName ? (
           <DropdownMenuGroup>
@@ -35,9 +39,8 @@ export function UserMenu({ userName }: { userName: string }) {
           </DropdownMenuGroup>
         ) : null}
         {userName ? <DropdownMenuSeparator /> : null}
-        <DropdownMenuItem render={<a href="/device" />}>Approve a machine</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={busy} onClick={() => void signOut()}>
+        <DropdownMenuItem disabled={busy} closeOnClick={false} onClick={() => void signOut()}>
+          {busy ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : <LogOutIcon aria-hidden />}
           {busy ? "Signing out" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>

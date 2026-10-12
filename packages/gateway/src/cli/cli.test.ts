@@ -29,7 +29,7 @@ async function signedIn(...relayUrls: string[]): Promise<string> {
 test("no command, --help, and --version answer on stdout", async () => {
   const bare = await run([]);
   assert.equal(bare.code, 0);
-  assert.match(bare.stdout, /Commands:\n {2}login +Sign this machine in/);
+  assert.match(bare.stdout, /Commands:\n {2}login +Sign this device in/);
   assert.match(bare.stdout, /agent-config +Manage the agents/);
 
   const login = await run(["login", "--help"]);
@@ -76,13 +76,13 @@ test("a mistyped command names the mistake and exits with 2", async () => {
 test("without --relay, one sign-in is the default and several are listed", async () => {
   const none = await run(["daemon"]);
   assert.equal(none.code, 1);
-  assert.equal(none.stderr, "This machine is not signed in. Run mukae login --relay <url>.\n");
+  assert.equal(none.stderr, "This device is not signed in. Run mukae login --relay <url>.\n");
 
   const two = await signedIn("http://127.0.0.1:8787", "https://mukae.example");
   const ambiguous = await run(["daemon"], { home: two });
   assert.equal(ambiguous.code, 1);
   assert.equal(ambiguous.stderr, [
-    "This machine is signed in to 2 relays. Pick one:",
+    "This device is signed in to 2 relays. Pick one:",
     "  mukae daemon --relay http://127.0.0.1:8787",
     "  mukae daemon --relay https://mukae.example",
     "",
@@ -95,7 +95,7 @@ test("without --relay, one sign-in is the default and several are listed", async
 
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stdout, "Signed out of http://127.0.0.1:8787.\n");
   assert.equal((await run(["status"], { home: two })).stdout, "Signed in to https://mukae.example\n");
-  assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stderr, "This machine is not signed in to http://127.0.0.1:8787.\n");
+  assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stderr, "This device is not signed in to http://127.0.0.1:8787.\n");
 });
 
 test("login names the relay when nothing answers", async () => {

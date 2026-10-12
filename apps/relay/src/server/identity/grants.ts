@@ -1,12 +1,14 @@
 import type { MukaeAuth } from "./auth.js";
 import type { Account } from "./session.js";
 import type { GrantedApp } from "../../shared/account-web.js";
+import { registeredSoftwarePrefix } from "./clients.js";
 
 export type ClientMeta = {
   clientId: string;
   clientName: string;
-  logoUri?: string;
   clientUri?: string;
+  /** Whether an account registered the client; otherwise its name is whatever the app sent. */
+  registered: boolean;
 };
 
 type StoredConsent = {
@@ -20,8 +22,8 @@ type StoredConsent = {
 type StoredClient = {
   clientId?: string;
   name?: string | null;
-  icon?: string | null;
   uri?: string | null;
+  softwareId?: string | null;
 };
 
 export async function listGrantedApps(mukae: MukaeAuth, account: Account): Promise<GrantedApp[]> {
@@ -41,7 +43,6 @@ export async function listGrantedApps(mukae: MukaeAuth, account: Account): Promi
     apps.push({
       clientId: consent.clientId,
       clientName: client?.name ?? consent.clientId,
-      logoUri: client?.icon ?? undefined,
       clientUri: client?.uri ?? undefined,
       scopes: Array.isArray(consent.scopes) ? consent.scopes : [],
       grantedAt: new Date(consent.createdAt).toISOString(),
@@ -61,8 +62,8 @@ export async function findClientMeta(mukae: MukaeAuth, clientId: string): Promis
   return {
     clientId,
     clientName: row.name ?? clientId,
-    logoUri: row.icon ?? undefined,
     clientUri: row.uri ?? undefined,
+    registered: row.softwareId?.startsWith(registeredSoftwarePrefix) ?? false,
   };
 }
 

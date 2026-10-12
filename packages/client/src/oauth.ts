@@ -1,11 +1,13 @@
 import {
   authorizeRequestPath,
+  devicesPath,
   exampleCallbackPath,
   isRecord,
   machinesPath,
   machinesScope,
   publicClientsPath,
   sessionsPath,
+  type DeviceRegistration,
   type Machine,
   type PublicClients,
 } from "@mukae/contract";
@@ -185,6 +187,17 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, sign
     }
   }
   throw new Error("The sign-in code expired.");
+}
+
+/** Tells the relay which device a daemon sign-in belongs to, so it is listed before its daemon first connects. */
+export async function registerDevice(relayUrl: string, accessToken: string, device: DeviceRegistration, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify(device),
+    signal,
+  });
+  if (!response.ok) throw new Error(`Mukae did not record this device (HTTP ${response.status}).`);
 }
 
 export async function listMachines(relayUrl: string, accessToken: string): Promise<Machine[]> {

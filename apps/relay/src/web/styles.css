@@ -88,4 +88,29 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind's preflight leaves buttons with the default cursor; anything clickable shows a pointer. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  summary,
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* Server-highlighted code (see server/rendering/highlight.ts) sits on the block's own background. */
+.code-block pre.shiki {
+  background-color: transparent !important;
+  white-space: pre;
+}
+.code-block.code-wrap pre.shiki {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dark .code-block .shiki,
+.dark .code-block .shiki span {
+  color: var(--shiki-dark) !important;
 }

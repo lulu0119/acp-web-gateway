@@ -1,3 +1,4 @@
+import type { Access } from "../http.js";
 import type { MukaeAuth } from "./auth.js";
 import { requestToResourceInput, verifyAccessTokenRequest } from "better-auth/oauth2";
 
@@ -9,10 +10,10 @@ export async function readAccount(request: Request, mukae: MukaeAuth): Promise<A
   return { userId: session.session.userId, userName: session.user.name ?? "" };
 }
 
-export async function readUserId(
+export async function readAccess(
   request: Request,
   input: { jwksUrl: string; issuer: string; audience: string },
-): Promise<string | undefined> {
+): Promise<Access | undefined> {
   if (!request.headers.get("authorization")) return undefined;
   try {
     const payload = await verifyAccessTokenRequest(requestToResourceInput(request), {
@@ -20,7 +21,8 @@ export async function readUserId(
       verifyOptions: { issuer: input.issuer, audience: input.audience },
       requiredScopes: ["machines"],
     });
-    return typeof payload.sub === "string" ? payload.sub : undefined;
+    if (typeof payload.sub !== "string" || typeof payload.azp !== "string") return undefined;
+    return { userId: payload.sub, clientId: payload.azp };
   } catch {
     return undefined;
   }

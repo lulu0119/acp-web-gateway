@@ -3,15 +3,15 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
-import { openTestRelay } from "./testing.js";
+import { headerAccess, openTestRelay } from "./testing.js";
 import { createRegistry } from "./connections/registry.js";
 
 test("an online machine accepts one ticket and carries ACP frames", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
-  const { app, injectWebSocket } = await openTestRelay({
+  const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
     publicUrl: "https://relay.example.test",
-    readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
+    readAccess: headerAccess,
   });
   const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
     const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
@@ -20,7 +20,7 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
     injectWebSocket(listening);
   });
   const base = `http://127.0.0.1:${port}`;
-  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada" } });
+  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
     const denied = await fetch(`${base}/api/machines`);
@@ -60,10 +60,10 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
 
 test("a socket that dies before any frame can retake the same ticket", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
-  const { app, injectWebSocket } = await openTestRelay({
+  const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
     publicUrl: "https://relay.example.test",
-    readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
+    readAccess: headerAccess,
   });
   const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
     const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
@@ -72,7 +72,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
     injectWebSocket(listening);
   });
   const base = `http://127.0.0.1:${port}`;
-  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada" } });
+  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
     daemon.send(JSON.stringify({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }));
@@ -109,10 +109,10 @@ test("a socket that dies before any frame can retake the same ticket", async () 
 
 test("a second dial on a live ticket closes with ticket-used", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
-  const { app, injectWebSocket } = await openTestRelay({
+  const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
     publicUrl: "https://relay.example.test",
-    readUserId: async (request) => request.headers.get("x-user-id") ?? undefined,
+    readAccess: headerAccess,
   });
   const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
     const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
@@ -121,7 +121,7 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
     injectWebSocket(listening);
   });
   const base = `http://127.0.0.1:${port}`;
-  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada" } });
+  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
     daemon.send(JSON.stringify({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }));
@@ -158,11 +158,42 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
   }
 });
 
+test("a web app token cannot connect as a daemon, and a daemon token cannot open agents", async () => {
+  const { app, injectWebSocket, daemonClientId } = await openTestRelay({
+    publicUrl: "https://relay.example.test",
+    readAccess: headerAccess,
+  });
+  const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
+    const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
+      resolve({ server: listening, port: info.port });
+    });
+    injectWebSocket(listening);
+  });
+  try {
+    const impostor = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": "web-app" } });
+    const status = await new Promise<number>((resolve) => {
+      impostor.on("unexpected-response", (_request, response) => resolve(response.statusCode ?? 0));
+      impostor.on("open", () => resolve(101));
+    });
+    assert.equal(status, 403);
+    const listed = await fetch(`http://127.0.0.1:${port}/api/machines`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
+    assert.equal(listed.status, 403);
+    const opened = await fetch(`http://127.0.0.1:${port}/api/sessions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-user-id": "ada", "x-client-id": daemonClientId },
+      body: JSON.stringify({ machineId: "any-machine", agentName: "work" }),
+    });
+    assert.equal(opened.status, 403);
+  } finally {
+    server.close();
+  }
+});
+
 test("the health check answers without signing in", async () => {
   const { app } = await openTestRelay({
     registry: createRegistry(),
     publicUrl: "https://relay.example.test",
-    readUserId: async () => undefined,
+    readAccess: async () => undefined,
   });
   const response = await app.request("/health");
   assert.equal(response.status, 200);
@@ -173,7 +204,7 @@ test("a web page on another site can read the api", async () => {
   const { app } = await openTestRelay({
     registry: createRegistry(),
     publicUrl: "https://relay.example.test",
-    readUserId: async () => undefined,
+    readAccess: async () => undefined,
   });
   const response = await app.request("/api/clients", { headers: { origin: "https://app.example.test" } });
   assert.equal(response.status, 200);

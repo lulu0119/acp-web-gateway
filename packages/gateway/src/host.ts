@@ -21,6 +21,7 @@ const maxFailureLength = 500;
 
 export function createDaemonHost(input: {
   hostname: string;
+  deviceId?: string;
   agents: readonly StoredAgent[];
   send: (message: DaemonMessage) => void;
   resolveLaunch?: (agent: StoredAgent) => AgentLaunch | undefined;
@@ -34,7 +35,7 @@ export function createDaemonHost(input: {
       const agents: AgentSlot[] = input.agents.flatMap((agent) =>
         resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : [],
       );
-      input.send({ type: "hello", hostname: input.hostname.slice(0, 256), agents });
+      input.send({ type: "hello", hostname: input.hostname.slice(0, 256), ...(input.deviceId ? { deviceId: input.deviceId } : {}), agents });
     },
     receive(message) {
       if (message.type === "open") {

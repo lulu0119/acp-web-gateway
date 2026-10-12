@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { defaultRelayUrl } from "@mukae/contract";
 import { signInDaemon } from "../../login.js";
 import { readSignIns, chooseRelay } from "../../sign-ins.js";
@@ -6,10 +7,10 @@ import { relayOption, requestedRelay } from "../relay.js";
 
 export const login = defineCommand({
   name: "login",
-  description: "Sign this machine in to a Mukae relay",
+  description: "Sign this device in to a Mukae relay",
   help: [
-    "Sign this machine in to a Mukae relay with a device code. Approve the code on the relay after signing in with GitHub.",
-    "A machine keeps one sign-in per relay. Signing in to a second relay keeps the first. Signing in again to the same relay replaces its sign-in.",
+    "Sign this device in to a Mukae relay with a device code. Approve the code on the relay after signing in with GitHub. The device then appears on the relay's dashboard.",
+    "A device keeps one sign-in per relay. Signing in to a second relay keeps the first. Signing in again to the same relay replaces its sign-in.",
   ].join("\n\n"),
   options: [relayOption],
   examples: [
@@ -27,7 +28,7 @@ export const login = defineCommand({
     const relayUrl = chosen.ok ? chosen.relayUrl : defaultRelayUrl;
     io.stdout.write(chosen.ok ? `Signing in to ${relayUrl}.\n` : `Signing in to ${relayUrl}, the default relay. Pass --relay <url> to choose another.\n`);
     try {
-      await signInDaemon({ relayUrl, homeDirectory: io.homeDirectory, signal: context.signal, inform: (line) => io.stdout.write(`${line}\n`) });
+      await signInDaemon({ relayUrl, hostname: hostname(), homeDirectory: io.homeDirectory, signal: context.signal, inform: (line) => io.stdout.write(`${line}\n`) });
     } catch (error) {
       if (context.signal?.aborted) return 130;
       io.stderr.write(`${error instanceof Error ? error.message : "Sign-in failed."}\n`);

@@ -39,12 +39,12 @@ test("a requested relay wins, one sign-in is the default, and several are ambigu
   assert.deepEqual(chooseRelay({ signedIn: [hosted], command: "daemon" }), { ok: true, relayUrl: "https://mukae.example" });
   assert.deepEqual(chooseRelay({ signedIn: [], command: "daemon" }), {
     ok: false,
-    message: "This machine is not signed in. Run mukae login --relay <url>.",
+    message: "This device is not signed in. Run mukae login --relay <url>.",
   });
   assert.deepEqual(chooseRelay({ signedIn: [local, hosted], command: "daemon" }), {
     ok: false,
     message: [
-      "This machine is signed in to 2 relays. Pick one:",
+      "This device is signed in to 2 relays. Pick one:",
       "  mukae daemon --relay http://127.0.0.1:8787",
       "  mukae daemon --relay https://mukae.example",
     ].join("\n"),

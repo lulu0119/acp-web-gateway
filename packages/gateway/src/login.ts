@@ -1,4 +1,12 @@
-import { fetchPublicClients, beginDeviceAuthorization, pollDeviceAuthorization, refreshMukaeAccessToken, RefreshTokenRejectedError } from "@mukae/client";
+import { randomBytes } from "node:crypto";
+import {
+  beginDeviceAuthorization,
+  fetchPublicClients,
+  pollDeviceAuthorization,
+  refreshMukaeAccessToken,
+  RefreshTokenRejectedError,
+  registerDevice,
+} from "@mukae/client";
 import { readSignIn, writeSignIn, type SignIn } from "./sign-ins.js";
 
 const refreshWindowMs = 60_000;
@@ -14,8 +22,13 @@ export function loginAgain(relayUrl: string): string {
   return `Run mukae login --relay ${relayUrl} again.`;
 }
 
+export function newDeviceId(): string {
+  return randomBytes(16).toString("base64url");
+}
+
 export async function signInDaemon(input: {
   relayUrl: string;
+  hostname: string;
   inform: (line: string) => void;
   homeDirectory?: string;
   signal?: AbortSignal;
@@ -30,12 +43,30 @@ export async function signInDaemon(input: {
   input.inform(`The code expires in ${Math.max(1, Math.round((pending.expiresAt - Date.now()) / 60_000))} minutes. Waiting for approval…`);
   const tokens = await pollDeviceAuthorization(pending, input.signal);
   if (!tokens.refreshToken) throw new Error("Mukae did not return a refresh token.");
+  const relayUrl = new URL(input.relayUrl).origin;
+  const previous = await readSignIn(relayUrl, input.homeDirectory);
+  const deviceId = previous?.deviceId ?? newDeviceId();
   await writeSignIn({
-    relayUrl: new URL(input.relayUrl).origin,
+    relayUrl,
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,
+    deviceId,
   }, input.homeDirectory);
+  // Listing the device right away is a convenience: the daemon announces it again whenever it connects.
+  await registerDevice(relayUrl, tokens.accessToken, { deviceId, hostname: input.hostname.slice(0, 256) }, input.signal).catch(() => {
+    input.inform("The relay did not record this device yet. It appears once mukae daemon connects.");
+  });
+}
+
+/** The device id of this device's sign-in to a relay, creating one for a sign-in written before ids existed. */
+export async function signedInDeviceId(relayUrl: string, homeDirectory?: string): Promise<string | undefined> {
+  const signIn = await readSignIn(relayUrl, homeDirectory);
+  if (!signIn) return undefined;
+  if (signIn.deviceId) return signIn.deviceId;
+  const deviceId = newDeviceId();
+  await writeSignIn({ ...signIn, deviceId }, homeDirectory);
+  return deviceId;
 }
 
 export async function usableSignIn(input: {
@@ -46,7 +77,7 @@ export async function usableSignIn(input: {
 }): Promise<SignIn> {
   const relayUrl = new URL(input.relayUrl).origin;
   const signIn = await readSignIn(relayUrl, input.homeDirectory);
-  if (!signIn) throw new DaemonLoginRequiredError(`This machine is not signed in to ${relayUrl}. Run mukae login --relay ${relayUrl}.`);
+  if (!signIn) throw new DaemonLoginRequiredError(`This device is not signed in to ${relayUrl}. Run mukae login --relay ${relayUrl}.`);
   if (!input.forceRefresh && signIn.expiresAt - Date.now() > refreshWindowMs) return signIn;
   const timeout = AbortSignal.timeout(10_000);
   const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
@@ -66,6 +97,7 @@ export async function usableSignIn(input: {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,
+    deviceId: signIn.deviceId,
   };
   await writeSignIn(next, input.homeDirectory);
   return next;

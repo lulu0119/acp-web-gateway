@@ -22,6 +22,7 @@ export {
   pollDeviceAuthorization,
   refreshMukaeAccessToken,
   RefreshTokenRejectedError,
+  registerDevice,
   requestApprovalUrl,
   storedAccessToken,
   type BrowserStore,
