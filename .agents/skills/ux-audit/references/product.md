@@ -17,7 +17,7 @@ An account console with OAuth consent and device approval. Compare with:
 
 - **GitHub device activation** (`github.com/login/device`): a segmented code field, the signed-in account shown, a warning about codes sent by others.
 - **Cloudflare / Google OAuth consent**: both parties' icons, the app's name and origin, a publisher or verification hint, permissions grouped by what they allow, the account being granted, then Authorize and Cancel.
-- **Tailscale Machines**: one row per machine with name, owner, address, version, and last seen; an "Add device" action at the top of the list; a per-row menu.
+- **Tailscale Machines**: one row per device with name, owner, address, version, and last seen; an "Add device" action at the top of the list; a per-row menu.
 
 Capabilities this class usually has: a code field that accepts paste and shows grouping, a clear success state with the next step, a retry or restart path after an expired link, devices listed even while offline with last seen, a revoke or remove action per row.
 
@@ -27,17 +27,17 @@ Capabilities this class usually has: a code field that accepts paste and shows g
 | --- | --- |
 | Sign in (`/sign-in`) | "Where am I, and how do I continue?" |
 | Device code entry (`/device`) | "Where do I type the code my machine printed?" |
-| Device approval (`/device?user_code=…`) | "Is this the machine I just started, and what does approving let it do?" |
+| Device approval (`/device?user_code=…`) | "Is this the device I just started, and what does approving let it do?" |
 | Consent (`/consent`) | "Which app, running where, wants what, from which account, and is it safe to allow?" |
 | Result pages (approved, denied, error) | "Did it work, and what do I do now?" |
-| Dashboard (`/`) | "Which of my machines are reachable, what runs on them, and which apps can reach them?" Secondary: connect another machine. |
-| Example web app | "Can I reach an agent on my machine from here, and is it working?" |
+| Dashboard (`/`) | "Which of my devices are reachable, what runs on them, and which apps can reach them?" Secondary: connect another device. |
+| Example web app | "Can I reach an agent on my device from here, and is it working?" |
 
 ## Core objects
 
 | Object | Created by | On the relay pages |
 | --- | --- | --- |
 | Account | GitHub sign-in | The signed-in person. |
-| Machine | `mukae login` with a device code | Approved on `/device`; listed on the dashboard while its daemon is connected. |
+| Device | `mukae login` with a device code | Approved on `/device`; listed on the dashboard from sign-in on, online while its daemon is connected. |
 | Web app (OAuth client) | Registration, or a pending request from `@mukae/client` | Approved on `/consent`; listed under authorized apps; revocable. |
 | Connection | A web app opening an agent | Counted on the dashboard. |
