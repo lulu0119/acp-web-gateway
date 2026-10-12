@@ -17,6 +17,13 @@ export type MukaeTokens = {
   expiresAt: number;
 };
 
+export class RefreshTokenRejectedError extends Error {
+  constructor() {
+    super("Sign in again.");
+    this.name = "RefreshTokenRejectedError";
+  }
+}
+
 export type DeviceAuthorization = {
   relayUrl: string;
   clientId: string;
@@ -29,8 +36,8 @@ export type DeviceAuthorization = {
 
 const refreshWindowMs = 60_000;
 
-export async function fetchPublicClients(relayUrl: string): Promise<PublicClients> {
-  const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)));
+export async function fetchPublicClients(relayUrl: string, signal?: AbortSignal): Promise<PublicClients> {
+  const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)), { signal });
   if (!response.ok) throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
   const body: unknown = await response.json().catch(() => undefined);
   if (!isRecord(body) || typeof body.daemonClientId !== "string") {
@@ -99,12 +106,19 @@ export async function refreshMukaeAccessToken(input: {
   clientId: string;
   refreshToken: string;
   clientSecret?: string;
+  signal?: AbortSignal;
 }): Promise<MukaeTokens> {
-  const server = await discover(input.relayUrl);
+  const server = await discover(input.relayUrl, input.signal);
   const client = publicClient(input.clientId);
   const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
-  const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, requestOptions(input.relayUrl, originOf(input.relayUrl)));
+  const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, {
+    ...requestOptions(input.relayUrl, originOf(input.relayUrl)),
+    signal: input.signal,
+  });
   const tokens = await oauth.processRefreshTokenResponse(server, client, response).catch((error: unknown) => {
+    if (error instanceof oauth.ResponseBodyError && ["invalid_grant", "invalid_client", "unauthorized_client", "access_denied"].includes(error.error)) {
+      throw new RefreshTokenRejectedError();
+    }
     throw new Error(oauthMessage(error, "Sign in again."));
   });
   return toTokens(tokens, input.refreshToken);
@@ -366,11 +380,11 @@ export function clearBrowserSignIn(store: BrowserStore): void {
   clearBrowserTokens(store);
 }
 
-async function discover(relayUrl: string): Promise<oauth.AuthorizationServer> {
+async function discover(relayUrl: string, signal?: AbortSignal): Promise<oauth.AuthorizationServer> {
   const issuer = new URL("/api/auth", originOf(relayUrl));
   let response: Response;
   try {
-    response = await oauth.discoveryRequest(issuer, httpOptions(relayUrl));
+    response = await oauth.discoveryRequest(issuer, { ...httpOptions(relayUrl), signal });
   } catch {
     throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
   }

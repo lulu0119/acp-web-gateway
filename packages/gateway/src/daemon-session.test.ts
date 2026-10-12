@@ -15,7 +15,7 @@ test("a daemon session is private to the account directory", async () => {
   };
   await writeDaemonSession(session, home);
   const info = await stat(join(home, ".config", "mukae", "daemon-session.json"));
-  assert.equal(info.mode & 0o777, 0o600);
+  if (process.platform !== "win32") assert.equal(info.mode & 0o777, 0o600);
   assert.deepEqual(await readDaemonSession(home), { ...session, relayUrl: "http://127.0.0.1:8787" });
   assert.equal(parseDaemonSession({ accessToken: "x" }), undefined);
   const text = await readFile(join(home, ".config", "mukae", "daemon-session.json"), "utf8");

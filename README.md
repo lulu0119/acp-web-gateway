@@ -40,6 +40,8 @@ For UI development, run `pnpm --filter @mukae/relay web` alongside the relay wit
 
 Pass `--relay` to `login` and `daemon` when Mukae is not `http://127.0.0.1:8787`. Example reads `VITE_MUKAE_URL` at image build time for the same reason. A push to `main` publishes `mukae`, `@mukae/contract`, and `@mukae/client` from this repository. npm comes later, when the product is ready.
 
+The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials or a second 401 after refresh stop the daemon with instructions to sign in again. Connection, refresh, and retry messages go to stderr with timestamps, without printing credentials.
+
 ## Scripts
 
 ```bash

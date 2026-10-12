@@ -21,11 +21,6 @@ const result = await runCli(process.argv.slice(2), {
   },
   daemon: async (relayUrl) => {
     try {
-      const session = await usableDaemonSession();
-      if (session.relayUrl !== new URL(relayUrl).origin) {
-        console.error(`This machine is signed in to ${session.relayUrl}. Run mukae login --relay ${relayUrl} to switch.`);
-        return 1;
-      }
       const config = await readGatewayConfig();
       if (config.warning) {
         console.error(config.warning);
@@ -42,8 +37,9 @@ const result = await runCli(process.argv.slice(2), {
       process.on("SIGINT", stop);
       process.on("SIGTERM", stop);
       await runDaemon({
-        relayUrl: session.relayUrl,
-        accessToken: session.accessToken,
+        relayUrl,
+        getAccessToken: async (forceRefresh, signal) => (await usableDaemonSession({ relayUrl, forceRefresh, signal })).accessToken,
+        inform: (line) => console.error(`${new Date().toISOString()} [mukae] ${line}`),
         hostname: hostname(),
         agents: config.agents,
         signal: controller.signal,
@@ -51,7 +47,7 @@ const result = await runCli(process.argv.slice(2), {
       });
       return 0;
     } catch (error) {
-      console.error(error instanceof Error ? error.message : "The daemon stopped.");
+      console.error(`${new Date().toISOString()} [mukae] ${error instanceof Error ? error.message : "The daemon stopped."}`);
       return 1;
     }
   },
