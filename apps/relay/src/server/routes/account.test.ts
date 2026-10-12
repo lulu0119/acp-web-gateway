@@ -217,6 +217,7 @@ test("a wrong device code keeps the person on the code form with the reason", as
   const text = await page.text();
   assert.match(text, /name="user_code"/);
   assert.match(text, /role="alert"/);
+  assert.match(text, /mukae login<\/code> again for a new one/);
 });
 
 async function sessionCookie(token: string, secret: string): Promise<string> {

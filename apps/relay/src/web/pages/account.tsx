@@ -142,7 +142,10 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
           {page.problem ? (
             <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
               <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {page.problem}
+              <span>
+                {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or run{" "}
+                <code className="font-mono">mukae login</code> again for a new one.
+              </span>
             </p>
           ) : null}
         </div>

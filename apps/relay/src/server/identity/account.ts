@@ -180,7 +180,7 @@ function described(error: unknown): string {
       return body.error_description;
     }
   }
-  return "That code did not work. Check it against the one your device printed, or run mukae login again for a new one.";
+  return "That code did not work";
 }
 
 function safeNext(value: string | null): string | undefined {
