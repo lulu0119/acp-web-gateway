@@ -44,7 +44,7 @@ test("account forms render without browser JavaScript and escape approval data",
     origin: "https://studio.example.test",
     redirectUri: "https://studio.example.test/callback",
     unverified: true,
-    accountName: "Ada",
+    account: { name: "Ada" },
     permissions,
   });
   assert.match(html, /<form(?=[^>]*method="post")(?=[^>]*action="\/consent")[^>]*>/);
@@ -58,6 +58,15 @@ test("account forms render without browser JavaScript and escape approval data",
   assert.match(html, /name="query"/);
 });
 
+test("account pages show the signed-in person's avatar, or their initial without one", () => {
+  const render = createPageRenderer({ stylesheets: [] });
+  const withImage = render.account({ kind: "device", userCode: "ABCDEFGH", account: { name: "Ada", image: "https://avatars.example.test/ada.png" } });
+  assert.match(withImage, /<img[^>]*src="https:\/\/avatars\.example\.test\/ada\.png"[^>]*referrerPolicy="no-referrer"|<img[^>]*referrerPolicy="no-referrer"[^>]*src="https:\/\/avatars\.example\.test\/ada\.png"/i);
+  const withoutImage = render.account({ kind: "device", userCode: "ABCDEFGH", account: { name: "Ada" } });
+  assert.doesNotMatch(withoutImage, /<img/);
+  assert.match(withoutImage, />A</);
+});
+
 test("the dashboard escapes embedded props", () => {
   const html = createPageRenderer({ stylesheets: [] }).dashboard({ userName: '</script><script>alert("x")</script>', devices: [], sessions: [] }, guide);
   assert.match(html, /id="props"/);
@@ -66,7 +75,7 @@ test("the dashboard escapes embedded props", () => {
 
 test("account pages keep rendering without a web build", () => {
   const render = createPageRenderer(readWebAssets(join(publicDir, "missing")));
-  const html = render.account({ kind: "device-code", accountName: "Ada" });
+  const html = render.account({ kind: "device-code", account: { name: "Ada" } });
   assert.match(html, /name="user_code"/);
   assert.match(html, /<form(?=[^>]*method="get")(?=[^>]*action="\/device")[^>]*>/);
 });

@@ -2,12 +2,13 @@ import type { Access } from "../http.js";
 import type { MukaeAuth } from "./auth.js";
 import { requestToResourceInput, verifyAccessTokenRequest } from "better-auth/oauth2";
 
-export type Account = { userId: string; userName: string };
+/** `userImage` is the avatar GitHub reported at sign-in, when it reported one. */
+export type Account = { userId: string; userName: string; userImage?: string };
 
 export async function readAccount(request: Request, mukae: MukaeAuth): Promise<Account | undefined> {
   const session = await mukae.auth.api.getSession({ headers: request.headers });
   if (!session) return undefined;
-  return { userId: session.session.userId, userName: session.user.name ?? "" };
+  return { userId: session.session.userId, userName: session.user.name ?? "", userImage: session.user.image ?? undefined };
 }
 
 export async function readAccess(

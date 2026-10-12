@@ -1,10 +1,10 @@
 import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
-import type { AccountPage, PermissionView } from "../../shared/account-web.js";
+import type { AccountPage, AccountView, PermissionView } from "../../shared/account-web.js";
 import { setupGuide } from "../rendering/setup-guide.js";
 import type { MukaeAuth } from "./auth.js";
 import { approvePendingClient } from "./clients.js";
 import { findClientMeta, hasRememberedGrant } from "./grants.js";
-import { readAccount } from "./session.js";
+import { readAccount, type Account } from "./session.js";
 
 export type AccountResult =
   | { redirect: string; headers?: Headers }
@@ -59,7 +59,7 @@ export async function readConsent(request: Request, mukae: MukaeAuth): Promise<A
       redirectUri,
       clientUri: meta?.clientUri,
       unverified: !meta?.registered,
-      accountName: account.userName,
+      account: accountView(account),
       permissions: describeScopes(scopes),
     },
     status: 200,
@@ -141,27 +141,31 @@ export async function readDevice(request: Request, mukae: MukaeAuth, userCode: s
     const next = userCode ? `/device?user_code=${encodeURIComponent(userCode)}` : "/device";
     return { redirect: `/sign-in?next=${encodeURIComponent(next)}` };
   }
-  if (!userCode) return { page: { kind: "device-code", accountName: account.userName }, status: 200 };
+  if (!userCode) return { page: { kind: "device-code", account: accountView(account) }, status: 200 };
   try {
     await mukae.auth.api.deviceVerify({ query: { user_code: userCode }, headers: request.headers });
   } catch (error) {
-    return { page: { kind: "device-code", accountName: account.userName, userCode, problem: described(error) }, status: 400 };
+    return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
-  return { page: { kind: "device", userCode, accountName: account.userName }, status: 200 };
+  return { page: { kind: "device", userCode, account: accountView(account) }, status: 200 };
 }
 
 export async function decideDevice(request: Request, mukae: MukaeAuth, userCode: string, approve: boolean): Promise<AccountResult> {
   const account = await readAccount(request, mukae);
   if (!account) return { redirect: `/sign-in?next=${encodeURIComponent(`/device?user_code=${encodeURIComponent(userCode)}`)}` };
-  if (!userCode) return { page: { kind: "device-code", accountName: account.userName, problem: "Enter the code your device printed." }, status: 400 };
+  if (!userCode) return { page: { kind: "device-code", account: accountView(account), problem: "Enter the code your device printed." }, status: 400 };
   const endpoint = approve ? mukae.auth.api.deviceApprove : mukae.auth.api.deviceDeny;
   try {
     await endpoint({ body: { userCode }, headers: request.headers });
   } catch (error) {
-    return { page: { kind: "device-code", accountName: account.userName, userCode, problem: described(error) }, status: 400 };
+    return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
   if (approve) return { page: { kind: "device-approved", guide: setupGuide(mukae.publicUrl) }, status: 200 };
   return message("Device not connected", "The code was denied. The device stays signed out.", 200, "neutral");
+}
+
+function accountView(account: Account): AccountView {
+  return { name: account.userName, image: account.userImage };
 }
 
 function message(title: string, message: string, status: 200 | 400 | 502, tone: "success" | "neutral" | "error" = "error"): AccountResult {

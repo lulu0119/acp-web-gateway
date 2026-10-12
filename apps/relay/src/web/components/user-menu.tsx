@@ -1,5 +1,6 @@
 import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
+import { Avatar } from "../ui/avatar.js";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
-export function UserMenu({ userName }: { userName: string }) {
+export function UserMenu({ userName, userImage }: { userName: string; userImage?: string }) {
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
@@ -29,7 +30,7 @@ export function UserMenu({ userName }: { userName: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" />}>
-        <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase">{(userName || "?").charAt(0)}</span>
+        <Avatar name={userName} image={userImage} />
         {userName || "Account"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-36">

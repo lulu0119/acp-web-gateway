@@ -24,7 +24,7 @@ export function OTPField({
               <OTPFieldPrimitive.Input
                 key={index}
                 aria-label={index === 1 ? undefined : `Character ${index} of ${length}`}
-                className="h-12 w-full max-w-12 min-w-0 flex-1 rounded-lg border border-input bg-background text-center font-mono text-lg font-medium uppercase caret-foreground transition-[border-color,box-shadow] outline-none focus:border-ring focus:ring-3 focus:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-disabled:opacity-50"
+                className="h-12 w-full max-w-12 min-w-0 flex-1 rounded-lg border border-foreground/8 bg-muted/60 text-center font-mono text-xl font-semibold uppercase caret-foreground transition-[border-color,box-shadow,background-color] outline-none focus:border-foreground/30 focus:bg-background focus:ring-3 focus:ring-ring/25 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-disabled:opacity-50"
               />
             );
           })}

@@ -16,8 +16,12 @@ export type DeviceView = {
   lastSeenAt?: number;
 };
 
+/** The signed-in person, as account pages show them. */
+export type AccountView = { name: string; image?: string };
+
 export type DashboardData = {
   userName: string;
+  userImage?: string;
   devices: DeviceView[];
   sessions: LiveSessionInfo[];
 };
@@ -57,10 +61,10 @@ export type AccountPage =
     clientUri?: string;
     /** True when the name came from the app itself rather than from an account that registered it. */
     unverified: boolean;
-    accountName: string;
+    account: AccountView;
     permissions: PermissionView[];
   }
-  | { kind: "device-code"; accountName: string; userCode?: string; problem?: string }
-  | { kind: "device"; userCode: string; accountName: string }
+  | { kind: "device-code"; account: AccountView; userCode?: string; problem?: string }
+  | { kind: "device"; userCode: string; account: AccountView }
   | { kind: "device-approved"; guide: SetupGuideData }
   | { kind: "message"; tone: "success" | "neutral" | "error"; title: string; message: string; action?: { label: string; href: string } };

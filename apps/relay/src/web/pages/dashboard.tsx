@@ -54,7 +54,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
           <MukaeMark className="size-7" />
           Mukae
         </a>
-        <UserMenu userName={data.userName} />
+        <UserMenu userName={data.userName} userImage={data.userImage} />
       </header>
 
       <section className="flex flex-col gap-5" aria-labelledby="devices-heading">
@@ -68,7 +68,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="secondary">{data.devices.length} {data.devices.length === 1 ? "device" : "devices"}</Badge>
           <Badge variant="secondary">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
+            <span className="size-1.5 rounded-full bg-success-500" />
             {online} online
           </Badge>
           <Badge variant="secondary">{data.sessions.length} live {data.sessions.length === 1 ? "connection" : "connections"}</Badge>
@@ -139,28 +139,28 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
   const sorted = [...devices].sort((a, b) => Number(Boolean(b.machineId)) - Number(Boolean(a.machineId)) || (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
+    <div>
       <table className="w-full text-sm">
-        <thead className="hidden bg-muted/40 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase sm:table-header-group">
+        <thead className="hidden border-b border-border text-left text-sm text-muted-foreground sm:table-header-group">
           <tr>
-            <th scope="col" className="px-4 py-2.5 font-medium">Device</th>
+            <th scope="col" className="py-2.5 pr-4 font-medium">Device</th>
             <th scope="col" className="px-4 py-2.5 font-medium">Agents</th>
-            <th scope="col" className="px-4 py-2.5 font-medium">Last seen</th>
+            <th scope="col" className="py-2.5 pl-4 font-medium">Last seen</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {sorted.map((device) => (
-            <tr key={device.id} className="flex flex-col gap-2 px-4 py-3 sm:table-row sm:p-0">
-              <td className="sm:px-4 sm:py-3 sm:align-top">
+            <tr key={device.id} className="flex flex-col gap-2 py-4 sm:table-row sm:p-0">
+              <td className="sm:py-3.5 sm:pr-4 sm:align-top">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground"><LaptopIcon className="size-4" /></span>
-                  <span className="font-medium break-all">{device.hostname}</span>
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/70"><LaptopIcon className="size-4" /></span>
+                  <span className="font-semibold break-all">{device.hostname}</span>
                 </div>
               </td>
-              <td className="sm:px-4 sm:py-3 sm:align-top">
+              <td className="sm:px-4 sm:py-3.5 sm:align-top">
                 <AgentList device={device} live={live} />
               </td>
-              <td className="whitespace-nowrap sm:px-4 sm:py-3 sm:align-top">
+              <td className="whitespace-nowrap sm:py-3.5 sm:pl-4 sm:align-top">
                 <Presence device={device} />
               </td>
             </tr>
@@ -182,10 +182,10 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
         const count = live.get(`${device.machineId}\t${agent.name}`) ?? 0;
         return (
           <li key={agent.name}>
-            <Badge variant="outline" className="h-6 gap-1.5 px-2" title={agent.agentType}>
+            <Badge variant="secondary" className="h-6 gap-1.5 px-2" title={agent.agentType}>
               {agent.name}
               {agent.name !== agent.agentType ? <span className="font-mono text-muted-foreground">{agent.agentType}</span> : null}
-              {count > 0 ? <span className="rounded-full bg-emerald-500/15 px-1.5 text-emerald-700">{count} live</span> : null}
+              {count > 0 ? <span className="rounded-full bg-success-100 px-1.5 text-success-800">{count} live</span> : null}
             </Badge>
           </li>
         );
@@ -198,7 +198,7 @@ function Presence({ device }: { device: DeviceView }) {
   if (device.machineId) {
     return (
       <span className="inline-flex items-center gap-2">
-        <span className="size-2 rounded-full bg-emerald-500" />
+        <span className="size-2 rounded-full bg-success-500" />
         Connected
       </span>
     );

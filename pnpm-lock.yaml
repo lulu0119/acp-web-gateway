@@ -111,7 +111,10 @@ importers:
       '@better-auth/oauth-provider':
         specifier: ^1.6.0
         version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@4.6.5))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.5))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@3.2.7(@types/debug@4.1.13)(@types/node@24.19.2)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@2.4.0))(lightningcss@1.33.0)))(better-call@1.4.0(zod@4.6.5))
-      '@fontsource-variable/geist':
+      '@fontsource-variable/noto-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/maple-mono':
         specifier: ^5.3.0
         version: 5.3.0
       '@guiiai/logg':
@@ -163,6 +166,9 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@proj-airi/chromatic':
+        specifier: ^1.1.5
+        version: 1.1.5
       '@tailwindcss/vite':
         specifier: ^4.1.14
         version: 4.3.3(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0))
@@ -844,6 +850,12 @@ packages:
   '@fontsource-variable/geist@5.3.0':
     resolution: {integrity: sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA==}
 
+  '@fontsource-variable/noto-sans@5.3.0':
+    resolution: {integrity: sha512-e3ZuxzY9AL2psXPZlhwhnYrHUHv6PMoyK9MQ7croF0CUgURLqu9EMjW7q2FgVLwij1tjLsIHQrnwQ8aUcg4BiA==}
+
+  '@fontsource/maple-mono@5.3.0':
+    resolution: {integrity: sha512-8N3FVDWphO/971tZIig9D558j9jf09fWYIXFjgv7DKJEvDjtgfATx1ScWHdTCsf+tufFS5M1bAa4AumVBKPhSQ==}
+
   '@guiiai/logg@1.2.12':
     resolution: {integrity: sha512-f8rXJiIixxX8qb0Ldn7n6MNil1M+fY9r2xiCC2+XnVB4YTWPI6951+UNYErnt+ou7S0TMR39qvlb1FkyHwPQNQ==}
 
@@ -926,6 +938,9 @@ packages:
 
   '@oxc-project/types@0.153.0':
     resolution: {integrity: sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw==}
+
+  '@proj-airi/chromatic@1.1.5':
+    resolution: {integrity: sha512-Ho+Za7Na8glOAe6OPOtbm376c/Y2gswCy1YyP13fGD5f5gI7WYq+/AJnDAFOQoE0NGhdTCoqFFsRpagq5W7S4w==}
 
   '@quansync/fs@1.1.0':
     resolution: {integrity: sha512-qAPG/t3HqML1TlN7sY/pTbEjzFVAKsMjNNMGheyDosro+kT4iw2KCUoHcVdmliwWjorm4elZbgNQyU2eD97eDg==}
@@ -2567,6 +2582,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  culori@4.0.2:
+    resolution: {integrity: sha512-1+BhOB8ahCn4O0cep0Sh2l9KCOfOdY+BXJnKMHFFzDEouSr/el18QwXEMRlOj9UY5nCeA8UN3a/82rUWRBeyBw==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   data-urls@8.0.0:
     resolution: {integrity: sha512-JQUCCK+/CAGbGGx618PlFZMXH81Jtj7t73CHv9dd/zVWvxgGT2zLFRjnKb+Ng46GIwcy+f7f88qd4duqllK+WQ==}
@@ -5180,6 +5199,10 @@ snapshots:
 
   '@fontsource-variable/geist@5.3.0': {}
 
+  '@fontsource-variable/noto-sans@5.3.0': {}
+
+  '@fontsource/maple-mono@5.3.0': {}
+
   '@guiiai/logg@1.2.12':
     dependencies:
       error-stack-parser: 2.1.4
@@ -5277,6 +5300,10 @@ snapshots:
   '@opentelemetry/semantic-conventions@1.43.0': {}
 
   '@oxc-project/types@0.153.0': {}
+
+  '@proj-airi/chromatic@1.1.5':
+    dependencies:
+      culori: 4.0.2
 
   '@quansync/fs@1.1.0':
     dependencies:
@@ -6798,6 +6825,8 @@ snapshots:
   cssesc@3.0.0: {}
 
   csstype@3.2.3: {}
+
+  culori@4.0.2: {}
 
   data-urls@8.0.0(@noble/hashes@2.4.0):
     dependencies:

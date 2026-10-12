@@ -2,8 +2,8 @@ import { cn } from "cn";
 import {
   ArrowRightIcon,
   BotIcon,
+  CheckIcon,
   CircleAlertIcon,
-  CircleCheckIcon,
   CodeIcon,
   InfoIcon,
   KeyRoundIcon,
@@ -14,10 +14,11 @@ import {
   UserIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { AccountPage as AccountPageData, PermissionView } from "../../shared/account-web.js";
+import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
 import { MukaeMark } from "../components/mukae-mark.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
+import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
 import { buttonVariants } from "../ui/button.js";
 import { Input } from "../ui/input.js";
@@ -60,18 +61,18 @@ function Shell({ header, children, footer, wide }: { header: ReactNode; children
   return (
     <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
       <div className="flex flex-col items-center gap-5 text-center">{header}</div>
-      <div className="flex w-full flex-col gap-6 rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-8">{children}</div>
+      <div className="flex w-full flex-col gap-6 sm:rounded-2xl sm:bg-card sm:p-8 sm:shadow-[0_1px_2px_oklch(0_0_0/0.04),0_12px_32px_-8px_oklch(0_0_0/0.08)]">{children}</div>
       {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
     </div>
   );
 }
 
-function SignedInAs({ name }: { name: string }) {
-  if (!name) return null;
+function SignedInAs({ account }: { account: AccountView }) {
+  if (!account.name) return null;
   return (
     <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-      <UserIcon className="size-4" aria-hidden />
-      Signed in as <span className="font-medium text-foreground">{name}</span>
+      <Avatar name={account.name} image={account.image} className="size-5 text-[10px]" />
+      Signed in as <span className="font-semibold text-foreground">{account.name}</span>
     </p>
   );
 }
@@ -113,7 +114,7 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
         <>
           <IconBadge><TerminalIcon /></IconBadge>
           <h1 className="text-2xl font-semibold tracking-tight">Connect a device</h1>
-          <SignedInAs name={page.accountName} />
+          <SignedInAs account={page.account} />
         </>
       )}
       footer="Only enter a code your own device printed. Mukae never sends you a code."
@@ -162,7 +163,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
         <>
           <IconBadge><LaptopIcon /></IconBadge>
           <h1 className="text-2xl font-semibold tracking-tight">Connect this device?</h1>
-          <SignedInAs name={page.accountName} />
+          <SignedInAs account={page.account} />
         </>
       )}
       footer={<a href="/device" className="underline underline-offset-4 hover:text-foreground">Enter a different code</a>}
@@ -202,9 +203,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
       wide
       header={(
         <>
-          <span className="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200">
-            <CircleCheckIcon className="size-8" aria-hidden />
-          </span>
+          <StatusMark tone="success" />
           <h1 className="text-2xl font-semibold tracking-tight">Device connected</h1>
           <p className="max-w-md text-muted-foreground">
             The device is signed in to your account. <code className="font-mono text-sm">mukae login</code> on it finishes on its own.
@@ -259,7 +258,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
         <>
           <div className="flex items-center gap-3" aria-hidden>
             <AppMonogram label={name || site} />
-            <span className="w-10 border-t-2 border-dashed border-border" />
+            <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
             <MukaeMark className="size-14" />
           </div>
           <h1 className="max-w-lg text-2xl font-semibold tracking-tight text-balance">
@@ -267,16 +266,16 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
-            {page.unverified ? <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Unverified</Badge> : null}
+            {page.unverified ? <Badge className="bg-warning-100 text-warning-800">Unverified</Badge> : null}
           </div>
         </>
       )}
       footer="You can revoke this app anytime from your Mukae dashboard."
     >
-      <SignedInAs name={page.accountName} />
+      <SignedInAs account={page.account} />
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">This app will be able to</h2>
-        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+        <h2 className="text-sm font-semibold">This app will be able to</h2>
+        <ul className="flex flex-col gap-4">
           {page.permissions.map((permission) => <Permission key={permission.scope} permission={permission} />)}
         </ul>
       </section>
@@ -320,17 +319,11 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
 }
 
 function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }> }) {
-  const icon = page.tone === "success"
-    ? <CircleCheckIcon className="size-8" aria-hidden />
-    : page.tone === "error" ? <CircleAlertIcon className="size-8" aria-hidden /> : <InfoIcon className="size-8" aria-hidden />;
-  const ring = page.tone === "success"
-    ? "bg-emerald-50 text-emerald-600 ring-emerald-200"
-    : page.tone === "error" ? "bg-red-50 text-destructive ring-red-200" : "bg-muted text-muted-foreground ring-border";
   return (
     <Shell
       header={(
         <>
-          <span className={cn("flex size-14 items-center justify-center rounded-full ring-1", ring)}>{icon}</span>
+          <StatusMark tone={page.tone} />
           <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
         </>
       )}
@@ -352,10 +345,10 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
 function Permission({ permission }: { permission: PermissionView }) {
   const icon = permission.scope === "machines" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
   return (
-    <li className="flex gap-3 p-4">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground [&_svg]:size-4">{icon}</span>
+    <li className="flex gap-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/70 [&_svg]:size-4">{icon}</span>
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{permission.title}</span>
+        <span className="text-sm font-semibold">{permission.title}</span>
         <span className="text-sm text-muted-foreground">{permission.detail}</span>
       </div>
     </li>
@@ -376,7 +369,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
     <li className="flex gap-3">
       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">{n}</span>
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{title}</span>
+        <span className="text-sm font-semibold">{title}</span>
         <span className="text-sm text-muted-foreground">{children}</span>
       </div>
     </li>
@@ -388,13 +381,13 @@ function Notice({ tone, title, children }: { tone: "warning" | "error"; title: s
     <div
       role={tone === "error" ? "alert" : undefined}
       className={cn(
-        "flex gap-3 rounded-lg border p-3 text-sm",
-        tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-900",
+        "flex gap-3 rounded-xl p-4 text-sm",
+        tone === "warning" ? "bg-warning-50 text-warning-900" : "bg-danger-50 text-danger-900",
       )}
     >
       <ShieldAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="flex flex-col gap-0.5">
-        <span className="font-medium">{title}</span>
+        <span className="font-semibold">{title}</span>
         <span className="opacity-90">{children}</span>
       </div>
     </div>
@@ -404,25 +397,34 @@ function Notice({ tone, title, children }: { tone: "warning" | "error"; title: s
 function CodeDisplay({ code }: { code: string }) {
   const characters = normalizeCode(code).split("");
   return (
-    <div className="flex items-center gap-1.5 font-mono text-xl font-semibold" aria-label={`Code ${code}`}>
+    <div className="flex items-center gap-1.5 font-mono text-2xl font-semibold" aria-label={`Code ${code}`}>
       {characters.map((character, index) => (
         <span key={index} className="contents">
           {index === userCodeGroups[0] ? <span className="px-1 text-muted-foreground" aria-hidden>-</span> : null}
-          <span className="flex h-11 w-9 items-center justify-center rounded-md border border-border bg-muted/50" aria-hidden>{character}</span>
+          <span className="flex h-12 w-9 items-center justify-center rounded-lg bg-muted" aria-hidden>{character}</span>
         </span>
       ))}
     </div>
   );
 }
 
+/** A solid round mark for an outcome: a check for success, an exclamation for an error. */
+function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
+  const style = tone === "success"
+    ? "bg-success-500 text-white shadow-lg shadow-success-500/30"
+    : tone === "error" ? "bg-danger-500 text-white shadow-lg shadow-danger-500/30" : "bg-muted text-muted-foreground";
+  const icon = tone === "success" ? <CheckIcon strokeWidth={3} /> : tone === "error" ? <CircleAlertIcon /> : <InfoIcon />;
+  return <span className={cn("flex size-14 items-center justify-center rounded-full [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
+}
+
 function IconBadge({ children }: { children: ReactNode }) {
-  return <span className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card shadow-xs [&_svg]:size-6">{children}</span>;
+  return <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-foreground/80 [&_svg]:size-6">{children}</span>;
 }
 
 function AppMonogram({ label }: { label: string }) {
   return (
-    <span className="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted text-xl font-semibold text-muted-foreground uppercase">
-      {label.trim().charAt(0) || "?"}
+    <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-xl font-semibold text-muted-foreground">
+      {(label.trim().charAt(0) || "?").toUpperCase()}
     </span>
   );
 }

@@ -71,15 +71,15 @@ export function GrantsSection() {
           When a web app asks to use your agents and you authorize it, it shows up here.
         </EmptyState>
       ) : (
-        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+        <ul className="flex flex-col divide-y divide-border">
           {loaded.apps.map((app) => (
-            <li key={app.clientId} className="flex items-center justify-between gap-4 px-4 py-3">
+            <li key={app.clientId} className="flex items-center justify-between gap-4 py-3.5">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted font-semibold text-muted-foreground uppercase">
-                  {app.clientName.trim().charAt(0) || "?"}
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted font-semibold text-muted-foreground">
+                  {(app.clientName.trim().charAt(0) || "?").toUpperCase()}
                 </span>
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{app.clientName}</span>
+                  <span className="truncate font-semibold">{app.clientName}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {app.clientUri ? `${hostOf(app.clientUri)} · ` : ""}Authorized {formatDate(app.grantedAt)}
                   </span>

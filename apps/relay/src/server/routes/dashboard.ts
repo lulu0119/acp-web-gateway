@@ -39,5 +39,5 @@ export function readDashboard(account: Account, input: { registry: Registry; dev
     if (devices.some((device) => device.machineId === machine.id)) continue;
     devices.push({ id: machine.id, hostname: machine.hostname, machineId: machine.id, agents: machine.agents });
   }
-  return { userName: account.userName, devices, sessions: input.registry.listSessions(account.userId) };
+  return { userName: account.userName, userImage: account.userImage, devices, sessions: input.registry.listSessions(account.userId) };
 }
