@@ -14,19 +14,28 @@ export function loginAgain(relayUrl: string): string {
   return `Run mukae login --relay ${relayUrl} again.`;
 }
 
-export async function signInDaemon(relayUrl: string, inform: (line: string) => void): Promise<void> {
-  const clients = await fetchPublicClients(relayUrl);
-  const pending = await beginDeviceAuthorization({ relayUrl, clientId: clients.daemonClientId });
-  inform(`Visit ${pending.verificationUri}`);
-  inform(`Enter ${pending.userCode}`);
-  const tokens = await pollDeviceAuthorization(pending);
+export async function signInDaemon(input: {
+  relayUrl: string;
+  inform: (line: string) => void;
+  homeDirectory?: string;
+  signal?: AbortSignal;
+}): Promise<void> {
+  const clients = await fetchPublicClients(input.relayUrl, input.signal);
+  const pending = await beginDeviceAuthorization({ relayUrl: input.relayUrl, clientId: clients.daemonClientId });
+  if (pending.verificationUriComplete) {
+    input.inform(`Open ${pending.verificationUriComplete} and approve the code ${pending.userCode}.`);
+  } else {
+    input.inform(`Open ${pending.verificationUri} and enter the code ${pending.userCode}.`);
+  }
+  input.inform(`The code expires in ${Math.max(1, Math.round((pending.expiresAt - Date.now()) / 60_000))} minutes. Waiting for approval…`);
+  const tokens = await pollDeviceAuthorization(pending, input.signal);
   if (!tokens.refreshToken) throw new Error("Mukae did not return a refresh token.");
   await writeSignIn({
-    relayUrl: new URL(relayUrl).origin,
+    relayUrl: new URL(input.relayUrl).origin,
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,
-  });
+  }, input.homeDirectory);
 }
 
 export async function usableSignIn(input: {

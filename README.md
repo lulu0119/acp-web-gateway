@@ -16,6 +16,8 @@ pnpm workspace:
 - `packages/client` — sign-in and session open for a web app or the daemon
 - `apps/example` — a page that signs in, lists machines, and opens an agent. Coolify builds this image and the relay image from their Dockerfiles.
 
+Inside `packages/gateway`, `src/bin/mukae.ts` is the executable and `src/cli/` holds the commands: each command declares its options, help, and examples, and `src/cli/cli.ts` runs them through cac. The modules beside it sign in, store sign-ins and agent configurations, and run the daemon.
+
 Inside `apps/relay`, `src/main.ts` opens dependencies and starts the server. `src/server/app.ts` assembles the complete application; its explicit mounts lead to every route in `src/server/routes/`. Identity operations live in `src/server/identity/`, and the connection registry owns machine, connection, and ticket lifecycles in `src/server/connections/`.
 
 All page markup and UI live in `src/web/`. Account forms render on the server and submit through ordinary HTTP forms; the dashboard runs in the browser. Both use the same UI modules, layout, and stylesheet. `src/shared/` holds the data passed between the relay and its own pages. The public daemon and web-app protocol stays in `packages/contract`.
@@ -33,7 +35,7 @@ For UI development, run `pnpm --filter @mukae/relay web` alongside the relay wit
    npx --package=https://pkg.pr.new/lulu0119/mukae@main -- mukae daemon
    ```
 
-   `@main` is the latest preview published from `main`. Use a commit hash instead of `main` to stay on one publish. From a checkout, the same commands are `node packages/gateway/dist/cli.js`. `login` prints a link and a code. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`.
+   `@main` is the latest preview published from `main`. Use a commit hash instead of `main` to stay on one publish. From a checkout, the same commands are `node packages/gateway/dist/bin/mukae.js`. `mukae --help` and `mukae <command> --help` describe each command. `login` prints a link with the code filled in. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`.
 
 3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**: there is nothing to configure, and the app receives its client id together with the approval. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
 4. The web app lists the account's online machines and asks Mukae to open one agent. Mukae returns a one-time WebSocket address. The page uses that address as the ACP connection.
@@ -50,8 +52,8 @@ pnpm build
 pnpm test
 pnpm relay
 pnpm example
-node packages/gateway/dist/cli.js login
-node packages/gateway/dist/cli.js daemon
+node packages/gateway/dist/bin/mukae.js login
+node packages/gateway/dist/bin/mukae.js daemon
 ```
 
 ## Decisions

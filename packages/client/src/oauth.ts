@@ -30,6 +30,8 @@ export type DeviceAuthorization = {
   deviceCode: string;
   userCode: string;
   verificationUri: string;
+  /** The verification address with the code filled in, when Mukae offers one. */
+  verificationUriComplete?: string;
   expiresAt: number;
   intervalSeconds: number;
 };
@@ -146,6 +148,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
     deviceCode: device.device_code,
     userCode: device.user_code,
     verificationUri: device.verification_uri,
+    verificationUriComplete: device.verification_uri_complete,
     expiresAt: Date.now() + device.expires_in * 1000,
     intervalSeconds: device.interval ?? 5,
   };
