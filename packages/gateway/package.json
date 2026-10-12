@@ -12,7 +12,7 @@
     "directory": "packages/gateway"
   },
   "bin": {
-    "mukae": "./dist/bin/mukae.js"
+    "mukae": "./dist/bin/mukae.mjs"
   },
   "files": ["dist"],
   "scripts": {

@@ -8,7 +8,6 @@ export default defineConfig({
   target: "node22",
   clean: true,
   dts: false,
-  outExtensions: () => ({ js: ".js" }),
   // ws loads these native speedups only when they are installed.
   deps: {
     onlyBundle: ["@mukae/client", "@mukae/contract", "cac", "oauth4webapi", "valibot", "ws"],
