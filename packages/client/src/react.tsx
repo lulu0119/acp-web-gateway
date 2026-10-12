@@ -11,18 +11,19 @@ export type AccountSession = {
   signOut: () => void;
 };
 
-export function useAccount(relayUrl: string): AccountSession {
+export function useAccount(relayUrl: string, init?: { redirectUri?: string; returnTo?: string }): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const redirectUri = init?.redirectUri ?? new URL(browserCallbackPath, window.location.origin).href;
+  const returnTo = init?.returnTo ?? "/";
 
   useEffect(() => {
     const store = window.sessionStorage;
-    const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
-    const returning = window.location.pathname === browserCallbackPath;
+    const returning = window.location.pathname === new URL(redirectUri).pathname;
     const token = returning
       ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
-          window.history.replaceState({}, "", "/");
+          window.history.replaceState({}, "", returnTo);
           return tokens.accessToken;
         })
       : storedAccessToken({ relayUrl, store });
@@ -40,12 +41,11 @@ export function useAccount(relayUrl: string): AccountSession {
     return () => {
       cancelled = true;
     };
-  }, [relayUrl]);
+  }, [relayUrl, redirectUri, returnTo]);
 
   const signIn = useCallback(() => {
     setBusy(true);
     setError("");
-    const redirectUri = new URL(browserCallbackPath, window.location.origin).href;
     void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage })
       .then((url) => {
         window.location.assign(url);
@@ -54,7 +54,7 @@ export function useAccount(relayUrl: string): AccountSession {
         setError(error instanceof Error ? error.message : "Mukae did not answer.");
         setBusy(false);
       });
-  }, [relayUrl]);
+  }, [relayUrl, redirectUri]);
 
   const signOut = useCallback(() => {
     clearBrowserSignIn(window.sessionStorage);
