@@ -11,7 +11,7 @@ Mukae relay: ${relayUrl}
 
 1. Sign this machine in:
 ${runner} login --relay ${relayUrl}
-It prints a link and a code. Ask me to approve that code at ${relayUrl}/device, then wait for sign-in to finish.
+It prints a link with the code filled in. Ask me to open that link and approve it, then wait for sign-in to finish.
 
 2. Configure each agent already installed on this computer:
 ${runner} agent-config types
