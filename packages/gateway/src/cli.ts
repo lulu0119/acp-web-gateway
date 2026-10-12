@@ -1,25 +1,72 @@
 #!/usr/bin/env node
-import { isAgentType } from "@mukae/contract";
+import { defaultRelayUrl, isAgentType } from "@mukae/contract";
 import { hostname } from "node:os";
 import { commandOnPath, formatRegistryAgents, launchForEntry, loadAcpRegistry, platformTarget } from "./acp-registry.js";
 import { addAgentConfig, formatAgentConfigList, parseCommandArgv } from "./agents.js";
 import { readGatewayConfig, readGatewayConfigForWrite, writeGatewayConfig, type StoredAgent } from "./config.js";
 import { runDaemon } from "./daemon.js";
-import { signInDaemon, usableDaemonSession } from "./login.js";
-import { runCli } from "./run-cli.js";
+import { signInDaemon, usableSignIn } from "./login.js";
+import { parseRelayUrl, runCli } from "./run-cli.js";
+import { chooseRelay, readSignIns, removeSignIn } from "./sign-ins.js";
+
+const environmentRelay = process.env.MUKAE_RELAY ? parseRelayUrl(process.env.MUKAE_RELAY) : undefined;
+if (process.env.MUKAE_RELAY && !environmentRelay) {
+  console.error(`MUKAE_RELAY is not a relay address: ${process.env.MUKAE_RELAY}`);
+  process.exit(1);
+}
 
 const result = await runCli(process.argv.slice(2), {
-  login: async (relayUrl) => {
-    try {
-      await signInDaemon(relayUrl, (line) => console.log(line));
-      console.log("Signed in. Next: mukae daemon");
-      return 0;
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : "Sign-in failed.");
+  login: async (requested) => {
+    const signedIn = await readSignIns();
+    const chosen = chooseRelay({ requested: requested ?? environmentRelay, signedIn, command: "login" });
+    if (!chosen.ok && signedIn.length > 0) {
+      console.error(chosen.message);
       return 1;
     }
+    const relayUrl = chosen.ok ? chosen.relayUrl : defaultRelayUrl;
+    console.log(`Signing in to ${relayUrl}.`);
+    try {
+      await signInDaemon(relayUrl, (line) => console.log(line));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : "Sign-in failed.");
+      if (!chosen.ok) console.error("Pass --relay <url> to sign in to another Mukae.");
+      return 1;
+    }
+    const others = signedIn.filter((signIn) => signIn.relayUrl !== relayUrl).length;
+    console.log(`Signed in to ${relayUrl}. Next: mukae daemon${others > 0 ? ` --relay ${relayUrl}` : ""}`);
+    return 0;
   },
-  daemon: async (relayUrl) => {
+  logout: async (requested) => {
+    const signedIn = await readSignIns();
+    const chosen = chooseRelay({ requested: requested ?? environmentRelay, signedIn, command: "logout" });
+    if (!chosen.ok) {
+      console.error(chosen.message);
+      return 1;
+    }
+    if (!signedIn.some((signIn) => signIn.relayUrl === chosen.relayUrl)) {
+      console.error(`This machine is not signed in to ${chosen.relayUrl}.`);
+      return 1;
+    }
+    await removeSignIn(chosen.relayUrl);
+    console.log(`Signed out of ${chosen.relayUrl}.`);
+    return 0;
+  },
+  status: async () => {
+    const signedIn = await readSignIns();
+    if (signedIn.length === 0) {
+      console.log("This machine is not signed in. Run mukae login --relay <url>.");
+      return 0;
+    }
+    for (const signIn of signedIn) console.log(`Signed in to ${signIn.relayUrl}`);
+    return 0;
+  },
+  daemon: async (requested) => {
+    const chosen = chooseRelay({ requested: requested ?? environmentRelay, signedIn: await readSignIns(), command: "daemon" });
+    if (!chosen.ok) {
+      console.error(chosen.message);
+      return 1;
+    }
+    const { relayUrl } = chosen;
     try {
       const config = await readGatewayConfig();
       if (config.warning) {
@@ -38,7 +85,7 @@ const result = await runCli(process.argv.slice(2), {
       process.on("SIGTERM", stop);
       await runDaemon({
         relayUrl,
-        getAccessToken: async (forceRefresh, signal) => (await usableDaemonSession({ relayUrl, forceRefresh, signal })).accessToken,
+        getAccessToken: async (forceRefresh, signal) => (await usableSignIn({ relayUrl, forceRefresh, signal })).accessToken,
         inform: (line) => console.error(`${new Date().toISOString()} [mukae] ${line}`),
         hostname: hostname(),
         agents: config.agents,
@@ -91,6 +138,8 @@ const result = await runCli(process.argv.slice(2), {
 if (result.showUsage) {
   console.error(`Usage:
   mukae login [--relay <url>]
+  mukae logout [--relay <url>]
+  mukae status
   mukae daemon [--relay <url>]
   mukae agent-config list
   mukae agent-config types

@@ -37,7 +37,10 @@ export type DeviceAuthorization = {
 const refreshWindowMs = 60_000;
 
 export async function fetchPublicClients(relayUrl: string, signal?: AbortSignal): Promise<PublicClients> {
-  const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)), { signal });
+  const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)), { signal }).catch((error: unknown) => {
+    if (signal?.aborted) throw error;
+    throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`, { cause: error });
+  });
   if (!response.ok) throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
   const body: unknown = await response.json().catch(() => undefined);
   if (!isRecord(body) || typeof body.daemonClientId !== "string") {

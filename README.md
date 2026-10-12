@@ -38,7 +38,7 @@ For UI development, run `pnpm --filter @mukae/relay web` alongside the relay wit
 3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**: there is nothing to configure, and the app receives its client id together with the approval. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
 4. The web app lists the account's online machines and asks Mukae to open one agent. Mukae returns a one-time WebSocket address. The page uses that address as the ACP connection.
 
-Pass `--relay` to `login` and `daemon` when Mukae is not `http://127.0.0.1:8787`. Example reads `VITE_MUKAE_URL` at image build time for the same reason. A push to `main` publishes `mukae`, `@mukae/contract`, and `@mukae/client` from this repository. npm comes later, when the product is ready.
+`login --relay <url>` signs the machine in to a Mukae other than `http://127.0.0.1:8787`. A bare host such as `relay.example.com` means https. A machine keeps one sign-in per relay in `~/.config/mukae/sign-ins/`, and can be signed in to several relays. `daemon` and `logout` act on the only sign-in, or on the one named with `--relay` or `MUKAE_RELAY`; with several and none named, they list the choices and stop. One daemon serves one relay, so serving two relays takes two daemons. `status` lists the sign-ins. Example reads `VITE_MUKAE_URL` at image build time for the same reason. A push to `main` publishes `mukae`, `@mukae/contract`, and `@mukae/client` from this repository. npm comes later, when the product is ready.
 
 The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials or a second 401 after refresh stop the daemon with instructions to sign in again. Connection, refresh, and retry messages go to stderr with timestamps, without printing credentials.
 
@@ -56,6 +56,7 @@ node packages/gateway/dist/cli.js daemon
 
 ## Decisions
 
+- [A machine keeps one sign-in per relay](docs/adr/0013-one-sign-in-per-relay.md)
 - [Relay pages share React UI](docs/adr/0012-relay-page-rendering.md)
 - [An account relays a web app to a machine](docs/adr/0008-account-relay.md)
 - [Coolify hosts Mukae](docs/adr/0010-coolify-hosts-mukae.md)
