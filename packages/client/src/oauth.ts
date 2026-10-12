@@ -298,7 +298,12 @@ export async function finishBrowserSignIn(input: {
   const state = input.store.getItem(stateKey);
   const clientId = input.clientId ?? callbackClientId(input.callbackUrl) ?? cachedClientId(input.store, input.relayUrl);
   if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
-  const tokens = await exchangeAuthorizationCode({
+  // A code redeems once, but a framework may mount the callback twice:
+  // racing callers for the same code share one redemption.
+  const key = `${input.redirectUri}\n${callbackCode(input.callbackUrl) ?? ""}`;
+  const racing = pendingCallbackExchanges.get(key);
+  if (racing) return racing;
+  const run = exchangeAuthorizationCode({
     relayUrl: input.relayUrl,
     clientId,
     redirectUri: input.redirectUri,
@@ -306,12 +311,29 @@ export async function finishBrowserSignIn(input: {
     codeVerifier,
     state,
     clientSecret: input.clientSecret,
-  });
-  writeBrowserTokens(input.store, tokens);
-  cacheClientId(input.store, input.relayUrl, clientId);
-  input.store.removeItem(verifierKey);
-  input.store.removeItem(stateKey);
-  return tokens;
+  })
+    .then((tokens) => {
+      writeBrowserTokens(input.store, tokens);
+      cacheClientId(input.store, input.relayUrl, clientId);
+      input.store.removeItem(verifierKey);
+      input.store.removeItem(stateKey);
+      return tokens;
+    })
+    .finally(() => {
+      if (pendingCallbackExchanges.get(key) === run) pendingCallbackExchanges.delete(key);
+    });
+  pendingCallbackExchanges.set(key, run);
+  return run;
+}
+
+const pendingCallbackExchanges = new Map<string, Promise<MukaeTokens>>();
+
+function callbackCode(callbackUrl: string): string | undefined {
+  try {
+    return new URL(callbackUrl).searchParams.get("code") ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function callbackClientId(callbackUrl: string): string | undefined {

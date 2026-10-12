@@ -125,6 +125,38 @@ test("signing out clears the stored browser tokens", () => {  const store = memo
   assert.equal(store.getItem("mukae.expiresAt"), null);
 });
 
+test("two racing callback exchanges share one code redemption", async () => {
+  const relay = await fakeRelay();
+  const store = memoryStore();
+  const redirectUri = `${relay.origin}/oauth/callback`;
+  try {
+    store.setItem("mukae.codeVerifier", "verifier-1");
+    store.setItem("mukae.state", "state-1");
+    const callback = new URL("/oauth/callback", relay.origin);
+    callback.searchParams.set("code", "code-1");
+    callback.searchParams.set("state", "state-1");
+    callback.searchParams.set("iss", `${relay.origin}/api/auth`);
+    const input = {
+      relayUrl: relay.origin,
+      clientId: "example-client",
+      redirectUri,
+      callbackUrl: callback.href,
+      store,
+    };
+    // ROOT CAUSE:
+    //
+    // If the callback mounts twice, two exchanges raced one single-use code
+    // and the loser surfaced invalid_grant. The fix shares one redemption
+    // between racing callers for the same code.
+    const [first, second] = await Promise.all([finishBrowserSignIn(input), finishBrowserSignIn(input)]);
+    assert.equal(first.accessToken, "access-1");
+    assert.equal(second.accessToken, "access-1");
+    assert.equal(relay.tokenPosts, 1);
+  } finally {
+    relay.close();
+  }
+});
+
 function memoryStore(): BrowserStore {
   const values = new Map<string, string>();
   return {
@@ -134,8 +166,10 @@ function memoryStore(): BrowserStore {
   };
 }
 
-async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
-  let devicePolls = 0;  const server: Server = createServer((request, response) => {
+async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close: () => void }> {
+  let devicePolls = 0;
+  let tokenPosts = 0;
+  const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -177,6 +211,7 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
       });
     }
     if (url.pathname === "/api/auth/oauth2/token") {
+      tokenPosts += 1;
       if (params.get("grant_type") === "urn:ietf:params:oauth:grant-type:device_code") {
         devicePolls += 1;
         if (devicePolls === 1) return json(response, { error: "authorization_pending", error_description: "wait" }, 400);
@@ -196,7 +231,13 @@ async function fakeRelay(): Promise<{ origin: string; close: () => void }> {
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The fake relay did not bind.");
-  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close() };
+  return {
+    origin: `http://127.0.0.1:${address.port}`,
+    get tokenPosts() {
+      return tokenPosts;
+    },
+    close: () => server.close(),
+  };
 }
 
 function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {
