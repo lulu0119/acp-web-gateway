@@ -1,11 +1,19 @@
 import { cn } from "cn";
 
-/** Exterior's mark: 外 on a dark tile. It scales with its size classes. */
+/** Exterior's mark: a hub reaching three nodes on a dark tile. It scales with its size classes. */
 export function ExteriorMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" role="img" aria-label="Exterior" className={cn("size-8 shrink-0 text-primary", className)}>
       <rect width="32" height="32" rx="9" fill="currentColor" />
-      <text x="16" y="17" textAnchor="middle" dominantBaseline="central" fontSize="17" fontWeight="600" fill="var(--primary-foreground)">外</text>
+      <g stroke="var(--primary-foreground)" strokeWidth="2.2" strokeLinecap="round">
+        <line x1="16" y1="16" x2="9.5" y2="10.5" />
+        <line x1="16" y1="16" x2="22.5" y2="10.5" />
+        <line x1="16" y1="16" x2="16" y2="23.5" />
+      </g>
+      <circle cx="16" cy="16" r="3.2" fill="var(--primary-foreground)" />
+      <circle cx="9.5" cy="10.5" r="2" fill="var(--primary-foreground)" />
+      <circle cx="22.5" cy="10.5" r="2" fill="var(--primary-foreground)" />
+      <circle cx="16" cy="23.5" r="2" fill="var(--primary-foreground)" />
     </svg>
   );
 }
