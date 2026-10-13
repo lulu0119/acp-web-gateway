@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { machinesScope } from "@mukae/contract";
+import { devicesPath, machinesScope } from "@mukae/contract";
 import Database from "better-sqlite3";
-import { test } from "vitest";
+import { createServer } from "node:net";
+import { serve } from "@hono/node-server";
+import { onTestFinished, test } from "vitest";
 import { openMukaeAuth } from "../identity/auth.js";
 import { ensureDaemonClient, registerClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
@@ -83,8 +85,10 @@ test("approving a web app redirects back with an authorization code", async () =
   assert.equal(typeof back.searchParams.get("code"), "string");
 });
 
-test("approving a machine claims the code before it is approved", async () => {
-  const publicUrl = "http://127.0.0.1:8787";
+// Served on a real port: verifying the device's access token fetches the relay's own JWKS.
+test("an approved device appears on the dashboard once its sign-in records it", async () => {
+  const port = await freePort();
+  const publicUrl = `http://127.0.0.1:${port}`;
   const secret = "test-secret-test-secret-test-secret";
   const mukae = await openMukaeAuth({
     database: new Database(":memory:"),
@@ -99,6 +103,10 @@ test("approving a machine claims the code before it is approved", async () => {
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
   const { app } = await createTestApp(mukae);
+  const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" });
+  onTestFinished(() => {
+    server.close();
+  });
 
   const started = await app.request(`${publicUrl}/api/auth/device/code`, {
     method: "POST",
@@ -120,7 +128,7 @@ test("approving a machine claims the code before it is approved", async () => {
   });
   const approvedText = await approved.text();
   assert.equal(approved.status, 200, approvedText);
-  assert.match(approvedText, /Machine approved/);
+  assert.match(approvedText, /Device connected/);
 
   const discovery = await app.request(`${publicUrl}/api/auth/.well-known/openid-configuration`);
   const metadata = (await discovery.json()) as { token_endpoint?: string };
@@ -138,6 +146,78 @@ test("approving a machine claims the code before it is approved", async () => {
   assert.equal(token.status, 200, tokenText);
   const body = JSON.parse(tokenText) as { access_token?: string };
   assert.equal(typeof body.access_token, "string");
+
+  const recorded = await app.request(`${publicUrl}${devicesPath}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${body.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({ deviceId: "device-studio-1", hostname: "studio" }),
+  });
+  assert.equal(recorded.status, 200, await recorded.clone().text());
+  const dashboard = await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } });
+  const data = (await dashboard.json()) as { devices: { id: string; hostname: string; machineId?: string }[] };
+  assert.deepEqual(data.devices.map(({ id, hostname, machineId }) => ({ id, hostname, machineId })), [
+    { id: "device-studio-1", hostname: "studio", machineId: undefined },
+  ]);
+
+  const asWebApp = await app.request(`${publicUrl}/api/machines`, { headers: { authorization: `Bearer ${body.access_token}` } });
+  assert.equal(asWebApp.status, 403);
+});
+
+test("an expired approval link offers to start again instead of failing", async () => {
+  const publicUrl = "http://127.0.0.1:8787";
+  const secret = "test-secret-test-secret-test-secret";
+  const mukae = await openMukaeAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+  });
+  const context = await mukae.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  const cookie = await sessionCookie(session.token, secret);
+  const { app } = await createTestApp(mukae);
+  const query = "client_id=studio&redirect_uri=https%3A%2F%2Fstudio.example.test%2Fcallback&state=s&exp=1&ba_iat=1&ba_param=state&sig=stale";
+
+  const shown = await app.request(`${publicUrl}/consent?${query}`, { headers: { cookie } });
+  assert.equal(shown.status, 400);
+  const shownText = await shown.text();
+  assert.match(shownText, /This approval link expired/);
+  assert.equal(shown.headers.get("x-frame-options"), "DENY");
+  assert.match(shownText, /href="\/api\/auth\/oauth2\/authorize\?client_id=studio&amp;redirect_uri=[^"]*&amp;state=s"/);
+
+  const decided = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query }),
+  });
+  assert.equal(decided.status, 400);
+  assert.match(await decided.text(), /Start again/);
+});
+
+test("a wrong device code keeps the person on the code form with the reason", async () => {
+  const publicUrl = "http://127.0.0.1:8787";
+  const secret = "test-secret-test-secret-test-secret";
+  const mukae = await openMukaeAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+  });
+  const context = await mukae.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  const cookie = await sessionCookie(session.token, secret);
+  const { app } = await createTestApp(mukae);
+
+  const page = await app.request(`${publicUrl}/device?user_code=WXYZ-2345`, { headers: { cookie } });
+  assert.equal(page.status, 400);
+  const text = await page.text();
+  assert.match(text, /name="user_code"/);
+  assert.match(text, /role="alert"/);
+  assert.match(text, /mukae login<\/code> again for a new one/);
 });
 
 async function sessionCookie(token: string, secret: string): Promise<string> {
@@ -145,4 +225,16 @@ async function sessionCookie(token: string, secret: string): Promise<string> {
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
   const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
   return `better-auth.session_token=${token}.${encoded}`;
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      probe.close(() => resolve(port));
+    });
+  });
 }

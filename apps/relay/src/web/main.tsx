@@ -3,12 +3,17 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Dashboard } from "./pages/dashboard";
 import { readProps } from "./lib/props";
-import type { DashboardData } from "../shared/account-web.js";
+import type { DashboardData, SetupGuideData } from "../shared/account-web.js";
 
 const root = document.querySelector("#root");
 if (!root) throw new Error("Missing #root");
+const blank = { code: "", html: "" };
+const props = readProps<{ data: DashboardData; guide: SetupGuideData } | undefined>(undefined);
 createRoot(root).render(
   <StrictMode>
-    <Dashboard initialData={readProps<DashboardData>({ userName: "", machines: [], sessions: [] })} />
+    <Dashboard
+      initialData={props?.data ?? { userName: "", devices: [], sessions: [] }}
+      guide={props?.guide ?? { relayUrl: window.location.origin, prompt: blank, commands: blank, afterLogin: blank }}
+    />
   </StrictMode>,
 );

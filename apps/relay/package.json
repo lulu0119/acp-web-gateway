@@ -8,12 +8,15 @@
     "build:web": "vite build",
     "start": "node --env-file-if-exists=.env dist/main.js",
     "test": "tsc -p tsconfig.test.json && vitest run",
-    "web": "vite"
+    "web": "vite",
+    "palette": "node scripts/palette.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@better-auth/oauth-provider": "^1.6.0",
-    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/noto-sans": "^5.3.0",
+    "@fontsource/maple-mono": "^5.3.0",
+    "@guiiai/logg": "^1.2.12",
     "@hono/node-server": "^1.19.9",
     "@hono/node-ws": "^1.3.0",
     "@mukae/contract": "workspace:*",
@@ -26,10 +29,12 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-use": "^17.6.1",
+    "shiki": "^4.5.0",
     "tailwindcss": "^4.1.14",
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
+    "@proj-airi/chromatic": "^1.1.5",
     "@tailwindcss/vite": "^4.1.14",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.6.0",

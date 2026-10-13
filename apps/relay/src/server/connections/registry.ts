@@ -22,6 +22,7 @@ export type BrowserLink = {
 type LiveMachine = {
   id: string;
   userId: string;
+  deviceId?: string;
   hostname: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
@@ -44,6 +45,12 @@ type LiveSession = {
   openResolve?: (result: OpenSessionResult) => void;
 };
 
+/** A connected daemon, with the stable device id it announced, if any. */
+export type LiveMachineInfo = Machine & { deviceId?: string };
+
+/** Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept. */
+export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string }) => void;
+
 export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: "used" | "expired" | "gone" };
 
 export type Registry = {
@@ -51,14 +58,15 @@ export type Registry = {
     receive(message: DaemonMessage): void;
     close(): void;
   };
-  listMachines(userId: string): Machine[];
+  listMachines(userId: string): LiveMachineInfo[];
   listSessions(userId: string): LiveSessionInfo[];
   openSession(input: { userId: string; machineId: string; agentName: string }): Promise<OpenSessionResult>;
   takeTicket(ticket: string, browser: BrowserSocket): TakeTicketResult;
 };
 
-export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number }): Registry {
+export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number; seen?: SeenDevice }): Registry {
   const now = input?.now ?? Date.now;
+  const seen = input?.seen ?? (() => undefined);
   const ticketTtlMs = input?.ticketTtlMs ?? defaultTicketTtlMs;
   const openTimeoutMs = input?.openTimeoutMs ?? defaultOpenTimeoutMs;
   const machines = new Map<string, LiveMachine>();
@@ -126,13 +134,22 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
         receive(message) {
           if (message.type === "hello") {
             const agents = message.agents.map((agent) => ({ name: agent.name, agentType: agent.agentType }));
+            if (message.deviceId) seen({ userId: link.userId, deviceId: message.deviceId, hostname: message.hostname });
             if (!machineId) {
               machineId = randomUUID();
-              machines.set(machineId, { id: machineId, userId: link.userId, hostname: message.hostname, agents, send: link.send });
+              machines.set(machineId, {
+                id: machineId,
+                userId: link.userId,
+                deviceId: message.deviceId,
+                hostname: message.hostname,
+                agents,
+                send: link.send,
+              });
               return;
             }
             const machine = machines.get(machineId);
             if (!machine) return;
+            machine.deviceId = message.deviceId;
             machine.hostname = message.hostname;
             machine.agents = agents;
             return;
@@ -174,6 +191,8 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           if (!machineId) return;
           const closedId = machineId;
           machineId = undefined;
+          const closed = machines.get(closedId);
+          if (closed?.deviceId) seen({ userId: closed.userId, deviceId: closed.deviceId, hostname: closed.hostname });
           machines.delete(closedId);
           for (const session of sessions.values()) {
             if (session.machineId === closedId) finishSession(session, "daemon");
@@ -184,7 +203,12 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
     listMachines(userId) {
       return [...machines.values()]
         .filter((machine) => machine.userId === userId)
-        .map((machine) => ({ id: machine.id, hostname: machine.hostname, agents: machine.agents }));
+        .map((machine) => ({
+          id: machine.id,
+          hostname: machine.hostname,
+          agents: machine.agents,
+          ...(machine.deviceId ? { deviceId: machine.deviceId } : {}),
+        }));
     },
     listSessions(userId) {
       return [...sessions.values()]

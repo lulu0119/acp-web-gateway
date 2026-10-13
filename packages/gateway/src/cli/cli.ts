@@ -7,8 +7,8 @@ export type { CliIo } from "./command.js";
 
 const root = defineCommand({
   name: "mukae",
-  description: "Connect this machine's ACP agents to a Mukae account",
-  help: "Connect this machine's ACP agents to a Mukae account. Sign in to a relay, add an agent configuration, then keep the daemon running.",
+  description: "Connect this device's ACP agents to a Mukae account",
+  help: "Connect this device's ACP agents to a Mukae account. Sign in to a relay, add an agent configuration, then keep the daemon running.",
   children: commandTree,
   examples: [
     "mukae login --relay relay.example.com",

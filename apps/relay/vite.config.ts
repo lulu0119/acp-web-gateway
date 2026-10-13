@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         dashboard: fileURLToPath(new URL("./src/web/index.html", import.meta.url)),
+        account: fileURLToPath(new URL("./src/web/account-main.tsx", import.meta.url)),
         styles: fileURLToPath(new URL("./src/web/styles.css", import.meta.url)),
       },
     },

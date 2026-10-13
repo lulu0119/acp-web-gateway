@@ -2,13 +2,13 @@ import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
 import { readGatewayConfig } from "../../config.js";
 import { runDaemon } from "../../daemon.js";
-import { usableSignIn } from "../../login.js";
+import { signedInDeviceId, usableSignIn } from "../../login.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";
 
 export const daemon = defineCommand({
   name: "daemon",
-  description: "Keep this machine connected to a relay and run its agents",
+  description: "Keep this device connected to a relay and run its agents",
   help: [
     "Keep an outbound connection to one relay and start an agent for each connection a web app opens. Connection, refresh, and retry messages go to stderr.",
     "One daemon serves one relay. Run a second daemon to serve a second relay.",
@@ -42,6 +42,7 @@ export const daemon = defineCommand({
           (await usableSignIn({ relayUrl, homeDirectory: io.homeDirectory, forceRefresh, signal })).accessToken,
         inform,
         hostname: hostname(),
+        deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
         agents: config.agents,
         signal: context.signal,
         catalog: registry.ok ? registry.agents : [],

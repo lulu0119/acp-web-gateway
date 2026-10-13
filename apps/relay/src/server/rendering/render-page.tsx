@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import type { AccountPage as AccountPageData, DashboardData } from "../../shared/account-web.js";
+import { renderToStaticMarkup, renderToString } from "react-dom/server";
+import type { AccountPage as AccountPageData, DashboardData, SetupGuideData } from "../../shared/account-web.js";
 import { AccountPage, accountPageTitle } from "../../web/pages/account.js";
 import type { WebAssets } from "./assets.js";
 
 export type PageRenderer = {
   account(page: AccountPageData): string;
-  dashboard(data: DashboardData): string;
+  dashboard(data: DashboardData, guide: SetupGuideData): string;
 };
 
 export function createPageRenderer(assets: WebAssets): PageRenderer {
-  function document(title: string, content: ReactNode, dashboard?: DashboardData): string {
+  function document(title: string, root: ReactNode, props: unknown, script: string | undefined): string {
     return "<!doctype html>" + renderToStaticMarkup(
       <html lang="en">
         <head>
@@ -20,17 +20,22 @@ export function createPageRenderer(assets: WebAssets): PageRenderer {
           {assets.stylesheets.map((href) => <link key={href} rel="stylesheet" href={href} />)}
         </head>
         <body>
-          {content}
-          {dashboard ? <script id="props" type="application/json" dangerouslySetInnerHTML={{ __html: escapeJson(dashboard) }} /> : null}
+          {root}
+          <script id="props" type="application/json" dangerouslySetInnerHTML={{ __html: escapeJson(props) }} />
           {assets.devClient ? <script type="module" src={assets.devClient} /> : null}
-          {dashboard && assets.dashboardScript ? <script type="module" src={assets.dashboardScript} /> : null}
+          {script ? <script type="module" src={script} /> : null}
         </body>
       </html>,
     );
   }
   return {
-    account: (page) => document(`${accountPageTitle(page)} · Mukae`, <AccountPage page={page} />),
-    dashboard: (data) => document("Mukae", <div id="root" />, data),
+    account: (page) => document(
+      `${accountPageTitle(page)} · Mukae`,
+      <div id="root" dangerouslySetInnerHTML={{ __html: renderToString(<AccountPage page={page} />) }} />,
+      page,
+      assets.accountScript,
+    ),
+    dashboard: (data, guide) => document("Devices · Mukae", <div id="root" />, { data, guide }, assets.dashboardScript),
   };
 }
 

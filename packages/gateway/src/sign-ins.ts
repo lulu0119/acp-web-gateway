@@ -9,6 +9,8 @@ export type SignIn = {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  /** Names this device to the relay across daemon restarts. Sign-ins written before it existed lack one. */
+  deviceId?: string;
 };
 
 function configDirectory(homeDirectory: string): string {
@@ -35,6 +37,7 @@ export function parseSignIn(value: unknown): SignIn | undefined {
       accessToken: value.accessToken,
       refreshToken: value.refreshToken,
       expiresAt: value.expiresAt,
+      ...(typeof value.deviceId === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(value.deviceId) ? { deviceId: value.deviceId } : {}),
     };
   } catch {
     return undefined;
@@ -88,10 +91,10 @@ export function chooseRelay(input: {
 }): { ok: true; relayUrl: string } | { ok: false; message: string } {
   if (input.requested) return { ok: true, relayUrl: input.requested };
   const [only, ...others] = input.signedIn;
-  if (!only) return { ok: false, message: "This machine is not signed in. Run mukae login --relay <url>." };
+  if (!only) return { ok: false, message: "This device is not signed in. Run mukae login --relay <url>." };
   if (others.length === 0) return { ok: true, relayUrl: only.relayUrl };
   const choices = input.signedIn.map((signIn) => `  mukae ${input.command} --relay ${signIn.relayUrl}`).join("\n");
-  return { ok: false, message: `This machine is signed in to ${input.signedIn.length} relays. Pick one:\n${choices}` };
+  return { ok: false, message: `This device is signed in to ${input.signedIn.length} relays. Pick one:\n${choices}` };
 }
 
 async function readSignInFile(path: string): Promise<SignIn | undefined> {

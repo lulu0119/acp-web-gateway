@@ -4,6 +4,7 @@ export const defaultRelayUrl = "http://127.0.0.1:8787";
 export const daemonPath = "/api/daemon";
 export const acpPath = "/api/acp";
 export const machinesPath = "/api/machines";
+export const devicesPath = "/api/devices";
 export const sessionsPath = "/api/sessions";
 export const exampleCallbackPath = "/oauth/callback";
 
@@ -35,6 +36,7 @@ const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureL
 const HelloSchema = v.object({
   type: v.literal("hello"),
   hostname: HostnameSchema,
+  deviceId: v.optional(IdSchema),
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
 });
 const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
@@ -42,6 +44,8 @@ const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
 const OpenedSchema = v.object({ type: v.literal("opened"), sessionId: IdSchema });
 const OpenFailedSchema = v.object({ type: v.literal("open-failed"), sessionId: IdSchema, message: FailureSchema });
 const OpenSchema = v.object({ type: v.literal("open"), sessionId: IdSchema, agentName: NameSchema });
+
+const DeviceRegistrationSchema = v.object({ deviceId: IdSchema, hostname: HostnameSchema });
 
 const DaemonMessageSchema = v.variant("type", [HelloSchema, FrameSchema, CloseSchema, OpenedSchema, OpenFailedSchema]);
 const RelayMessageSchema = v.variant("type", [OpenSchema, FrameSchema, CloseSchema]);
@@ -53,6 +57,9 @@ export type Machine = {
   hostname: string;
   agents: readonly AgentSlot[];
 };
+
+/** What `mukae login` tells the relay about the device it just signed in. */
+export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
 
 export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;
 
@@ -74,6 +81,11 @@ export function relayWebSocketUrl(relayUrl: string, path: string): string {
 
 export function parseDaemonMessage(value: unknown): DaemonMessage | undefined {
   const parsed = v.safeParse(DaemonMessageSchema, value);
+  return parsed.success ? parsed.output : undefined;
+}
+
+export function parseDeviceRegistration(value: unknown): DeviceRegistration | undefined {
+  const parsed = v.safeParse(DeviceRegistrationSchema, value);
   return parsed.success ? parsed.output : undefined;
 }
 

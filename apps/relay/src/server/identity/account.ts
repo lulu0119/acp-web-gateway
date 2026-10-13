@@ -1,9 +1,10 @@
 import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
-import type { AccountPage } from "../../shared/account-web.js";
+import type { AccountPage, AccountView, PermissionView } from "../../shared/account-web.js";
+import { setupGuide } from "../rendering/setup-guide.js";
 import type { MukaeAuth } from "./auth.js";
 import { approvePendingClient } from "./clients.js";
 import { findClientMeta, hasRememberedGrant } from "./grants.js";
-import { readAccount } from "./session.js";
+import { readAccount, type Account } from "./session.js";
 
 export type AccountResult =
   | { redirect: string; headers?: Headers }
@@ -31,42 +32,53 @@ export async function signInWithGitHub(request: Request, mukae: MukaeAuth, query
 export async function readConsent(request: Request, mukae: MukaeAuth): Promise<AccountResult> {
   const query = continuationQuery(request.url);
   const secret = (await mukae.auth.$context).secret;
-  if (!(await verifyOAuthQueryParams(query, secret))) return message("Approve", "This approval link is no longer valid.", 400);
+  if (!(await verifyOAuthQueryParams(query, secret))) return expiredApproval(query);
   const params = new URLSearchParams(query);
   const clientId = params.get("client_id") ?? "";
   const scopes = (params.get("scope") ?? "").split(" ").filter((scope) => scope.length > 0);
   const account = await readAccount(request, mukae);
-  if (account && clientId && (await hasRememberedGrant(mukae, account, clientId, scopes))) {
+  if (!account) return { redirect: `/sign-in?${query}` };
+  if (clientId && (await hasRememberedGrant(mukae, account, clientId, scopes))) {
     const approved = await mukae.auth.api.oauth2Consent({
       body: { accept: true, oauth_query: query },
       headers: request.headers,
       request,
       asResponse: false,
-    });
-    if (approved.redirect) return { redirect: approved.url };
+    }).catch(() => undefined);
+    if (approved?.redirect) return { redirect: approved.url };
   }
   const meta = clientId ? await findClientMeta(mukae, clientId) : undefined;
+  const redirectUri = params.get("redirect_uri") ?? "";
   return {
     page: {
       kind: "consent",
       query,
       clientId,
-      clientName: meta?.clientName ?? clientId,
-      redirectUri: params.get("redirect_uri") ?? "",
-      scope: params.get("scope") ?? "",
+      clientName: meta?.clientName ?? "",
+      origin: originOf(redirectUri),
+      redirectUri,
+      clientUri: meta?.clientUri,
+      unverified: !meta?.registered,
+      account: accountView(account),
+      permissions: describeScopes(scopes),
     },
     status: 200,
   };
 }
 
 export async function decideConsent(request: Request, mukae: MukaeAuth, query: string, accept: boolean): Promise<AccountResult> {
-  const result = await mukae.auth.api.oauth2Consent({
-    body: { accept, oauth_query: query },
-    headers: request.headers,
-    request,
-    asResponse: false,
-  });
-  if (!result.redirect) return message("Approve", "Mukae could not finish approval.", 502);
+  let result: { redirect: boolean; url: string };
+  try {
+    result = await mukae.auth.api.oauth2Consent({
+      body: { accept, oauth_query: query },
+      headers: request.headers,
+      request,
+      asResponse: false,
+    });
+  } catch {
+    return expiredApproval(query);
+  }
+  if (!result.redirect) return expiredApproval(query);
   const clientId = new URLSearchParams(query).get("client_id") ?? "";
   if (accept && clientId && (await approvePendingClient(mukae, clientId))) {
     const back = new URL(result.url);
@@ -76,37 +88,88 @@ export async function decideConsent(request: Request, mukae: MukaeAuth, query: s
   return { redirect: result.url };
 }
 
+const scopeDescriptions: Record<string, Omit<PermissionView, "scope">> = {
+  machines: {
+    title: "Use agents on your devices",
+    detail: "See which of your devices are online and the agents set up on them, and start a session with one of those agents.",
+  },
+  offline_access: {
+    title: "Stay connected",
+    detail: "Keep this access after you close the page, until you revoke it from your Mukae dashboard.",
+  },
+  openid: { title: "Know who you are", detail: "Learn your Mukae account id." },
+  profile: { title: "See your name", detail: "Read the name on your Mukae account." },
+  email: { title: "See your email address", detail: "Read the email address on your Mukae account." },
+};
+
+export function describeScopes(scopes: readonly string[]): PermissionView[] {
+  return scopes.map((scope) => ({ scope, ...(scopeDescriptions[scope] ?? { title: scope, detail: "A permission Mukae does not describe." }) }));
+}
+
+const signingParams = new Set(["sig", "exp"]);
+
+// The signed approval link expires. The original request (client, redirect, state, PKCE challenge) is still valid,
+// so sending it to the authorize endpoint again issues a fresh link without involving the app.
+function expiredApproval(query: string): AccountResult {
+  const restart = new URLSearchParams([...new URLSearchParams(query)].filter(([key]) => !signingParams.has(key) && !key.startsWith("ba_")));
+  const canRestart = restart.has("client_id") && restart.has("redirect_uri");
+  return {
+    page: {
+      kind: "message",
+      tone: "error",
+      title: "This approval link expired",
+      message: canRestart
+        ? "Approval links last a few minutes. Start again to get a fresh one; the app keeps waiting."
+        : "Approval links last a few minutes. Go back to the app and connect again.",
+      action: canRestart ? { label: "Start again", href: `/api/auth/oauth2/authorize?${restart}` } : undefined,
+    },
+    status: 400,
+  };
+}
+
+function originOf(uri: string): string {
+  try {
+    return new URL(uri).origin;
+  } catch {
+    return "";
+  }
+}
+
 export async function readDevice(request: Request, mukae: MukaeAuth, userCode: string): Promise<AccountResult> {
-  if (!(await readAccount(request, mukae))) {
+  const account = await readAccount(request, mukae);
+  if (!account) {
     const next = userCode ? `/device?user_code=${encodeURIComponent(userCode)}` : "/device";
     return { redirect: `/sign-in?next=${encodeURIComponent(next)}` };
   }
-  if (!userCode) return { page: { kind: "device-code" }, status: 200 };
+  if (!userCode) return { page: { kind: "device-code", account: accountView(account) }, status: 200 };
   try {
     await mukae.auth.api.deviceVerify({ query: { user_code: userCode }, headers: request.headers });
   } catch (error) {
-    return message("Approve machine", described(error), 400);
+    return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
-  return { page: { kind: "device", userCode }, status: 200 };
+  return { page: { kind: "device", userCode, account: accountView(account) }, status: 200 };
 }
 
 export async function decideDevice(request: Request, mukae: MukaeAuth, userCode: string, approve: boolean): Promise<AccountResult> {
-  if (!userCode) return message("Approve machine", "Enter the code from the machine.", 400);
+  const account = await readAccount(request, mukae);
+  if (!account) return { redirect: `/sign-in?next=${encodeURIComponent(`/device?user_code=${encodeURIComponent(userCode)}`)}` };
+  if (!userCode) return { page: { kind: "device-code", account: accountView(account), problem: "Enter the code your device printed." }, status: 400 };
   const endpoint = approve ? mukae.auth.api.deviceApprove : mukae.auth.api.deviceDeny;
   try {
     await endpoint({ body: { userCode }, headers: request.headers });
   } catch (error) {
-    return message("Approve machine", described(error), 400);
+    return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
-  return message(
-    approve ? "Machine approved" : "Machine denied",
-    approve ? "Return to the machine. It will connect on its own." : "The machine was not approved.",
-    200,
-  );
+  if (approve) return { page: { kind: "device-approved", guide: setupGuide(mukae.publicUrl) }, status: 200 };
+  return message("Device not connected", "The code was denied. The device stays signed out.", 200, "neutral");
 }
 
-function message(title: string, message: string, status: 200 | 400 | 502): AccountResult {
-  return { page: { kind: "message", title, message }, status };
+function accountView(account: Account): AccountView {
+  return { name: account.userName, image: account.userImage };
+}
+
+function message(title: string, message: string, status: 200 | 400 | 502, tone: "success" | "neutral" | "error" = "error"): AccountResult {
+  return { page: { kind: "message", tone, title, message }, status };
 }
 
 function continuationQuery(requestUrl: string): string {
@@ -121,7 +184,7 @@ function described(error: unknown): string {
       return body.error_description;
     }
   }
-  return "Mukae could not finish approval.";
+  return "That code did not work";
 }
 
 function safeNext(value: string | null): string | undefined {

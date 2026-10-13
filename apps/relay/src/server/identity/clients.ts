@@ -5,6 +5,7 @@ import type { MukaeAuth } from "./auth.js";
 
 const daemonSoftwareId = "mukae-daemon";
 const userSoftwarePrefix = "mukae-user-client:";
+export const registeredSoftwarePrefix = userSoftwarePrefix;
 const openSoftwarePrefix = "mukae-open-client:";
 const pendingSoftwarePrefix = "mukae-pending:";
 export const maxClientsPerUser = 10;

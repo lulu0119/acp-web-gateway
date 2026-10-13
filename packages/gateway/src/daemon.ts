@@ -10,6 +10,7 @@ export async function runDaemon(input: {
   getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
   inform: (line: string) => void;
   hostname: string;
+  deviceId?: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
@@ -62,6 +63,7 @@ function connectOnce(input: {
   accessToken: string;
   inform: (line: string) => void;
   hostname: string;
+  deviceId?: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
@@ -74,6 +76,7 @@ function connectOnce(input: {
   let connected = false;
   const host = createDaemonHost({
     hostname: input.hostname,
+    deviceId: input.deviceId,
     agents: input.agents,
     send(message: DaemonMessage) {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
