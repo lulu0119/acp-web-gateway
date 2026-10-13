@@ -15,7 +15,7 @@ Code still missing.
 - Check `Origin` against the app's redirect origins on the web app API and on `/api/acp`, instead of `Access-Control-Allow-Origin: *`.
 - Removing a device from the dashboard: it needs to revoke that device's refresh token, which the relay cannot yet map to a device id.
 - The device approval page shows only the code. Show the requesting device's name and address so a forwarded code is easier to spot.
-- npm release of `exterior`, `@exterior/contract`, and `@exterior/client`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
+- npm release of `exterior-project`, `@exterior/contract`, and `@exterior/client`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: rename the GitHub repo to `exterior`, and update the Coolify environment and the GitHub OAuth app name.
 
 ## Awaiting verification

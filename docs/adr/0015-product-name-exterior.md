@@ -11,5 +11,5 @@ The rename is total: display name `Exterior`, CLI `exterior`, npm scope `@exteri
 
 ## Collision note
 
-- npm bare `exterior` is a versionless placeholder, last modified 2014, with zero versions. The npm release is deferred until the product is ready; when it ships, the CLI can publish under the scope (for example `@exterior/cli`) with bin `exterior`, since a bin name does not need the bare package name.
+- npm bare `exterior` is a versionless placeholder, last modified 2014, with zero versions, so it cannot be taken. The npm release is deferred until the product is ready; when it ships, the CLI publishes as `exterior-project` (checked free; `exterior-cli` and `@exterior/cli` were the runners-up) with bin `exterior`, since a bin name does not need the bare package name. The in-repo package keeps the name `exterior` until then.
 - `@exterior/client` is not on the npm registry. The GitHub repo rename to `exterior` is a follow-up in `docs/open-work.md`; the preview URLs in this repo already point at the new repo name. Trademark registries were not searched.
