@@ -1,6 +1,6 @@
 # Product name: Exterior
 
-Decided: Exterior. The name means an external brain: a relay that lends a web app reach to an agent on a machine the person owns. This supersedes [ADR 0004](0004-product-name-mukae.md).
+Decided: Exterior. The name means an external brain: a relay that lends a web app reach to an agent on a machine the person owns. Pronunciation follows English exterior, or Japanese エクステリア (ekisuteria). This supersedes [ADR 0004](0004-product-name-mukae.md).
 
 The rename is total: display name `Exterior`, CLI `exterior`, npm scope `@exterior`, config path `~/.config/exterior`, environment `EXTERIOR_RELAY` and `VITE_EXTERIOR_URL`, browser storage keys `exterior.*`, client software ids `exterior-*`, the `exterior_device` table, and the reserved-name rule, which now reserves `Exterior`. Nothing has shipped to npm, so no migration: preview installs are replaced by reinstalling, a device signs in again under the new config path, and the relay leaves the old device table behind.
 
