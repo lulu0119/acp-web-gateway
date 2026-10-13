@@ -1,4 +1,4 @@
-import { acpPath, devicesPath, machinesPath, parseDeviceRegistration, sessionsPath } from "@mukae/contract";
+import { acpPath, devicesPath, machinesPath, parseDeviceRegistration, sessionsPath } from "@exterior/contract";
 import type { Hono } from "hono";
 import type { Registry } from "../connections/registry.js";
 import type { DeviceStore } from "../devices/store.js";

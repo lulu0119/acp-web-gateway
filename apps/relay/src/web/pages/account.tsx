@@ -16,7 +16,7 @@ import {
 import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
-import { MukaeMark } from "../components/mukae-mark.js";
+import { ExteriorMark } from "../components/exterior-mark.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
@@ -81,10 +81,10 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
     <Shell
       header={(
         <>
-          <MukaeMark className="size-14" />
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to Mukae</h1>
+          <ExteriorMark className="size-14" />
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in to Exterior</h1>
           <p className="max-w-sm text-muted-foreground">
-            Mukae lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device.
+            Exterior lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device.
           </p>
         </>
       )}
@@ -99,7 +99,7 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
         </PendingForm>
       ) : (
         <Notice tone="error" title="GitHub sign-in is not set up">
-          Set <code className="font-mono">GITHUB_CLIENT_ID</code> and <code className="font-mono">GITHUB_CLIENT_SECRET</code>, then start Mukae again.
+          Set <code className="font-mono">GITHUB_CLIENT_ID</code> and <code className="font-mono">GITHUB_CLIENT_SECRET</code>, then start Exterior again.
         </Notice>
       )}
     </Shell>
@@ -116,10 +116,10 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
           <SignedInAs account={page.account} />
         </>
       )}
-      footer="Only enter a code your own device printed. Mukae never sends you a code."
+      footer="Only enter a code your own device printed. Exterior never sends you a code."
     >
       <p className="text-center text-sm text-muted-foreground">
-        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">mukae login</code>.
+        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">exterior login</code>.
       </p>
       <PendingForm method="get" action="/device" className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -141,7 +141,7 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
               <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
                 {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or run{" "}
-                <code className="font-mono">mukae login</code> again for a new one.
+                <code className="font-mono">exterior login</code> again for a new one.
               </span>
             </p>
           ) : null}
@@ -170,7 +170,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
       </div>
       <ul className="flex flex-col gap-3 text-sm">
         <Allowance icon={<BotIcon />}>The device can run agents for your account when an app you approved asks for one.</Allowance>
-        <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out with <code className="font-mono">mukae logout</code>.</Allowance>
+        <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out with <code className="font-mono">exterior logout</code>.</Allowance>
       </ul>
       <Notice tone="warning" title="Only connect a device you just started">
         If someone sent you this code or link, deny it. Their computer would join your account and receive the agent sessions your apps open.
@@ -202,7 +202,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
           <StatusMark tone="success" />
           <h1 className="text-2xl font-semibold tracking-tight">Device connected</h1>
           <p className="max-w-md text-muted-foreground">
-            The device is signed in to your account. <code className="font-mono text-sm">mukae login</code> on it finishes on its own.
+            The device is signed in to your account. <code className="font-mono text-sm">exterior login</code> on it finishes on its own.
           </p>
         </>
       )}
@@ -218,7 +218,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
               If an assistant is setting this device up, it continues by itself: it configures the agents installed there and keeps the device online.
             </Step>
             <Step n={2} title="Wait for the device to come online">
-              It shows as online on your dashboard once <code className="font-mono">mukae daemon</code> runs.
+              It shows as online on your dashboard once <code className="font-mono">exterior daemon</code> runs.
             </Step>
             <Step n={3} title="Return to the web app">
               The app lists the device and can open an agent on it.
@@ -255,7 +255,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           <div className="flex items-center gap-3" aria-hidden>
             <AppMonogram label={name || site} />
             <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
-            <MukaeMark className="size-14" />
+            <ExteriorMark className="size-14" />
           </div>
           <h1 className="max-w-lg text-2xl font-semibold tracking-tight text-balance">
             {name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
@@ -266,7 +266,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           </div>
         </>
       )}
-      footer="You can revoke this app anytime from your Mukae dashboard."
+      footer="You can revoke this app anytime from your Exterior dashboard."
     >
       <SignedInAs account={page.account} />
       <section className="flex flex-col gap-3">
@@ -276,7 +276,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
         </ul>
       </section>
       {page.unverified ? (
-        <Notice tone="warning" title="Mukae has not verified this app">
+        <Notice tone="warning" title="Exterior has not verified this app">
           {name ? <>The name “{name}” comes from the app itself. </> : null}
           Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
         </Notice>
@@ -332,7 +332,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
             {page.action.label}
           </a>
         ) : null}
-        <a href="/" className={cn(buttonVariants({ variant: page.action ? "ghost" : "secondary", size: "lg" }), "w-full")}>Back to Mukae</a>
+        <a href="/" className={cn(buttonVariants({ variant: page.action ? "ghost" : "secondary", size: "lg" }), "w-full")}>Back to Exterior</a>
       </div>
     </Shell>
   );

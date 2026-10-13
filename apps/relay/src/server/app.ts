@@ -1,4 +1,4 @@
-import { publicClientsPath, type PublicClients } from "@mukae/contract";
+import { publicClientsPath, type PublicClients } from "@exterior/contract";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { useLogg } from "@guiiai/logg";
@@ -7,7 +7,7 @@ import { cors } from "hono/cors";
 import type { Registry } from "./connections/registry.js";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
-import type { MukaeAuth } from "./identity/auth.js";
+import type { ExteriorAuth } from "./identity/auth.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
 import { createPageRenderer } from "./rendering/render-page.js";
@@ -20,7 +20,7 @@ import { mountSockets } from "./routes/sockets.js";
 const log = useLogg("relay").useGlobalConfig();
 
 export function createRelayApp(input: {
-  mukae: MukaeAuth;
+  exterior: ExteriorAuth;
   registry: Registry;
   devices: DeviceStore;
   clients: PublicClients;
@@ -34,20 +34,20 @@ export function createRelayApp(input: {
   const publicDir = input.publicDir ?? "dist/public";
   const render = createPageRenderer(readWebAssets(publicDir, input.devServerUrl));
   const readAccessAccount = input.readAccess ?? ((request: Request) => readAccess(request, {
-    jwksUrl: input.mukae.jwksUrl,
-    issuer: input.mukae.issuer,
-    audience: input.mukae.resource,
+    jwksUrl: input.exterior.jwksUrl,
+    issuer: input.exterior.issuer,
+    audience: input.exterior.resource,
   }));
   const daemonClientId = input.clients.daemonClientId;
 
   app.onError((error, c) => {
     log.withError(error).withFields({ method: c.req.method, path: c.req.path }).error("Request failed");
-    if (c.req.path.startsWith("/api/")) return c.json({ message: "Mukae hit an error. Try again." }, 500);
+    if (c.req.path.startsWith("/api/")) return c.json({ message: "Exterior hit an error. Try again." }, 500);
     return c.html(render.account({
       kind: "message",
       tone: "error",
       title: "Something went wrong",
-      message: "Mukae could not finish this step. Try again; if it keeps failing, start over from the app or your device.",
+      message: "Exterior could not finish this step. Try again; if it keeps failing, start over from the app or your device.",
       action: { label: "Try again", href: c.req.method === "GET" ? c.req.url : "/" },
     }), 500);
   });
@@ -68,15 +68,15 @@ export function createRelayApp(input: {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get(publicClientsPath, (c) => c.json(input.clients));
-  mountAccountPages(app, input.mukae, input.githubConfigured, render);
-  mountDashboard(app, { mukae: input.mukae, registry: input.registry, devices: input.devices, render });
-  mountClients(app, input.mukae);
+  mountAccountPages(app, input.exterior, input.githubConfigured, render);
+  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, render });
+  mountClients(app, input.exterior);
   mountConnections(app, {
     registry: input.registry,
     devices: input.devices,
     readAccess: readAccessAccount,
     daemonClientId,
-    publicUrl: input.mukae.publicUrl,
+    publicUrl: input.exterior.publicUrl,
   });
   mountSockets(app, {
     registry: input.registry,
@@ -85,7 +85,7 @@ export function createRelayApp(input: {
     upgradeWebSocket: sockets.upgradeWebSocket,
   });
   app.use("/assets/*", serveStatic({ root: publicDir }));
-  app.all("/api/auth/*", (c) => input.mukae.auth.handler(c.req.raw));
+  app.all("/api/auth/*", (c) => input.exterior.auth.handler(c.req.raw));
 
   return { app, injectWebSocket: sockets.injectWebSocket };
 }

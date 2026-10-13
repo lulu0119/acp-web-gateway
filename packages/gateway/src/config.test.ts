@@ -40,7 +40,7 @@ test("a custom command is stored with the configuration", () => {
 });
 
 test("written config can be read back and is private", async () => {
-  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   await writeGatewayConfig(
     { agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }] },
     homeDirectory,
@@ -58,13 +58,13 @@ test("written config can be read back and is private", async () => {
 });
 
 test("a missing config file is empty and may be created", async () => {
-  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   assert.deepEqual(await readGatewayConfig(homeDirectory), { agents: [] });
   assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), { ok: true, agents: [] });
 });
 
 test("a config file that is not JSON is not treated as empty", async () => {
-  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, "{", "utf8");
@@ -77,7 +77,7 @@ test("a config file that is not JSON is not treated as empty", async () => {
 });
 
 test("a config whose agents field is not a list is refused for rewrite", async () => {
-  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   const text = '{"agents":"nope"}\n';
@@ -89,7 +89,7 @@ test("a config whose agents field is not a list is refused for rewrite", async (
 });
 
 test("a config that would drop agent entries is refused for rewrite", async () => {
-  const homeDirectory = await mkdtemp(join(tmpdir(), "mukae-config-"));
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   const text = `${JSON.stringify({

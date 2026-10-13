@@ -1,4 +1,4 @@
-import { isAgentType, isEnvName } from "@mukae/contract";
+import { isAgentType, isEnvName } from "@exterior/contract";
 import type { StoredAgent } from "./config.js";
 
 export function addAgentConfig(input: {
@@ -11,7 +11,7 @@ export function addAgentConfig(input: {
   knownTypes: readonly string[];
 }): { ok: true; agents: StoredAgent[]; createdName: string } | { ok: false; message: string } {
   if (!isAgentType(input.agentType) || (!input.command && !input.knownTypes.includes(input.agentType))) {
-    return { ok: false, message: `Unknown agent type "${input.agentType}". Run mukae agent-config types.` };
+    return { ok: false, message: `Unknown agent type "${input.agentType}". Run exterior agent-config types.` };
   }
   if (input.command !== undefined && input.command.length === 0) {
     return { ok: false, message: "The command is empty." };
@@ -76,7 +76,7 @@ export function parseCommandArgv(text: string): string[] | undefined {
 
 export function formatAgentConfigList(agents: readonly StoredAgent[]): string {
   if (agents.length === 0) {
-    return "No agent configurations.\nNext: mukae agent-config create --agent-type opencode\n";
+    return "No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n";
   }
   return `${agents.map((agent) => `${agent.name}\t${agent.agentType}`).join("\n")}\n`;
 }

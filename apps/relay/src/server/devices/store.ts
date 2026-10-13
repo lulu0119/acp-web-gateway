@@ -17,20 +17,20 @@ export type DeviceStore = {
 type Row = { id: string; hostname: string; created_at: number; last_seen_at: number };
 
 export function openDeviceStore(database: Database.Database): DeviceStore {
-  database.exec(`create table if not exists mukae_device (
+  database.exec(`create table if not exists exterior_device (
     id text primary key,
     user_id text not null,
     hostname text not null,
     created_at integer not null,
     last_seen_at integer not null
   )`);
-  database.exec("create index if not exists mukae_device_user on mukae_device (user_id)");
-  const upsert = database.prepare(`insert into mukae_device (id, user_id, hostname, created_at, last_seen_at)
+  database.exec("create index if not exists exterior_device_user on exterior_device (user_id)");
+  const upsert = database.prepare(`insert into exterior_device (id, user_id, hostname, created_at, last_seen_at)
     values (@deviceId, @userId, @hostname, @now, @now)
     on conflict (id) do update set hostname = excluded.hostname, last_seen_at = excluded.last_seen_at
-    where mukae_device.user_id = excluded.user_id`);
+    where exterior_device.user_id = excluded.user_id`);
   const select = database.prepare<[string], Row>(
-    "select id, hostname, created_at, last_seen_at from mukae_device where user_id = ? order by created_at",
+    "select id, hostname, created_at, last_seen_at from exterior_device where user_id = ? order by created_at",
   );
   return {
     record({ userId, deviceId, hostname, now = Date.now() }) {

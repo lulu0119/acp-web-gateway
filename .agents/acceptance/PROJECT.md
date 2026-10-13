@@ -1,11 +1,11 @@
-# PROJECT.md — acceptance adapter for Mukae
+# PROJECT.md — acceptance adapter for Exterior
 
 ## 1. Project summary
 
-Mukae is an account and relay that lets a web app reach an ACP agent on a device the person owns. Layout that matters for testing:
+Exterior is an account and relay that lets a web app reach an ACP agent on a device the person owns. Layout that matters for testing:
 
 - `apps/relay` — the relay: Hono server, better-auth (GitHub sign-in, OAuth provider, device authorization), server-rendered account pages (`/sign-in`, `/device`, `/consent`) and the client-rendered dashboard (`/`). Built output: `apps/relay/dist`.
-- `packages/gateway` — the `mukae` CLI (`login`, `agent-config`, `daemon`, `status`, `logout`). Built output: `packages/gateway/dist/bin/mukae.mjs`.
+- `packages/gateway` — the `exterior` CLI (`login`, `agent-config`, `daemon`, `status`, `logout`). Built output: `packages/gateway/dist/bin/exterior.mjs`.
 - `packages/client`, `packages/contract` — SDK and wire contract shared by the above.
 - `apps/example` — one web app that uses the SDK.
 
@@ -29,21 +29,21 @@ Mukae is an account and relay that lets a web app reach an ACP agent on a device
 
 ## 3. Auth
 
-- **Test account:** seeded, no GitHub. A seed script opens `data/relay.sqlite` through `dist/server/identity/auth.js` (`openMukaeAuth`), creates a user and session with `context.internalAdapter`, and prints the cookie `better-auth.session_token=<token>.<base64 HMAC-SHA256(token, secret)>` (URL-encoded), the same signing as `apps/relay/src/server/testing.ts` (`sessionCookie`). It may also record devices with `dist/server/devices/store.js`.
+- **Test account:** seeded, no GitHub. A seed script opens `data/relay.sqlite` through `dist/server/identity/auth.js` (`openExteriorAuth`), creates a user and session with `context.internalAdapter`, and prints the cookie `better-auth.session_token=<token>.<base64 HMAC-SHA256(token, secret)>` (URL-encoded), the same signing as `apps/relay/src/server/testing.ts` (`sessionCookie`). It may also record devices with `dist/server/devices/store.js`.
 - **Web status check:** `GET /api/dashboard` with the cookie → 200 (signed in) or 401.
-- **CLI (device) auth:** `HOME=$RUN/home node <repo>/packages/gateway/dist/bin/mukae.mjs login --relay http://127.0.0.1:8799`, approve the printed code in the browser session; `mukae status` lists the sign-in.
+- **CLI (device) auth:** `HOME=$RUN/home node <repo>/packages/gateway/dist/bin/exterior.mjs login --relay http://127.0.0.1:8799`, approve the printed code in the browser session; `exterior status` lists the sign-in.
 
 ## 4. Surfaces
 
 ### Web
 
 - Launch: the relay from §2. Base URL `http://127.0.0.1:8799`.
-- agent-browser session: `mukae-<run-id>`; inject the seeded cookie for `127.0.0.1` before opening `/`.
+- agent-browser session: `exterior-<run-id>`; inject the seeded cookie for `127.0.0.1` before opening `/`.
 
 ### CLI
 
-- Invocation: `node packages/gateway/dist/bin/mukae.mjs` with `HOME` pointed at the run's scratch home so the developer's `~/.config/mukae` is untouched.
-- Daemon: `mukae agent-config create --agent-type opencode` then `mukae daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
+- Invocation: `node packages/gateway/dist/bin/exterior.mjs` with `HOME` pointed at the run's scratch home so the developer's `~/.config/exterior` is untouched.
+- Daemon: `exterior agent-config create --agent-type opencode` then `exterior daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
 
 ## 5. Project probes & quick navigation
 

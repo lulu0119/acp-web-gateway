@@ -3,26 +3,26 @@ import { createRelayApp } from "./app.js";
 import { createRegistry, type Registry } from "./connections/registry.js";
 import { openDeviceStore } from "./devices/store.js";
 import type { ReadAccess } from "./http.js";
-import { openMukaeAuth, type MukaeAuth } from "./identity/auth.js";
+import { openExteriorAuth, type ExteriorAuth } from "./identity/auth.js";
 import { ensureDaemonClient } from "./identity/clients.js";
 
-export async function createTestApp(mukae: MukaeAuth, registry?: Registry, readAccess?: ReadAccess) {
-  const devices = openDeviceStore(mukae.options.database);
+export async function createTestApp(exterior: ExteriorAuth, registry?: Registry, readAccess?: ReadAccess) {
+  const devices = openDeviceStore(exterior.options.database);
   const live = registry ?? createRegistry({ seen: (device) => devices.record(device) });
-  const daemonClientId = await ensureDaemonClient(mukae);
-  const relay = createRelayApp({ mukae, registry: live, devices, clients: { daemonClientId }, githubConfigured: true, readAccess });
+  const daemonClientId = await ensureDaemonClient(exterior);
+  const relay = createRelayApp({ exterior, registry: live, devices, clients: { daemonClientId }, githubConfigured: true, readAccess });
   return { ...relay, registry: live, devices, daemonClientId };
 }
 
 export async function openTestRelay(input: { publicUrl: string; registry?: Registry; readAccess?: ReadAccess }) {
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret: testSecret,
     publicUrl: input.publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  return { mukae, ...(await createTestApp(mukae, input.registry, input.readAccess)) };
+  return { exterior, ...(await createTestApp(exterior, input.registry, input.readAccess)) };
 }
 
 export const testSecret = "test-secret-test-secret-test-secret";
@@ -45,7 +45,7 @@ export async function sessionCookie(token: string, secret = testSecret): Promise
 /** Opens a relay with one signed-in account. */
 export async function openSignedInRelay(publicUrl = "http://127.0.0.1:8787") {
   const relay = await openTestRelay({ publicUrl });
-  const context = await relay.mukae.auth.$context;
+  const context = await relay.exterior.auth.$context;
   const user = await context.internalAdapter.createUser(
     { name: "Ada", email: "ada@example.test", emailVerified: true },
     { method: "test" },

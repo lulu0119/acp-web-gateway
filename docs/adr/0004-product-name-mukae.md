@@ -1,5 +1,7 @@
 # Product name: Mukae
 
+Status: superseded by [ADR 0015](0015-product-name-exterior.md)
+
 The product needed a sayable name that means calling a presence in, not the stack. Decided: Mukae, Japanese 迎え, going out to meet an arrival and bring them inside. The rename is total: CLI, `mukae://` launch scheme, config path, npm scope, and display name. Nothing was committed or installed yet, so no migration.
 
 ## Considered Options

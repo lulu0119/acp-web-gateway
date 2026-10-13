@@ -10,10 +10,10 @@ import {
   type DeviceRegistration,
   type Machine,
   type PublicClients,
-} from "@mukae/contract";
+} from "@exterior/contract";
 import * as oauth from "oauth4webapi";
 
-export type MukaeTokens = {
+export type ExteriorTokens = {
   accessToken: string;
   refreshToken?: string;
   expiresAt: number;
@@ -32,7 +32,7 @@ export type DeviceAuthorization = {
   deviceCode: string;
   userCode: string;
   verificationUri: string;
-  /** The verification address with the code filled in, when Mukae offers one. */
+  /** The verification address with the code filled in, when Exterior offers one. */
   verificationUriComplete?: string;
   expiresAt: number;
   intervalSeconds: number;
@@ -43,12 +43,12 @@ const refreshWindowMs = 60_000;
 export async function fetchPublicClients(relayUrl: string, signal?: AbortSignal): Promise<PublicClients> {
   const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)), { signal }).catch((error: unknown) => {
     if (signal?.aborted) throw error;
-    throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`, { cause: error });
+    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`, { cause: error });
   });
-  if (!response.ok) throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
+  if (!response.ok) throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
   const body: unknown = await response.json().catch(() => undefined);
   if (!isRecord(body) || typeof body.daemonClientId !== "string") {
-    throw new Error("Mukae did not list its clients.");
+    throw new Error("Exterior did not list its clients.");
   }
   return { daemonClientId: body.daemonClientId };
 }
@@ -59,7 +59,7 @@ export async function createAuthorizationRequest(input: {
   redirectUri: string;
 }): Promise<{ url: string; codeVerifier: string; state: string }> {
   const server = await discover(input.relayUrl);
-  if (!server.authorization_endpoint) throw new Error("Mukae did not publish a sign-in address.");
+  if (!server.authorization_endpoint) throw new Error("Exterior did not publish a sign-in address.");
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const state = oauth.generateRandomState();
   const url = new URL(server.authorization_endpoint);
@@ -82,7 +82,7 @@ export async function exchangeAuthorizationCode(input: {
   codeVerifier: string;
   state: string;
   clientSecret?: string;
-}): Promise<MukaeTokens> {
+}): Promise<ExteriorTokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
   const callback = new URL(input.callbackUrl);
@@ -108,13 +108,13 @@ export async function exchangeAuthorizationCode(input: {
   return toTokens(tokens);
 }
 
-export async function refreshMukaeAccessToken(input: {
+export async function refreshExteriorAccessToken(input: {
   relayUrl: string;
   clientId: string;
   refreshToken: string;
   clientSecret?: string;
   signal?: AbortSignal;
-}): Promise<MukaeTokens> {
+}): Promise<ExteriorTokens> {
   const server = await discover(input.relayUrl, input.signal);
   const client = publicClient(input.clientId);
   const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
@@ -142,7 +142,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
     httpOptions(input.relayUrl),
   );
   const device = await oauth.processDeviceAuthorizationResponse(server, client, response).catch((error: unknown) => {
-    throw new Error(oauthMessage(error, "Mukae did not start device sign-in."));
+    throw new Error(oauthMessage(error, "Exterior did not start device sign-in."));
   });
   return {
     relayUrl: originOf(input.relayUrl),
@@ -156,7 +156,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
   };
 }
 
-export async function pollDeviceAuthorization(pending: DeviceAuthorization, signal?: AbortSignal): Promise<MukaeTokens> {
+export async function pollDeviceAuthorization(pending: DeviceAuthorization, signal?: AbortSignal): Promise<ExteriorTokens> {
   const server = await discover(pending.relayUrl);
   const client = publicClient(pending.clientId);
   let intervalMs = pending.intervalSeconds * 1000;
@@ -172,7 +172,7 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, sign
       );
       const tokens = await oauth.processDeviceCodeResponse(server, client, response);
       const stored = toTokens(tokens);
-      if (!stored.refreshToken) throw new Error("Mukae did not return a refresh token.");
+      if (!stored.refreshToken) throw new Error("Exterior did not return a refresh token.");
       return stored;
     } catch (error) {
       if (!(error instanceof oauth.ResponseBodyError)) throw error;
@@ -197,7 +197,7 @@ export async function registerDevice(relayUrl: string, accessToken: string, devi
     body: JSON.stringify(device),
     signal,
   });
-  if (!response.ok) throw new Error(`Mukae did not record this device (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(`Exterior did not record this device (HTTP ${response.status}).`);
 }
 
 export async function listMachines(relayUrl: string, accessToken: string): Promise<Machine[]> {
@@ -206,9 +206,9 @@ export async function listMachines(relayUrl: string, accessToken: string): Promi
     credentials: "omit",
   });
   if (response.status === 401) throw new Error("Sign in again.");
-  if (!response.ok) throw new Error("Mukae did not list machines.");
+  if (!response.ok) throw new Error("Exterior did not list machines.");
   const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || !Array.isArray(body.machines)) throw new Error("Mukae did not list machines.");
+  if (!isRecord(body) || !Array.isArray(body.machines)) throw new Error("Exterior did not list machines.");
   return body.machines.filter(isMachine);
 }
 
@@ -225,11 +225,11 @@ export async function openConnection(
   });
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Mukae did not open the agent.";
+    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Exterior did not open the agent.";
     throw new Error(message);
   }
   if (!isRecord(body) || typeof body.url !== "string" || typeof body.agentType !== "string" || typeof body.agentName !== "string") {
-    throw new Error("Mukae did not open the agent.");
+    throw new Error("Exterior did not open the agent.");
   }
   return { url: body.url, agentType: body.agentType, agentName: body.agentName };
 }
@@ -242,19 +242,19 @@ export type BrowserStore = {
   removeItem(key: string): void;
 };
 
-const verifierKey = "mukae.codeVerifier";
-const stateKey = "mukae.state";
-const accessKey = "mukae.accessToken";
-const refreshKey = "mukae.refreshToken";
-const expiresKey = "mukae.expiresAt";
+const verifierKey = "exterior.codeVerifier";
+const stateKey = "exterior.state";
+const accessKey = "exterior.accessToken";
+const refreshKey = "exterior.refreshToken";
+const expiresKey = "exterior.expiresAt";
 
-export async function fetchMukaeUser(input: { relayUrl: string; accessToken: string }): Promise<{ sub: string }> {
+export async function fetchExteriorUser(input: { relayUrl: string; accessToken: string }): Promise<{ sub: string }> {
   const response = await fetch(new URL("/api/auth/oauth2/userinfo", originOf(input.relayUrl)), {
     headers: { authorization: `Bearer ${input.accessToken}` },
   });
-  if (!response.ok) throw new Error("Mukae did not identify the account.");
+  if (!response.ok) throw new Error("Exterior did not identify the account.");
   const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || typeof body.sub !== "string") throw new Error("Mukae did not identify the account.");
+  if (!isRecord(body) || typeof body.sub !== "string") throw new Error("Exterior did not identify the account.");
   return { sub: body.sub };
 }
 
@@ -281,7 +281,7 @@ export async function requestApprovalUrl(input: {
   });
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok || !isRecord(body) || typeof body.url !== "string") {
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Mukae did not start the approval.";
+    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Exterior did not start the approval.";
     throw new Error(message);
   }
   return body.url;
@@ -296,7 +296,7 @@ function cacheClientId(store: BrowserStore, relayUrl: string, clientId: string):
 }
 
 function clientIdKey(origin: string): string {
-  return `mukae.clientId:${origin}`;
+  return `exterior.clientId:${origin}`;
 }
 
 export async function beginBrowserSignIn(input: {
@@ -326,7 +326,7 @@ export async function finishBrowserSignIn(input: {
   store: BrowserStore;
   clientId?: string;
   clientSecret?: string;
-}): Promise<MukaeTokens> {
+}): Promise<ExteriorTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
   const clientId = input.clientId ?? callbackClientId(input.callbackUrl) ?? cachedClientId(input.store, input.relayUrl);
@@ -359,7 +359,7 @@ export async function finishBrowserSignIn(input: {
   return run;
 }
 
-const pendingCallbackExchanges = new Map<string, Promise<MukaeTokens>>();
+const pendingCallbackExchanges = new Map<string, Promise<ExteriorTokens>>();
 
 function callbackCode(callbackUrl: string): string | undefined {
   try {
@@ -386,7 +386,7 @@ export async function storedAccessToken(input: { relayUrl: string; store: Browse
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
   try {
-    const tokens = await refreshMukaeAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
+    const tokens = await refreshExteriorAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
     writeBrowserTokens(input.store, tokens);
     return tokens.accessToken;
   } catch {
@@ -405,10 +405,10 @@ async function discover(relayUrl: string, signal?: AbortSignal): Promise<oauth.A
   try {
     response = await oauth.discoveryRequest(issuer, { ...httpOptions(relayUrl), signal });
   } catch {
-    throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
+    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
   }
   const server = await oauth.processDiscoveryResponse(issuer, response).catch(() => {
-    throw new Error(`Mukae did not answer at ${originOf(relayUrl)}.`);
+    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
   });
   if (!server.device_authorization_endpoint) {
     return { ...server, device_authorization_endpoint: new URL("/device/code", issuer).href };
@@ -428,7 +428,7 @@ function httpOptions(relayUrl: string): { [oauth.allowInsecureRequests]?: true }
   return new URL(originOf(relayUrl)).protocol === "http:" ? { [oauth.allowInsecureRequests]: true } : {};
 }
 
-function toTokens(tokens: oauth.TokenEndpointResponse, previousRefresh?: string): MukaeTokens {
+function toTokens(tokens: oauth.TokenEndpointResponse, previousRefresh?: string): ExteriorTokens {
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token ?? previousRefresh,
@@ -436,7 +436,7 @@ function toTokens(tokens: oauth.TokenEndpointResponse, previousRefresh?: string)
   };
 }
 
-function writeBrowserTokens(store: BrowserStore, tokens: MukaeTokens): void {
+function writeBrowserTokens(store: BrowserStore, tokens: ExteriorTokens): void {
   store.setItem(accessKey, tokens.accessToken);
   store.setItem(expiresKey, String(tokens.expiresAt));
   if (tokens.refreshToken) store.setItem(refreshKey, tokens.refreshToken);

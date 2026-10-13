@@ -1,14 +1,14 @@
 {
-  "name": "@mukae/client",
+  "name": "@exterior/client",
   "version": "0.1.0-beta.1",
-  "description": "Signs a web app or the Mukae daemon into an account and opens an agent.",
+  "description": "Signs a web app or the Exterior daemon into an account and opens an agent.",
   "type": "module",
   "files": [
     "dist"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lulu0119/mukae.git",
+    "url": "git+https://github.com/lulu0119/exterior.git",
     "directory": "packages/client"
   },
   "publishConfig": {
@@ -30,7 +30,7 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
-    "@mukae/contract": "workspace:*",
+    "@exterior/contract": "workspace:*",
     "oauth4webapi": "^3.8.8"
   },
   "peerDependencies": {

@@ -110,7 +110,7 @@ test("a stored configuration uses its command, or the registry entry", () => {
 });
 
 test("PATH lookup uses the file name and Windows extensions", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "mukae-path-"));
+  const directory = await mkdtemp(join(tmpdir(), "exterior-path-"));
   const command = join(directory, "opencode");
   await writeFile(command, "", "utf8");
   await chmod(command, 0o755);
@@ -124,7 +124,7 @@ test("PATH lookup uses the file name and Windows extensions", async () => {
 });
 
 test("a fresh registry cache is reused and a failed fetch keeps the previous copy", async () => {
-  const home = await mkdtemp(join(tmpdir(), "mukae-registry-"));
+  const home = await mkdtemp(join(tmpdir(), "exterior-registry-"));
   const cachePath = join(home, "acp-registry.json");
   await mkdir(home, { recursive: true });
   let fetches = 0;
@@ -165,7 +165,7 @@ test("a fresh registry cache is reused and a failed fetch keeps the previous cop
   if (!kept.ok) return;
   assert.equal(kept.agents[0]?.id, "cline");
 
-  const emptyHome = await mkdtemp(join(tmpdir(), "mukae-registry-"));
+  const emptyHome = await mkdtemp(join(tmpdir(), "exterior-registry-"));
   const missing = await loadAcpRegistry({ cachePath: join(emptyHome, "missing.json"), fetchText: async () => { throw new Error("offline"); } });
   assert.deepEqual(missing, { ok: false, message: "Cannot read the ACP registry." });
 });

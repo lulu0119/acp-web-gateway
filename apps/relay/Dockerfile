@@ -9,7 +9,7 @@ RUN corepack enable && corepack prepare pnpm@10.34.4 --activate
 WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @mukae/relay... build
+RUN pnpm --filter @exterior/relay... build
 
 ENV HOST=0.0.0.0
 ENV PORT=8787

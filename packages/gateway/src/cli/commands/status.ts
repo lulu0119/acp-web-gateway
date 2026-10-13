@@ -7,7 +7,7 @@ export const status = defineCommand({
   async action({ io }) {
     const signedIn = await readSignIns(io.homeDirectory);
     if (signedIn.length === 0) {
-      io.stdout.write("This device is not signed in. Run mukae login --relay <url>.\n");
+      io.stdout.write("This device is not signed in. Run exterior login --relay <url>.\n");
       return 0;
     }
     for (const signIn of signedIn) io.stdout.write(`Signed in to ${signIn.relayUrl}\n`);

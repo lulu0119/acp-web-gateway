@@ -1,4 +1,4 @@
-import type { MukaeAuth } from "./auth.js";
+import type { ExteriorAuth } from "./auth.js";
 import type { Account } from "./session.js";
 import type { GrantedApp } from "../../shared/account-web.js";
 import { registeredSoftwarePrefix } from "./clients.js";
@@ -26,8 +26,8 @@ type StoredClient = {
   softwareId?: string | null;
 };
 
-export async function listGrantedApps(mukae: MukaeAuth, account: Account): Promise<GrantedApp[]> {
-  const context = await mukae.auth.$context;
+export async function listGrantedApps(exterior: ExteriorAuth, account: Account): Promise<GrantedApp[]> {
+  const context = await exterior.auth.$context;
   const consents = await context.adapter.findMany<StoredConsent>({
     model: "oauthConsent",
     where: [{ field: "userId", value: account.userId }],
@@ -51,8 +51,8 @@ export async function listGrantedApps(mukae: MukaeAuth, account: Account): Promi
   return apps;
 }
 
-export async function findClientMeta(mukae: MukaeAuth, clientId: string): Promise<ClientMeta | undefined> {
-  const context = await mukae.auth.$context;
+export async function findClientMeta(exterior: ExteriorAuth, clientId: string): Promise<ClientMeta | undefined> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({
     model: "oauthClient",
     where: [{ field: "clientId", value: clientId }],
@@ -67,8 +67,8 @@ export async function findClientMeta(mukae: MukaeAuth, clientId: string): Promis
   };
 }
 
-export async function hasRememberedGrant(mukae: MukaeAuth, account: Account, clientId: string, scopes: string[]): Promise<boolean> {
-  const context = await mukae.auth.$context;
+export async function hasRememberedGrant(exterior: ExteriorAuth, account: Account, clientId: string, scopes: string[]): Promise<boolean> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredConsent>({
     model: "oauthConsent",
     where: [
@@ -83,8 +83,8 @@ export async function hasRememberedGrant(mukae: MukaeAuth, account: Account, cli
   });
 }
 
-export async function revokeGrant(mukae: MukaeAuth, account: Account, clientId: string): Promise<void> {
-  const context = await mukae.auth.$context;
+export async function revokeGrant(exterior: ExteriorAuth, account: Account, clientId: string): Promise<void> {
+  const context = await exterior.auth.$context;
   const where = [
     { field: "userId", value: account.userId },
     { field: "clientId", value: clientId },

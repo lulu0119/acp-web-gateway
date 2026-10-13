@@ -30,5 +30,5 @@ test("frames and session ids cross the relay unchanged", () => {
 
 test("the browser socket uses the relay origin", () => {
   assert.equal(relayWebSocketUrl("http://127.0.0.1:8787", "/api/acp"), "ws://127.0.0.1:8787/api/acp");
-  assert.equal(relayWebSocketUrl("https://mukae.example", "/api/daemon"), "wss://mukae.example/api/daemon");
+  assert.equal(relayWebSocketUrl("https://exterior.example", "/api/daemon"), "wss://exterior.example/api/daemon");
 });

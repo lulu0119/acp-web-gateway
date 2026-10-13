@@ -1,4 +1,4 @@
-import { isAgentType, isEnvName } from "@mukae/contract";
+import { isAgentType, isEnvName } from "@exterior/contract";
 import { acpRegistryCachePath, commandOnPath, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
 import { addAgentConfig, parseCommandArgv } from "../../../agents.js";
 import { readGatewayConfigForWrite, writeGatewayConfig, type StoredAgent } from "../../../config.js";
@@ -12,15 +12,15 @@ export const create = defineCommand({
     "An npx or uvx entry is started with that tool. A binary entry runs only when its command is already on PATH.",
   ].join("\n\n"),
   options: [
-    { flags: "--agent-type <type>", description: "Agent type id from `mukae agent-config types`" },
+    { flags: "--agent-type <type>", description: "Agent type id from `exterior agent-config types`" },
     { flags: "--command <command>", description: "Command line of an agent that is not in the registry" },
     { flags: "--name <name>", description: "Configuration name (default: the agent type)" },
     { flags: "--env <KEY=VALUE>", description: "Environment for this configuration; repeatable", repeatable: true },
   ],
   examples: [
-    "mukae agent-config create --agent-type opencode",
-    "mukae agent-config create --agent-type claude-acp --name work --env ANTHROPIC_API_KEY=...",
-    "mukae agent-config create --command \"my-agent --stdio\" --name mine",
+    "exterior agent-config create --agent-type opencode",
+    "exterior agent-config create --agent-type claude-acp --name work --env ANTHROPIC_API_KEY=...",
+    "exterior agent-config create --command \"my-agent --stdio\" --name mine",
   ],
   async action({ io }, options) {
     const agentType = stringOption(options, "agent-type");
@@ -72,7 +72,7 @@ async function addRegistryAgent(
   const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(input.homeDirectory) });
   if (!registry.ok) return registry;
   const entry = registry.agents.find((agent) => agent.id === input.agentType);
-  if (!entry) return { ok: false as const, message: `Unknown agent type "${input.agentType}". Run mukae agent-config types.` };
+  if (!entry) return { ok: false as const, message: `Unknown agent type "${input.agentType}". Run exterior agent-config types.` };
   if (!isAgentType(entry.id)) return { ok: false as const, message: `Agent type "${entry.id}" cannot be used.` };
   const launch = launchForEntry({
     entry,

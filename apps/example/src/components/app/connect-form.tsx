@@ -1,15 +1,15 @@
-import { listMachines, openConnection } from "@mukae/client";
-import type { Machine } from "@mukae/contract";
+import { listMachines, openConnection } from "@exterior/client";
+import type { Machine } from "@exterior/contract";
 import { useEffect, useState } from "react";
-import type { AccountSession } from "@mukae/client/react";
+import type { AccountSession } from "@exterior/client/react";
 import { Button } from "@/components/ui/button";
-import { mukaeRelayUrl } from "@/lib/relay-url";
+import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ConnectedAgent = { agentType: string; url: string; label: string };
 
 export function ConnectForm({ session, onConnected }: { session: AccountSession; onConnected: (agent: ConnectedAgent) => void }) {
-  const relayUrl = mukaeRelayUrl();
+  const relayUrl = exteriorRelayUrl();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [selection, setSelection] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,7 +33,7 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
         const first = listed.find((machine) => machine.agents.length > 0);
         const agent = first?.agents[0];
         if (first && agent) setSelection(selectionOf(first.id, agent.name));
-        setStatus(listed.length === 0 ? "No machine is online. On that computer, run mukae daemon." : "");
+        setStatus(listed.length === 0 ? "No machine is online. On that computer, run exterior daemon." : "");
       })
       .catch((error: unknown) => {
         if (!cancelled) setStatus(error instanceof Error ? error.message : "Sign in again.");
@@ -58,7 +58,7 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
       {session.account.phase === "signed-out" && (
         <>
           <Button disabled={session.busy} onClick={session.signIn}>
-            Sign in with Mukae
+            Sign in with Exterior
           </Button>
           {session.error ? <p className="text-muted-foreground text-sm">{session.error}</p> : null}
         </>
@@ -95,7 +95,7 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
                   onConnected({ agentType: opened.agentType, url: opened.url, label: selected.label });
                 })
                 .catch((error: unknown) => {
-                  setStatus(error instanceof Error ? error.message : "Mukae did not open the agent.");
+                  setStatus(error instanceof Error ? error.message : "Exterior did not open the agent.");
                 })
                 .finally(() => setBusy(false));
             }}

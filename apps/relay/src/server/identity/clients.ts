@@ -1,13 +1,13 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
 import { randomBytes } from "node:crypto";
-import { machinesScope } from "@mukae/contract";
-import type { MukaeAuth } from "./auth.js";
+import { machinesScope } from "@exterior/contract";
+import type { ExteriorAuth } from "./auth.js";
 
-const daemonSoftwareId = "mukae-daemon";
-const userSoftwarePrefix = "mukae-user-client:";
+const daemonSoftwareId = "exterior-daemon";
+const userSoftwarePrefix = "exterior-user-client:";
 export const registeredSoftwarePrefix = userSoftwarePrefix;
-const openSoftwarePrefix = "mukae-open-client:";
-const pendingSoftwarePrefix = "mukae-pending:";
+const openSoftwarePrefix = "exterior-open-client:";
+const pendingSoftwarePrefix = "exterior-pending:";
 export const maxClientsPerUser = 10;
 const pendingTtlMs = 3_600_000;
 
@@ -118,7 +118,7 @@ export function parsePendingClient(body: unknown): PendingParse {
   if (logoUri !== undefined && logoUri.length > 0 && !isHttpsUrl(logoUri)) errors.push("The logo must be an https address.");
   if (scopes.length === 0) errors.push("Ask for at least one scope.");
   for (const scope of scopes) {
-    if (!grantableScopes.includes(scope)) errors.push(`Mukae does not grant the ${scope} scope.`);
+    if (!grantableScopes.includes(scope)) errors.push(`Exterior does not grant the ${scope} scope.`);
   }
   if (errors.length > 0) return { ok: false, errors };
   return {
@@ -137,13 +137,13 @@ export function parsePendingClient(body: unknown): PendingParse {
 function validateClientName(clientName: string): string | undefined {
   if (clientName.length === 0) return "Give the client a name.";
   if (clientName.length > 64) return "Keep the name under 64 characters.";
-  if (/^mukae/i.test(clientName)) return "Names starting with Mukae are reserved.";
+  if (/^exterior/i.test(clientName)) return "Names starting with Exterior are reserved.";
   return undefined;
 }
 
-export async function createPendingClient(mukae: MukaeAuth, input: PendingClientRequest): Promise<string> {
-  const created = await withOwner(mukae, (headers) =>
-    mukae.auth.api.adminCreateOAuthClient({
+export async function createPendingClient(exterior: ExteriorAuth, input: PendingClientRequest): Promise<string> {
+  const created = await withOwner(exterior, (headers) =>
+    exterior.auth.api.adminCreateOAuthClient({
       headers,
       body: {
         software_id: `${pendingSoftwarePrefix}${randomBytes(8).toString("hex")}`,
@@ -159,13 +159,13 @@ export async function createPendingClient(mukae: MukaeAuth, input: PendingClient
       },
     }),
   );
-  if (!created.client_id) throw new Error("Mukae could not start the approval.");
-  await linkResource(mukae, created.client_id);
+  if (!created.client_id) throw new Error("Exterior could not start the approval.");
+  await linkResource(exterior, created.client_id);
   return created.client_id;
 }
 
-export async function approvePendingClient(mukae: MukaeAuth, clientId: string): Promise<boolean> {
-  const context = await mukae.auth.$context;
+export async function approvePendingClient(exterior: ExteriorAuth, clientId: string): Promise<boolean> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({
     model: "oauthClient",
     where: [{ field: "clientId", value: clientId }],
@@ -181,8 +181,8 @@ export async function approvePendingClient(mukae: MukaeAuth, clientId: string): 
   return true;
 }
 
-export async function prunePendingClients(mukae: MukaeAuth, olderThanMs = pendingTtlMs, now: number = Date.now()): Promise<number> {
-  const context = await mukae.auth.$context;
+export async function prunePendingClients(exterior: ExteriorAuth, olderThanMs = pendingTtlMs, now: number = Date.now()): Promise<number> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient & { id?: string; createdAt?: Date | string }>({
     model: "oauthClient",
     where: [],
@@ -200,20 +200,20 @@ export async function prunePendingClients(mukae: MukaeAuth, olderThanMs = pendin
   return pruned;
 }
 
-export async function ensureDaemonClient(mukae: MukaeAuth): Promise<string> {
-  const existing = await findClientId(mukae, daemonSoftwareId);
+export async function ensureDaemonClient(exterior: ExteriorAuth): Promise<string> {
+  const existing = await findClientId(exterior, daemonSoftwareId);
   if (existing) {
-    await linkResource(mukae, existing);
+    await linkResource(exterior, existing);
     return existing;
   }
-  const created = await withOwner(mukae, (headers) =>
-    mukae.auth.api.adminCreateOAuthClient({
+  const created = await withOwner(exterior, (headers) =>
+    exterior.auth.api.adminCreateOAuthClient({
       headers,
       body: {
         software_id: daemonSoftwareId,
-        client_name: "Mukae daemon",
+        client_name: "Exterior daemon",
         application_type: "native",
-        redirect_uris: [`${mukae.publicUrl}/device/done`],
+        redirect_uris: [`${exterior.publicUrl}/device/done`],
         grant_types: [DEVICE_CODE_GRANT_TYPE, "refresh_token"],
         token_endpoint_auth_method: "none",
         response_types: [],
@@ -222,26 +222,26 @@ export async function ensureDaemonClient(mukae: MukaeAuth): Promise<string> {
       },
     }),
   );
-  if (!created.client_id) throw new Error("Mukae could not register the daemon client.");
-  await linkResource(mukae, created.client_id);
+  if (!created.client_id) throw new Error("Exterior could not register the daemon client.");
+  await linkResource(exterior, created.client_id);
   return created.client_id;
 }
 
 export async function registerClient(
-  mukae: MukaeAuth,
+  exterior: ExteriorAuth,
   ownerUserId: string | undefined,
   input: ClientRegistration,
 ): Promise<RegisteredClient> {
   if (input.confidential && !ownerUserId) throw new Error("Sign in again.");
   if (ownerUserId) {
-    const owned = await userClientCount(mukae, ownerUserId);
+    const owned = await userClientCount(exterior, ownerUserId);
     if (owned >= maxClientsPerUser) throw new Error(`Each account can register at most ${maxClientsPerUser} clients.`);
   }
   const softwareId = ownerUserId
     ? `${userSoftwarePrefix}${ownerUserId}:${randomBytes(4).toString("hex")}`
     : `${openSoftwarePrefix}${randomBytes(8).toString("hex")}`;
-  const created = await withOwner(mukae, (headers) =>
-    mukae.auth.api.adminCreateOAuthClient({
+  const created = await withOwner(exterior, (headers) =>
+    exterior.auth.api.adminCreateOAuthClient({
       headers,
       body: {
         software_id: softwareId,
@@ -258,8 +258,8 @@ export async function registerClient(
       },
     }),
   );
-  if (!created.client_id) throw new Error("Mukae could not register the client.");
-  await linkResource(mukae, created.client_id);
+  if (!created.client_id) throw new Error("Exterior could not register the client.");
+  await linkResource(exterior, created.client_id);
   return { clientId: created.client_id, clientSecret: input.confidential ? created.client_secret ?? undefined : undefined };
 }
 
@@ -277,14 +277,14 @@ function applicationTypeForRedirects(redirectUris: string[]): "web" | "native" {
 
 type StoredClient = { clientId?: string; softwareId?: string | null };
 
-async function userClientCount(mukae: MukaeAuth, ownerUserId: string): Promise<number> {
-  const context = await mukae.auth.$context;
+async function userClientCount(exterior: ExteriorAuth, ownerUserId: string): Promise<number> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({ model: "oauthClient", where: [] });
   return rows.filter((row) => row.softwareId?.startsWith(`${userSoftwarePrefix}${ownerUserId}:`)).length;
 }
 
-async function findClientId(mukae: MukaeAuth, softwareId: string): Promise<string | undefined> {
-  const context = await mukae.auth.$context;
+async function findClientId(exterior: ExteriorAuth, softwareId: string): Promise<string | undefined> {
+  const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({
     model: "oauthClient",
     where: [{ field: "softwareId", value: softwareId }],
@@ -292,14 +292,14 @@ async function findClientId(mukae: MukaeAuth, softwareId: string): Promise<strin
   return rows.find((row) => row.softwareId === softwareId)?.clientId;
 }
 
-async function withOwner<T>(mukae: MukaeAuth, run: (headers: Headers) => Promise<T>): Promise<T> {
-  const context = await mukae.auth.$context;
+async function withOwner<T>(exterior: ExteriorAuth, run: (headers: Headers) => Promise<T>): Promise<T> {
+  const context = await exterior.auth.$context;
   const owners = await context.adapter.findMany<{ id: string }>({
     model: "user",
     where: [{ field: "email", value: ownerEmail }],
   });
   const owner = owners[0] ?? (await context.internalAdapter.createUser({
-    name: "Mukae",
+    name: "Exterior",
     email: ownerEmail,
     emailVerified: true,
   }, { method: "test" }));
@@ -311,19 +311,19 @@ async function withOwner<T>(mukae: MukaeAuth, run: (headers: Headers) => Promise
   }
 }
 
-const ownerEmail = "setup@mukae.invalid";
+const ownerEmail = "setup@exterior.invalid";
 
-async function linkResource(mukae: MukaeAuth, clientId: string): Promise<void> {
-  await withOwner(mukae, (headers) => mukae.auth.api.adminLinkClientResource({
+async function linkResource(exterior: ExteriorAuth, clientId: string): Promise<void> {
+  await withOwner(exterior, (headers) => exterior.auth.api.adminLinkClientResource({
     headers,
-    params: { identifier: mukae.resource, client_id: clientId },
+    params: { identifier: exterior.resource, client_id: clientId },
   }));
 }
 
-export async function requestClientApproval(mukae: MukaeAuth, input: PendingClientRequest): Promise<string> {
-  await prunePendingClients(mukae);
-  const clientId = await createPendingClient(mukae, input);
-  const url = new URL("/api/auth/oauth2/authorize", mukae.publicUrl);
+export async function requestClientApproval(exterior: ExteriorAuth, input: PendingClientRequest): Promise<string> {
+  await prunePendingClients(exterior);
+  const clientId = await createPendingClient(exterior, input);
+  const url = new URL("/api/auth/oauth2/authorize", exterior.publicUrl);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
@@ -331,6 +331,6 @@ export async function requestClientApproval(mukae: MukaeAuth, input: PendingClie
   url.searchParams.set("state", input.state);
   url.searchParams.set("code_challenge", input.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("resource", mukae.resource);
+  url.searchParams.set("resource", exterior.resource);
   return url.href;
 }

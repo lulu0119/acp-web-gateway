@@ -1,4 +1,4 @@
-import { daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@mukae/contract";
+import { daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
 import WebSocket from "ws";
 import { commandOnPath, loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";

@@ -1,7 +1,7 @@
 // Captures the relay's pages from a running build, for a before/after pair in a
 // pull request. See .agents/skills/create-pr/references/visual-evidence.md.
 //
-// Start it from the tree you want to capture, after `pnpm --filter @mukae/relay build`:
+// Start it from the tree you want to capture, after `pnpm --filter @exterior/relay build`:
 //
 //   node --experimental-strip-types apps/relay/capture/capture.ts --label before --surface dashboard
 //
@@ -17,17 +17,17 @@ import { mkdir, rm, symlink, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { beginDeviceAuthorization, fetchPublicClients, pollDeviceAuthorization } from "@mukae/client";
-import { daemonPath, relayWebSocketUrl, type DaemonMessage } from "@mukae/contract";
+import { beginDeviceAuthorization, fetchPublicClients, pollDeviceAuthorization } from "@exterior/client";
+import { daemonPath, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
 import WebSocket from "ws";
 import { openDeviceStore } from "../dist/server/devices/store.js";
-import { openMukaeAuth, type MukaeAuth } from "../dist/server/identity/auth.js";
+import { openExteriorAuth, type ExteriorAuth } from "../dist/server/identity/auth.js";
 
 const relayRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(relayRoot, "../..");
-const seedSecret = "mukae-capture-secret-mukae-capture-secret";
+const seedSecret = "exterior-capture-secret-exterior-capture-secret";
 const settledTimeoutMs = 10_000;
 
 /** One page to capture. `ready` must also hold in the base revision being compared against. */
@@ -138,14 +138,14 @@ function signSessionToken(token: string): string {
  */
 async function seedAccount(input: { databasePath: string; publicUrl: string }): Promise<{ value: string; cookie: string }> {
   const database = new Database(input.databasePath);
-  const mukae: MukaeAuth = await openMukaeAuth({
+  const exterior: ExteriorAuth = await openExteriorAuth({
     database,
     secret: seedSecret,
     publicUrl: input.publicUrl,
     githubClientId: placeholderGithub.clientId,
     githubClientSecret: placeholderGithub.clientSecret,
   });
-  const context = await mukae.auth.$context;
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser(
     { name: "Ada Lovelace", email: "ada@example.test", emailVerified: true },
     { method: "capture" },
@@ -214,7 +214,7 @@ async function startRelay(input: { cwd: string; publicUrl: string; port: number 
     await new Promise((done) => setTimeout(done, 200));
   }
   await stop();
-  throw new Error(`${input.publicUrl} did not start answering as a Mukae relay within 30s. Is port ${input.port} taken by another process?`);
+  throw new Error(`${input.publicUrl} did not start answering as an Exterior relay within 30s. Is port ${input.port} taken by another process?`);
 }
 
 /** Only the relay serves OAuth discovery under `/api/auth`, so a 200 there means this is our process. */
@@ -342,7 +342,7 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const publicUrl = `http://127.0.0.1:${options.port}`;
-  const runDir = join(tmpdir(), `mukae-capture-${randomUUID()}`);
+  const runDir = join(tmpdir(), `exterior-capture-${randomUUID()}`);
   await mkdir(join(runDir, "data"), { recursive: true });
 
   const session = await seedAccount({ databasePath: join(runDir, "data", "relay.sqlite"), publicUrl });

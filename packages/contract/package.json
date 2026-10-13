@@ -1,12 +1,12 @@
 {
-  "name": "@mukae/contract",
+  "name": "@exterior/contract",
   "version": "0.1.0-beta.1",
-  "description": "Shared relay paths, agent types, and daemon messages for mukae.",
+  "description": "Shared relay paths, agent types, and daemon messages for Exterior.",
   "type": "module",
   "files": ["dist"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lulu0119/mukae.git",
+    "url": "git+https://github.com/lulu0119/exterior.git",
     "directory": "packages/contract"
   },
   "publishConfig": {

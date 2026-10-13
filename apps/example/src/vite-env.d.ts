@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_MUKAE_URL?: string;
+  readonly VITE_EXTERIOR_URL?: string;
 }
 
 interface ImportMeta {

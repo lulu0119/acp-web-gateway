@@ -1,7 +1,7 @@
 import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
 import type { AccountPage, AccountView, PermissionView } from "../../shared/account-web.js";
 import { setupGuide } from "../rendering/setup-guide.js";
-import type { MukaeAuth } from "./auth.js";
+import type { ExteriorAuth } from "./auth.js";
 import { approvePendingClient } from "./clients.js";
 import { findClientMeta, hasRememberedGrant } from "./grants.js";
 import { readAccount, type Account } from "./session.js";
@@ -10,8 +10,8 @@ export type AccountResult =
   | { redirect: string; headers?: Headers }
   | { page: AccountPage; status: 200 | 400 | 502 };
 
-export async function readSignIn(request: Request, mukae: MukaeAuth, configured: boolean): Promise<AccountResult> {
-  const session = await readAccount(request, mukae);
+export async function readSignIn(request: Request, exterior: ExteriorAuth, configured: boolean): Promise<AccountResult> {
+  const session = await readAccount(request, exterior);
   const next = safeNext(new URL(request.url).searchParams.get("next"));
   if (session && next) return { redirect: next };
   const query = continuationQuery(request.url);
@@ -19,8 +19,8 @@ export async function readSignIn(request: Request, mukae: MukaeAuth, configured:
   return { page: { kind: "sign-in", query, configured }, status: 200 };
 }
 
-export async function signInWithGitHub(request: Request, mukae: MukaeAuth, query: string): Promise<AccountResult> {
-  const result = await mukae.auth.api.signInSocial({
+export async function signInWithGitHub(request: Request, exterior: ExteriorAuth, query: string): Promise<AccountResult> {
+  const result = await exterior.auth.api.signInSocial({
     body: { provider: "github", callbackURL: query ? `/sign-in?${query}` : "/", disableRedirect: true },
     headers: request.headers,
     returnHeaders: true,
@@ -29,17 +29,17 @@ export async function signInWithGitHub(request: Request, mukae: MukaeAuth, query
   return { redirect: result.response.url, headers: result.headers };
 }
 
-export async function readConsent(request: Request, mukae: MukaeAuth): Promise<AccountResult> {
+export async function readConsent(request: Request, exterior: ExteriorAuth): Promise<AccountResult> {
   const query = continuationQuery(request.url);
-  const secret = (await mukae.auth.$context).secret;
+  const secret = (await exterior.auth.$context).secret;
   if (!(await verifyOAuthQueryParams(query, secret))) return expiredApproval(query);
   const params = new URLSearchParams(query);
   const clientId = params.get("client_id") ?? "";
   const scopes = (params.get("scope") ?? "").split(" ").filter((scope) => scope.length > 0);
-  const account = await readAccount(request, mukae);
+  const account = await readAccount(request, exterior);
   if (!account) return { redirect: `/sign-in?${query}` };
-  if (clientId && (await hasRememberedGrant(mukae, account, clientId, scopes))) {
-    const approved = await mukae.auth.api.oauth2Consent({
+  if (clientId && (await hasRememberedGrant(exterior, account, clientId, scopes))) {
+    const approved = await exterior.auth.api.oauth2Consent({
       body: { accept: true, oauth_query: query },
       headers: request.headers,
       request,
@@ -47,7 +47,7 @@ export async function readConsent(request: Request, mukae: MukaeAuth): Promise<A
     }).catch(() => undefined);
     if (approved?.redirect) return { redirect: approved.url };
   }
-  const meta = clientId ? await findClientMeta(mukae, clientId) : undefined;
+  const meta = clientId ? await findClientMeta(exterior, clientId) : undefined;
   const redirectUri = params.get("redirect_uri") ?? "";
   return {
     page: {
@@ -66,10 +66,10 @@ export async function readConsent(request: Request, mukae: MukaeAuth): Promise<A
   };
 }
 
-export async function decideConsent(request: Request, mukae: MukaeAuth, query: string, accept: boolean): Promise<AccountResult> {
+export async function decideConsent(request: Request, exterior: ExteriorAuth, query: string, accept: boolean): Promise<AccountResult> {
   let result: { redirect: boolean; url: string };
   try {
-    result = await mukae.auth.api.oauth2Consent({
+    result = await exterior.auth.api.oauth2Consent({
       body: { accept, oauth_query: query },
       headers: request.headers,
       request,
@@ -80,7 +80,7 @@ export async function decideConsent(request: Request, mukae: MukaeAuth, query: s
   }
   if (!result.redirect) return expiredApproval(query);
   const clientId = new URLSearchParams(query).get("client_id") ?? "";
-  if (accept && clientId && (await approvePendingClient(mukae, clientId))) {
+  if (accept && clientId && (await approvePendingClient(exterior, clientId))) {
     const back = new URL(result.url);
     back.searchParams.set("client_id", clientId);
     return { redirect: back.href };
@@ -95,15 +95,15 @@ const scopeDescriptions: Record<string, Omit<PermissionView, "scope">> = {
   },
   offline_access: {
     title: "Stay connected",
-    detail: "Keep this access after you close the page, until you revoke it from your Mukae dashboard.",
+    detail: "Keep this access after you close the page, until you revoke it from your Exterior dashboard.",
   },
-  openid: { title: "Know who you are", detail: "Learn your Mukae account id." },
-  profile: { title: "See your name", detail: "Read the name on your Mukae account." },
-  email: { title: "See your email address", detail: "Read the email address on your Mukae account." },
+  openid: { title: "Know who you are", detail: "Learn your Exterior account id." },
+  profile: { title: "See your name", detail: "Read the name on your Exterior account." },
+  email: { title: "See your email address", detail: "Read the email address on your Exterior account." },
 };
 
 export function describeScopes(scopes: readonly string[]): PermissionView[] {
-  return scopes.map((scope) => ({ scope, ...(scopeDescriptions[scope] ?? { title: scope, detail: "A permission Mukae does not describe." }) }));
+  return scopes.map((scope) => ({ scope, ...(scopeDescriptions[scope] ?? { title: scope, detail: "A permission Exterior does not describe." }) }));
 }
 
 const signingParams = new Set(["sig", "exp"]);
@@ -135,32 +135,32 @@ function originOf(uri: string): string {
   }
 }
 
-export async function readDevice(request: Request, mukae: MukaeAuth, userCode: string): Promise<AccountResult> {
-  const account = await readAccount(request, mukae);
+export async function readDevice(request: Request, exterior: ExteriorAuth, userCode: string): Promise<AccountResult> {
+  const account = await readAccount(request, exterior);
   if (!account) {
     const next = userCode ? `/device?user_code=${encodeURIComponent(userCode)}` : "/device";
     return { redirect: `/sign-in?next=${encodeURIComponent(next)}` };
   }
   if (!userCode) return { page: { kind: "device-code", account: accountView(account) }, status: 200 };
   try {
-    await mukae.auth.api.deviceVerify({ query: { user_code: userCode }, headers: request.headers });
+    await exterior.auth.api.deviceVerify({ query: { user_code: userCode }, headers: request.headers });
   } catch (error) {
     return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
   return { page: { kind: "device", userCode, account: accountView(account) }, status: 200 };
 }
 
-export async function decideDevice(request: Request, mukae: MukaeAuth, userCode: string, approve: boolean): Promise<AccountResult> {
-  const account = await readAccount(request, mukae);
+export async function decideDevice(request: Request, exterior: ExteriorAuth, userCode: string, approve: boolean): Promise<AccountResult> {
+  const account = await readAccount(request, exterior);
   if (!account) return { redirect: `/sign-in?next=${encodeURIComponent(`/device?user_code=${encodeURIComponent(userCode)}`)}` };
   if (!userCode) return { page: { kind: "device-code", account: accountView(account), problem: "Enter the code your device printed." }, status: 400 };
-  const endpoint = approve ? mukae.auth.api.deviceApprove : mukae.auth.api.deviceDeny;
+  const endpoint = approve ? exterior.auth.api.deviceApprove : exterior.auth.api.deviceDeny;
   try {
     await endpoint({ body: { userCode }, headers: request.headers });
   } catch (error) {
     return { page: { kind: "device-code", account: accountView(account), userCode, problem: described(error) }, status: 400 };
   }
-  if (approve) return { page: { kind: "device-approved", guide: setupGuide(mukae.publicUrl) }, status: 200 };
+  if (approve) return { page: { kind: "device-approved", guide: setupGuide(exterior.publicUrl) }, status: 200 };
   return message("Device not connected", "The code was denied. The device stays signed out.", 200, "neutral");
 }
 

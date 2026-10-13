@@ -1,5 +1,5 @@
 import { hostname } from "node:os";
-import { defaultRelayUrl } from "@mukae/contract";
+import { defaultRelayUrl } from "@exterior/contract";
 import { signInDaemon } from "../../login.js";
 import { readSignIns, chooseRelay } from "../../sign-ins.js";
 import { defineCommand } from "../command.js";
@@ -7,15 +7,15 @@ import { relayOption, requestedRelay } from "../relay.js";
 
 export const login = defineCommand({
   name: "login",
-  description: "Sign this device in to a Mukae relay",
+  description: "Sign this device in to an Exterior relay",
   help: [
-    "Sign this device in to a Mukae relay with a device code. Approve the code on the relay after signing in with GitHub. The device then appears on the relay's dashboard.",
+    "Sign this device in to an Exterior relay with a device code. Approve the code on the relay after signing in with GitHub. The device then appears on the relay's dashboard.",
     "A device keeps one sign-in per relay. Signing in to a second relay keeps the first. Signing in again to the same relay replaces its sign-in.",
   ].join("\n\n"),
   options: [relayOption],
   examples: [
-    "mukae login --relay relay.example.com",
-    "# A relay running on this machine\nmukae login --relay 127.0.0.1:8787",
+    "exterior login --relay relay.example.com",
+    "# A relay running on this machine\nexterior login --relay 127.0.0.1:8787",
   ],
   async action(context, options) {
     const { io } = context;
@@ -36,7 +36,7 @@ export const login = defineCommand({
       return 1;
     }
     const others = signedIn.some((signIn) => signIn.relayUrl !== relayUrl);
-    io.stdout.write(`Signed in to ${relayUrl}.\nNext: mukae daemon${others ? ` --relay ${relayUrl}` : ""}\n`);
+    io.stdout.write(`Signed in to ${relayUrl}.\nNext: exterior daemon${others ? ` --relay ${relayUrl}` : ""}\n`);
     return 0;
   },
 });

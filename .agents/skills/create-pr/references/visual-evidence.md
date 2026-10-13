@@ -11,8 +11,8 @@ Build first. The account pages are served from the built relay.
 For a page that renders only after the account is signed in, run `apps/relay/capture/capture.ts` once per side. Pass `--surface` for each changed page, and pass the same names on both sides. Give each side its own `--port`. The page names, the default port, and the viewport flag are in [the script's readme](../../../../apps/relay/capture/README.md).
 
 ```sh
-pnpm --filter @mukae/relay capture --label before --surface <page>
-pnpm --filter @mukae/relay capture --label after --port <other> --surface <page>
+pnpm --filter @exterior/relay capture --label before --surface <page>
+pnpm --filter @exterior/relay capture --label after --port <other> --surface <page>
 ```
 
 Repeat `--surface` for each changed page. When the narrow width is part of the change, run again with the script's narrow `--viewport`. The file name includes the viewport.

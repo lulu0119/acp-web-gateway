@@ -116,16 +116,16 @@ function dispatch(context: CommandContext, node: CommandNode, args: readonly str
     const [word, ...rest] = args;
     const child = node.children.find((item) => item.name === word);
     if (child) return dispatch(context, child, rest, options, [...path, child.name]);
-    const choices = node.children.map((item) => `  mukae ${[...path, item.name].join(" ")}`).join("\n");
-    if (word === undefined) throw new UsageError(`mukae ${path.join(" ")} needs a command:\n${choices}`);
-    throw new UsageError(`Unknown command "mukae ${[...path, word].join(" ")}". Pick one:\n${choices}`);
+    const choices = node.children.map((item) => `  exterior ${[...path, item.name].join(" ")}`).join("\n");
+    if (word === undefined) throw new UsageError(`exterior ${path.join(" ")} needs a command:\n${choices}`);
+    throw new UsageError(`Unknown command "exterior ${[...path, word].join(" ")}". Pick one:\n${choices}`);
   }
   if (args[0] !== undefined) throw new UsageError(`Unexpected argument "${args[0]}".`);
   const known = new Set((node.options ?? []).map((option) => camelCase(optionName(option.flags))));
   for (const key of Object.keys(options)) {
-    if (key !== "--" && !key.includes("-") && !known.has(key)) throw new UsageError(`Unknown option --${kebabCase(key)} for mukae ${path.join(" ")}.`);
+    if (key !== "--" && !key.includes("-") && !known.has(key)) throw new UsageError(`Unknown option --${kebabCase(key)} for exterior ${path.join(" ")}.`);
   }
-  if (!node.action) throw new UsageError(`mukae ${path.join(" ")} does nothing on its own.`);
+  if (!node.action) throw new UsageError(`exterior ${path.join(" ")} does nothing on its own.`);
   return node.action(context, options);
 }
 

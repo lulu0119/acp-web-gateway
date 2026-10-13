@@ -51,7 +51,7 @@ export function useAccount(relayUrl: string, init?: { redirectUri?: string; retu
         window.location.assign(url);
       })
       .catch((error: unknown) => {
-        setError(error instanceof Error ? error.message : "Mukae did not answer.");
+        setError(error instanceof Error ? error.message : "Exterior did not answer.");
         setBusy(false);
       });
   }, [relayUrl, redirectUri]);

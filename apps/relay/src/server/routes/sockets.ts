@@ -1,4 +1,4 @@
-import { acpPath, daemonPath, parseDaemonMessage } from "@mukae/contract";
+import { acpPath, daemonPath, parseDaemonMessage } from "@exterior/contract";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import type { Hono } from "hono";
 import type { BrowserLink, Registry } from "../connections/registry.js";

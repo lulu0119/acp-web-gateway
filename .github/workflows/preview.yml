@@ -27,5 +27,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @mukae/client... --filter mukae... build
+      - run: pnpm --filter @exterior/client... --filter exterior... build
       - run: pnpm exec pkg-pr-new publish --pnpm --previewVersion --no-compact --comment=off --no-template --packageManager=pnpm ./packages/contract ./packages/client ./packages/gateway

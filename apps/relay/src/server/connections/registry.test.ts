@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { RelayMessage } from "@mukae/contract";
+import type { RelayMessage } from "@exterior/contract";
 import { createRegistry, type BrowserSocket } from "./registry.js";
 
 test("a machine appears only for the account that connected it", () => {

@@ -14,7 +14,7 @@ export const daemon = defineCommand({
     "One daemon serves one relay. Run a second daemon to serve a second relay.",
   ].join("\n\n"),
   options: [relayOption],
-  examples: ["mukae daemon", "mukae daemon --relay relay.example.com"],
+  examples: ["exterior daemon", "exterior daemon --relay relay.example.com"],
   async action(context, options) {
     const { io } = context;
     const chosen = await resolveRelay(context, options, "daemon");
@@ -23,14 +23,14 @@ export const daemon = defineCommand({
       return 1;
     }
     const { relayUrl } = chosen;
-    const inform = (line: string) => io.stderr.write(`${new Date().toISOString()} [mukae] ${line}\n`);
+    const inform = (line: string) => io.stderr.write(`${new Date().toISOString()} [exterior] ${line}\n`);
     const config = await readGatewayConfig(io.homeDirectory);
     if (config.warning) {
       io.stderr.write(`${config.warning}\n`);
       return 1;
     }
     if (config.agents.length === 0) {
-      io.stderr.write("No agent configurations.\nNext: mukae agent-config create --agent-type opencode\n");
+      io.stderr.write("No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n");
       return 1;
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });

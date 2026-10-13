@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { DaemonMessage } from "@mukae/contract";
+import type { DaemonMessage } from "@exterior/contract";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost, type AgentHooks, type AgentPipe } from "./host.js";
 

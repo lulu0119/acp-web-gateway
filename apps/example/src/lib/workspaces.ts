@@ -19,7 +19,7 @@ export function removeWorkspace(workspaces: readonly string[], path: string): st
 }
 
 function storageKey(agentType: string): string {
-  return `mukae.workspaces.${agentType}`;
+  return `exterior.workspaces.${agentType}`;
 }
 
 function readStoredWorkspaces(agentType: string): string[] {

@@ -49,7 +49,7 @@ test("an unknown agent type points at the registry list", () => {
     env: {},
     knownTypes: ["opencode"],
   });
-  assert.deepEqual(added, { ok: false, message: 'Unknown agent type "not-a-type". Run mukae agent-config types.' });
+  assert.deepEqual(added, { ok: false, message: 'Unknown agent type "not-a-type". Run exterior agent-config types.' });
 });
 
 test("a custom command is stored beside the name", () => {

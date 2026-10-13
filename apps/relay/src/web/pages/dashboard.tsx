@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
 import { EmptyState } from "../components/empty-state";
 import { GrantsSection } from "../components/grants-section";
-import { MukaeMark } from "../components/mukae-mark";
+import { ExteriorMark } from "../components/exterior-mark";
 import { SectionHeading } from "../components/section-heading";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
@@ -53,8 +53,8 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
       <header className="flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <MukaeMark className="size-7" />
-          Mukae
+          <ExteriorMark className="size-7" />
+          Exterior
         </a>
         <UserMenu userName={data.userName} userImage={data.userImage} />
       </header>
@@ -127,7 +127,7 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
             <KeyRoundIcon className="mt-0.5" />
             <span className="flex flex-col">
               <span className="font-medium">Enter a device code</span>
-              <span className="text-xs text-muted-foreground">The code <code className="font-mono">mukae login</code> printed</span>
+              <span className="text-xs text-muted-foreground">The code <code className="font-mono">exterior login</code> printed</span>
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -180,7 +180,7 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
 function AgentList({ device, live }: { device: DeviceView; live: Map<string, number> }) {
   if (!device.machineId) return <span className="text-muted-foreground">Shown when online</span>;
   if (device.agents.length === 0) {
-    return <span className="text-muted-foreground">None configured. Run <code className="font-mono text-xs">mukae agent-config create</code> on it.</span>;
+    return <span className="text-muted-foreground">None configured. Run <code className="font-mono text-xs">exterior agent-config create</code> on it.</span>;
   }
   return (
     <ul className="flex flex-wrap gap-1.5">

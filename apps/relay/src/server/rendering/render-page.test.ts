@@ -6,7 +6,7 @@ import { afterAll, test } from "vitest";
 import { readWebAssets } from "./assets.js";
 import { createPageRenderer } from "./render-page.js";
 
-const publicDir = mkdtempSync(join(tmpdir(), "mukae-web-"));
+const publicDir = mkdtempSync(join(tmpdir(), "exterior-web-"));
 mkdirSync(join(publicDir, ".vite"));
 writeFileSync(join(publicDir, ".vite", "manifest.json"), JSON.stringify({
   "index.html": { file: "assets/dashboard-abc.js" },

@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import type { Hono } from "hono";
 import { test } from "vitest";
 import type { RelayEnv } from "../http.js";
-import { openMukaeAuth, type MukaeAuth } from "../identity/auth.js";
+import { openExteriorAuth, type ExteriorAuth } from "../identity/auth.js";
 import { prunePendingClients } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
@@ -38,7 +38,7 @@ test("registration needs a signed-in account, approval requests do not", async (
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      clientName: "Mukae Official",
+      clientName: "Exterior Official",
       redirectUri: "https://app.example.test/callback",
       scopes: ["machines"],
       state: "browser-state",
@@ -97,7 +97,7 @@ test("the birth certificate is issued at approval, not before", async () => {
 });
 
 test("denied approvals leave no grant and abandoned ones are pruned", async () => {
-  const { app, cookie, mukae } = await openRegistry();
+  const { app, cookie, exterior } = await openRegistry();
   const started = await app.request(`${publicUrl}/api/authorize-request`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -124,8 +124,8 @@ test("denied approvals leave no grant and abandoned ones are pruned", async () =
   const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: unknown[] };
   assert.deepEqual(listed.apps, []);
 
-  assert.equal(await prunePendingClients(mukae, 0), 1);
-  assert.equal(await prunePendingClients(mukae, 0), 0);
+  assert.equal(await prunePendingClients(exterior, 0), 1);
+  assert.equal(await prunePendingClients(exterior, 0), 0);
 });
 test("a signed-in account registers, lists, revokes, and re-approves", async () => {
   const { app, cookie } = await openRegistry();
@@ -142,7 +142,7 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   const rejected = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ clientName: "Mukae Clone", redirectUris: ["https://app.example.test/callback"], confidential: false }),
+    body: JSON.stringify({ clientName: "Exterior Clone", redirectUris: ["https://app.example.test/callback"], confidential: false }),
   });
   assert.equal(rejected.status, 400);
 
@@ -206,18 +206,18 @@ async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: 
 }
 
 async function openRegistry() {
-  const mukae: MukaeAuth = await openMukaeAuth({
+  const exterior: ExteriorAuth = await openExteriorAuth({
     database: new Database(":memory:"),
     secret,
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const context = await mukae.auth.$context;
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
-  const { app } = await createTestApp(mukae);
-  return { app, mukae, cookie: await sessionCookie(session.token, secret) };
+  const { app } = await createTestApp(exterior);
+  return { app, exterior, cookie: await sessionCookie(session.token, secret) };
 }
 
 async function sessionCookie(token: string, secret: string): Promise<string> {

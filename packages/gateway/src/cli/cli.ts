@@ -6,14 +6,14 @@ import { commandTree } from "./commands/index.js";
 export type { CliIo } from "./command.js";
 
 const root = defineCommand({
-  name: "mukae",
-  description: "Connect this device's ACP agents to a Mukae account",
-  help: "Connect this device's ACP agents to a Mukae account. Sign in to a relay, add an agent configuration, then keep the daemon running.",
+  name: "exterior",
+  description: "Connect this device's ACP agents to an Exterior account",
+  help: "Connect this device's ACP agents to an Exterior account. Sign in to a relay, add an agent configuration, then keep the daemon running.",
   children: commandTree,
   examples: [
-    "mukae login --relay relay.example.com",
-    "mukae agent-config create --agent-type opencode",
-    "mukae daemon",
+    "exterior login --relay relay.example.com",
+    "exterior agent-config create --agent-type opencode",
+    "exterior daemon",
   ],
 });
 
@@ -25,23 +25,23 @@ export async function executeCli(args: readonly string[], io: CliIo, runtime: { 
     return 0;
   }
   if (args.includes("--help") || args.includes("-h") || args.length === 0) {
-    io.stdout.write(formatHelp({ bin: "mukae", root, path: resolveCommandPath(commandTree, words) }));
+    io.stdout.write(formatHelp({ bin: "exterior", root, path: resolveCommandPath(commandTree, words) }));
     return 0;
   }
-  const cli = cac("mukae");
+  const cli = cac("exterior");
   let pending: Promise<number> | undefined;
   registerCommandTree(cli, commandTree, { io, signal: runtime.signal }, (result) => {
     pending = result;
   });
   try {
-    cli.parse(["node", "mukae", ...args], { run: false });
+    cli.parse(["node", "exterior", ...args], { run: false });
     if (!cli.matchedCommand) throw new UsageError(`Unknown command "${words[0] ?? args[0]}".`);
     cli.runMatchedCommand();
     return await (pending ?? Promise.resolve(0));
   } catch (error) {
     if (!(error instanceof UsageError) && !(error instanceof Error && error.name === "CACError")) throw error;
     const path = resolveCommandPath(commandTree, words).map((node) => node.name);
-    io.stderr.write(`${error.message}\nRun \`${["mukae", ...path].join(" ")} --help\` for usage.\n`);
+    io.stderr.write(`${error.message}\nRun \`${["exterior", ...path].join(" ")} --help\` for usage.\n`);
     return 2;
   }
 }

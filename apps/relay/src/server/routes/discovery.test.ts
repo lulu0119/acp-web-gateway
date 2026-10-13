@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
-import { machinesScope } from "@mukae/contract";
+import { machinesScope } from "@exterior/contract";
 import Database from "better-sqlite3";
 import { test } from "vitest";
-import { openMukaeAuth } from "../identity/auth.js";
+import { openExteriorAuth } from "../identity/auth.js";
 import { ensureDaemonClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
 test("discovery lists sign-in and device sign-in", async () => {
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret: "test-secret-test-secret-test-secret",
     publicUrl: "http://127.0.0.1:8787",
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const daemonClientId = await ensureDaemonClient(mukae);
-  const { app } = await createTestApp(mukae);
+  const daemonClientId = await ensureDaemonClient(exterior);
+  const { app } = await createTestApp(exterior);
   const discovery = await app.request("http://127.0.0.1:8787/api/auth/.well-known/openid-configuration");
   assert.equal(discovery.status, 200);
   const metadata = (await discovery.json()) as { issuer?: string; authorization_endpoint?: string; device_authorization_endpoint?: string };
