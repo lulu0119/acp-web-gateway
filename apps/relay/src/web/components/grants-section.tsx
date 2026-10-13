@@ -4,7 +4,7 @@ import type { GrantedApp } from "../../shared/account-web.js";
 import { Button } from "../ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "../ui/item";
 import { EmptyState } from "./empty-state";
-import { SectionHeading } from "./section-heading";
+import { Section } from "./section";
 
 type Loaded = { state: "loading" } | { state: "error" } | { state: "ready"; apps: GrantedApp[] };
 
@@ -47,10 +47,11 @@ export function GrantsSection() {
   }
 
   return (
-    <section className="flex flex-col gap-6" aria-labelledby="apps-heading">
-      <SectionHeading id="apps-heading" title="Authorized apps">
-        Web apps that can open agents on your devices. Revoking signs an app out the next time it asks for a token.
-      </SectionHeading>
+    <Section
+      id="apps-heading"
+      title="Authorized apps"
+      description="Web apps that can open agents on your devices. Revoking signs an app out the next time it asks for a token."
+    >
       {problem ? (
         <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
           <CircleAlertIcon className="size-4" aria-hidden />
@@ -59,7 +60,7 @@ export function GrantsSection() {
       ) : null}
       {loaded.state === "loading" ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading apps">
-          {[0, 1].map((key) => <div key={key} className="h-16 animate-pulse rounded-xl bg-muted" />)}
+          {[0, 1].map((key) => <div key={key} className="h-16 animate-pulse bg-muted" />)}
         </div>
       ) : loaded.state === "error" ? (
         <EmptyState
@@ -77,9 +78,9 @@ export function GrantsSection() {
             <Item
               key={app.clientId}
               role="listitem"
-              className="items-start gap-3 rounded-none border-x-0 border-t-0 border-border px-0 py-4 last:border-b-0"
+              className="tile-underline items-start gap-3 border-0 px-0 py-4 first:pt-0 last:bg-none"
             >
-              <ItemMedia variant="icon" className="size-8 rounded-lg bg-muted font-semibold text-muted-foreground">
+              <ItemMedia variant="icon" className="size-8 bg-muted font-display font-bold text-muted-foreground">
                 {(app.clientName.trim().charAt(0) || "?").toUpperCase()}
               </ItemMedia>
               <ItemContent className="min-w-0">
@@ -102,7 +103,7 @@ export function GrantsSection() {
           ))}
         </ItemGroup>
       )}
-    </section>
+    </Section>
   );
 }
 

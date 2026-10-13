@@ -34,6 +34,7 @@ The daemon checks its saved credentials before each connection attempt and refre
 
 ## Decisions
 
+- [Relay pages use the Academy City design language](docs/adr/0015-academy-city-design-language.md)
 - [Tokens are told apart by the client they were issued to](docs/adr/0014-tokens-are-told-apart-by-client.md)
 - [A machine keeps one sign-in per relay](docs/adr/0013-one-sign-in-per-relay.md)
 - [Relay pages share React UI](docs/adr/0012-relay-page-rendering.md)

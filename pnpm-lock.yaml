@@ -114,6 +114,12 @@ importers:
       '@fontsource-variable/noto-sans':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource-variable/noto-serif-jp':
+        specifier: ^5.3.1
+        version: 5.3.1
+      '@fontsource-variable/oswald':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/maple-mono':
         specifier: ^5.3.0
         version: 5.3.0
@@ -861,6 +867,12 @@ packages:
 
   '@fontsource-variable/noto-sans@5.3.0':
     resolution: {integrity: sha512-e3ZuxzY9AL2psXPZlhwhnYrHUHv6PMoyK9MQ7croF0CUgURLqu9EMjW7q2FgVLwij1tjLsIHQrnwQ8aUcg4BiA==}
+
+  '@fontsource-variable/noto-serif-jp@5.3.1':
+    resolution: {integrity: sha512-quU5uIezSqZFgPaDDI2C3hQfIJHzyXVYuvMZsDDF++og8yechsAwcmCkLLdofPboUB1xHOWV3xohJyIVBi3b4g==}
+
+  '@fontsource-variable/oswald@5.3.0':
+    resolution: {integrity: sha512-sSZzcTeaQGNyZbTVlS4tNNHElK38UktFLqKd6NQDLFCBV27320rQC3kXSZVytYm1PPjKmPxqVaGwqj7LEKUWQw==}
 
   '@fontsource/maple-mono@5.3.0':
     resolution: {integrity: sha512-8N3FVDWphO/971tZIig9D558j9jf09fWYIXFjgv7DKJEvDjtgfATx1ScWHdTCsf+tufFS5M1bAa4AumVBKPhSQ==}
@@ -5320,6 +5332,10 @@ snapshots:
   '@fontsource-variable/geist@5.3.0': {}
 
   '@fontsource-variable/noto-sans@5.3.0': {}
+
+  '@fontsource-variable/noto-serif-jp@5.3.1': {}
+
+  '@fontsource-variable/oswald@5.3.0': {}
 
   '@fontsource/maple-mono@5.3.0': {}
 

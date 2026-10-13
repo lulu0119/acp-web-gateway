@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/noto-sans";
+@import "@fontsource-variable/noto-serif-jp";
+@import "@fontsource-variable/oswald";
 @import "@fontsource/maple-mono/400.css";
 @import "@fontsource/maple-mono/600.css";
 @import "./palette.css";
@@ -12,6 +14,13 @@
 @theme inline {
   --font-sans: "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Noto Serif JP Variable", ui-serif, Georgia, serif;
+  --font-label: "Oswald Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-red: var(--brand-red);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-amber: var(--brand-amber);
+  --color-electric: var(--electric);
+  --color-electric-mint: var(--electric-mint);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -39,47 +48,56 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Academy City: white paper, a red-to-orange band, square corners, and an electric cyan for what is live. See docs/adr/0015-academy-city-design-language.md. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --brand-red: #e2231a;
+  --brand-orange: #f08a2b;
+  --brand-amber: #f6a623;
+  --brand-gradient: linear-gradient(100deg, var(--brand-red) 0%, #ec4e21 45%, var(--brand-orange) 100%);
+  --electric: #35b5e5;
+  --electric-mint: #6fe3c8;
+  --grid-line: oklch(0.55 0.12 40 / 0.07);
+  --background: #faf8f6;
+  --foreground: #2a2320;
+  --card: #ffffff;
+  --card-foreground: #2a2320;
+  --popover: #ffffff;
+  --popover-foreground: #2a2320;
+  --primary: #c93a12;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #2a2320;
+  --muted: #f4f1ee;
+  --muted-foreground: #6b625c;
+  --accent: #fbeee6;
+  --accent-foreground: #2a2320;
+  --destructive: #c42a1b;
+  --border: #e6e1dc;
+  --input: #d9d3cd;
+  --ring: var(--electric);
+  --radius: 0;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --brand-gradient: linear-gradient(100deg, #b81c15 0%, #c4401b 45%, #c86f22 100%);
+  --grid-line: oklch(1 0 0 / 0.04);
+  --background: #1b1716;
+  --foreground: #f4efeb;
+  --card: #241f1d;
+  --card-foreground: #f4efeb;
+  --popover: #241f1d;
+  --popover-foreground: #f4efeb;
+  --primary: #ef5a24;
+  --primary-foreground: #ffffff;
+  --secondary: #2e2826;
+  --secondary-foreground: #f4efeb;
+  --muted: #2e2826;
+  --muted-foreground: #b0a69f;
+  --accent: #3a2a22;
+  --accent-foreground: #f4efeb;
+  --destructive: #f0644f;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -103,6 +121,45 @@
   select:not(:disabled) {
     cursor: pointer;
   }
+}
+
+/* The band across the head of a section. Its text sits at the red end, where white still reads. */
+@utility band-brand {
+  background-image: var(--brand-gradient);
+  color: white;
+}
+
+/* Fine graph paper that fades out below the first screen. */
+@utility grid-paper {
+  background-image:
+    linear-gradient(to bottom, transparent 0, var(--background) 32rem),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 100% 100%, 16px 16px, 16px 16px;
+}
+
+/* White graph paper laid over the band. */
+@utility grid-paper-light {
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.12) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* A row of small squares along the bottom edge, where a list would draw a hairline between rows. */
+@utility tile-underline {
+  background-image: linear-gradient(90deg, var(--border) 4px, transparent 4px);
+  background-size: 6px 4px;
+  background-position: 0 100%;
+  background-repeat: repeat-x;
+}
+
+/* The same squares drawn as a rule of their own, in the band's gradient. */
+@utility tile-rule-brand {
+  height: 6px;
+  background:
+    linear-gradient(90deg, transparent 6px, var(--card) 6px) 0 0 / 8px 100%,
+    var(--brand-gradient);
 }
 
 /* Server-highlighted code (see server/rendering/highlight.ts), sized like GitHub's README blocks. */

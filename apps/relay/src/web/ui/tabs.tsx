@@ -5,12 +5,12 @@ export function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
   return <TabsPrimitive.Root className={cn("flex flex-col gap-4", className)} {...props} />;
 }
 
-/** A segmented control: the active tab sits on a raised pill that slides between tabs. */
+/** A segmented control: the active tab sits on a solid block that slides between tabs. */
 export function TabsList({ className, children, ...props }: TabsPrimitive.List.Props) {
   return (
-    <TabsPrimitive.List className={cn("relative z-0 inline-flex w-fit items-center gap-1 rounded-lg bg-muted p-1", className)} {...props}>
+    <TabsPrimitive.List className={cn("relative z-0 inline-flex w-fit items-center gap-1 rounded-lg border border-input bg-card p-1", className)} {...props}>
       {children}
-      <TabsPrimitive.Indicator className="absolute top-1/2 left-0 -z-1 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-1/2 rounded-md bg-background shadow-sm ring-1 ring-border transition-[translate,width] duration-200 ease-out" />
+      <TabsPrimitive.Indicator className="absolute top-1/2 left-0 -z-1 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-1/2 rounded-md bg-primary transition-[translate,width] duration-200 ease-out" />
     </TabsPrimitive.List>
   );
 }
@@ -19,7 +19,7 @@ export function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       className={cn(
-        "inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-active:text-foreground [&_svg]:size-4",
+        "inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 font-label text-[15px] font-medium tracking-[0.03em] whitespace-nowrap text-muted-foreground outline-none select-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-active:text-primary-foreground [&_svg]:size-4",
         className,
       )}
       {...props}

@@ -11,8 +11,8 @@ const buttonGroupVariants = cva(
     variants: {
       variant: {
         default: "",
-        primary:
-          "rounded-lg bg-primary [&>[data-slot=button-group-separator]]:bg-primary-foreground/30",
+        inverse:
+          "rounded-lg bg-white [&>[data-slot=button-group-separator]]:bg-primary/20",
       },
       orientation: {
         horizontal:

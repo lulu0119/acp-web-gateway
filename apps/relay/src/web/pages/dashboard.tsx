@@ -1,10 +1,11 @@
+import { cn } from "cn";
 import { ChevronDownIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
 import { EmptyState } from "../components/empty-state";
 import { GrantsSection } from "../components/grants-section";
 import { MukaeMark } from "../components/mukae-mark";
-import { SectionHeading } from "../components/section-heading";
+import { Section } from "../components/section";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
 import { Badge } from "../ui/badge";
@@ -50,67 +51,86 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const online = data.devices.filter((device) => device.machineId).length;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
-      <header className="flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <MukaeMark className="size-7" />
-          Mukae
-        </a>
-        <UserMenu userName={data.userName} userImage={data.userImage} />
-      </header>
+    <div className="grid-paper min-h-dvh">
+      <div className="band-brand h-1" aria-hidden />
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-5 pb-24 sm:gap-10 sm:px-6">
+        <header className="flex items-center gap-4">
+          <a href="/" className="flex items-center gap-3">
+            <MukaeMark className="size-8" />
+            <span className="font-label text-xl font-light tracking-[0.3em] uppercase">Mukae</span>
+          </a>
+          <span className="h-px flex-1 bg-foreground/15" aria-hidden />
+          <UserMenu userName={data.userName} userImage={data.userImage} />
+        </header>
 
-      <section className="flex flex-col gap-6" aria-labelledby="devices-heading">
-        <SectionHeading id="devices-heading" title="Devices" as="h1" action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}>
-          Computers signed in to your account. Web apps you authorize open agents on the online ones.
-        </SectionHeading>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-6 text-muted-foreground">
-          <span><span className="font-medium text-foreground">{data.devices.length}</span> {data.devices.length === 1 ? "device" : "devices"}</span>
-          <span className="inline-flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-success-500" />
-            <span><span className="font-medium text-foreground">{online}</span> online</span>
-          </span>
-          <span><span className="font-medium text-foreground">{data.sessions.length}</span> live {data.sessions.length === 1 ? "connection" : "connections"}</span>
-          {stale ? (
-            <span className="basis-full" role="status">
-              Couldn't refresh. Showing data from {new Date(refreshedAt).toLocaleTimeString()}; retrying.
-            </span>
-          ) : null}
-        </div>
-
-        {data.devices.length === 0 ? (
-          <div className="flex flex-col gap-6">
-            <EmptyState icon={<LaptopIcon />} title="No devices yet">
-              Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Follow either set of steps below.
-            </EmptyState>
-            <SetupGuide guide={guide} />
+        <Section
+          id="devices-heading"
+          title="Devices"
+          as="h1"
+          action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}
+          description="Computers signed in to your account. Web apps you authorize open agents on the online ones."
+        >
+          <div className="-mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm leading-6 text-muted-foreground">
+            <Stat value={data.devices.length} label={data.devices.length === 1 ? "device" : "devices"} />
+            <Stat value={online} label="online" live={online > 0} />
+            <Stat value={data.sessions.length} label={data.sessions.length === 1 ? "live connection" : "live connections"} />
+            {stale ? (
+              <span className="basis-full" role="status">
+                Couldn't refresh. Showing data from {new Date(refreshedAt).toLocaleTimeString()}; retrying.
+              </span>
+            ) : null}
           </div>
-        ) : (
-          <DeviceTable devices={data.devices} sessions={data.sessions} />
-        )}
-      </section>
 
-      <GrantsSection />
+          {data.devices.length === 0 ? (
+            <div className="flex flex-col gap-6">
+              <EmptyState icon={<LaptopIcon />} title="No devices yet">
+                Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Follow either set of steps below.
+              </EmptyState>
+              <SetupGuide guide={guide} />
+            </div>
+          ) : (
+            <DeviceTable devices={data.devices} sessions={data.sessions} />
+          )}
+        </Section>
 
-      <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
-        <DialogContent title="Set up a new device" description="Sign the computer in, configure its agents, and keep it online.">
-          <SetupGuide guide={guide} />
-        </DialogContent>
-      </Dialog>
+        <GrantsSection />
+
+        <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+          <DialogContent title="Set up a new device" description="Sign the computer in, configure its agents, and keep it online.">
+            <SetupGuide guide={guide} />
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
 
+function Stat({ value, label, live }: { value: number; label: string; live?: boolean }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      {live ? <LiveDot className="self-center" /> : null}
+      <span className="font-label text-xl leading-6 font-medium text-foreground">{value}</span>
+      {label}
+    </span>
+  );
+}
+
+/** A cyan square, the color of what is connected right now. */
+function LiveDot({ className }: { className?: string }) {
+  return <span className={cn("size-2 shrink-0 bg-electric", className)} aria-hidden />;
+}
+
 function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
   return (
-    <ButtonGroup variant="primary" className="shrink-0" aria-label="Add device">
-      <a href="/device" data-slot="button" className={buttonVariants({ size: "lg" })}>
+    <ButtonGroup variant="inverse" className="shrink-0" aria-label="Add device">
+      <a href="/device" data-slot="button" className={buttonVariants({ variant: "inverse", size: "lg" })}>
         <PlusIcon data-icon="inline-start" aria-hidden />
         Add device
       </a>
       <ButtonGroupSeparator />
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button size="icon-lg" />}
+          render={<Button variant="inverse" size="icon-lg" />}
           aria-label="More ways to add a device"
         >
           <ChevronDownIcon aria-hidden />
@@ -147,26 +167,26 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
   return (
     <div>
       <table className="w-full text-sm leading-6 sm:table-fixed">
-        <thead className="hidden border-b border-border text-left text-xs leading-5 text-muted-foreground sm:table-header-group">
+        <thead className="hidden text-left font-label text-[13px] leading-5 tracking-[0.12em] text-muted-foreground uppercase sm:table-header-group">
           <tr>
-            <th scope="col" className="w-2/5 py-3 pr-4 font-medium">Device</th>
-            <th scope="col" className="w-2/5 px-4 py-3 font-medium">Agents</th>
-            <th scope="col" className="w-1/5 py-3 pl-4 font-medium">Last seen</th>
+            <th scope="col" className="tile-underline w-2/5 pt-1 pr-4 pb-3 font-normal">Device</th>
+            <th scope="col" className="tile-underline w-2/5 px-4 pt-1 pb-3 font-normal">Agents</th>
+            <th scope="col" className="tile-underline w-1/5 pt-1 pb-3 pl-4 font-normal">Last seen</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody>
           {sorted.map((device) => (
-            <tr key={device.id} className="flex flex-col gap-1 py-4 sm:table-row sm:p-0">
-              <td className="sm:py-4 sm:pr-4 sm:align-top">
+            <tr key={device.id} className="group/row tile-underline flex flex-col gap-1 py-4 last:bg-none sm:table-row sm:bg-none sm:p-0">
+              <td className="sm:py-4 sm:pr-4 sm:align-top sm:group-not-last/row:tile-underline">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><LaptopIcon className="size-4" /></span>
+                  <span className={cn("flex size-8 shrink-0 items-center justify-center", device.machineId ? "band-brand" : "bg-muted text-muted-foreground")}><LaptopIcon className="size-4" /></span>
                   <span className="min-w-0 text-base leading-6 font-semibold wrap-anywhere">{device.hostname}</span>
                 </div>
               </td>
-              <td className="pl-11 sm:px-4 sm:py-4 sm:align-top">
+              <td className="pl-11 sm:px-4 sm:py-4 sm:align-top sm:group-not-last/row:tile-underline">
                 <AgentList device={device} live={live} />
               </td>
-              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:py-4 sm:pl-4 sm:align-top">
+              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:py-4 sm:pl-4 sm:align-top sm:group-not-last/row:tile-underline">
                 <Presence device={device} />
               </td>
             </tr>
@@ -188,10 +208,10 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
         const count = live.get(`${device.machineId}\t${agent.name}`) ?? 0;
         return (
           <li key={agent.name}>
-            <Badge variant="secondary" className="h-6 gap-1.5 px-2" title={agent.agentType}>
+            <Badge variant="outline" className="h-6 gap-1.5 px-2 has-data-live:pr-0.5" title={agent.agentType}>
               {agent.name}
               {agent.name !== agent.agentType ? <span className="font-mono text-muted-foreground">{agent.agentType}</span> : null}
-              {count > 0 ? <span className="rounded-full bg-success-100 px-1.5 text-success-800">{count} live</span> : null}
+              {count > 0 ? <span data-live className="bg-linear-to-r from-electric-mint to-electric px-1.5 font-semibold text-[#0b3a4a]">{count} live</span> : null}
             </Badge>
           </li>
         );
@@ -203,15 +223,15 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
 function Presence({ device }: { device: DeviceView }) {
   if (device.machineId) {
     return (
-      <span className="inline-flex items-center gap-2">
-        <span className="size-2 rounded-full bg-success-500" />
+      <span className="inline-flex items-center gap-2 font-medium">
+        <LiveDot />
         Connected
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-2 text-muted-foreground" title={device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : undefined}>
-      <span className="size-2 rounded-full bg-muted-foreground/40" />
+      <span className="size-2 shrink-0 bg-muted-foreground/40" />
       {device.lastSeenAt ? relativeTime(device.lastSeenAt) : "Offline"}
     </span>
   );
