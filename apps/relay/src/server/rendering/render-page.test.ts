@@ -33,7 +33,7 @@ test("all pages use the shared stylesheet and each loads only its own script", (
   assert.doesNotMatch(dashboard, /account-abc\.js/);
 });
 
-test("account forms render without browser JavaScript and escape approval data", () => {
+test("account forms render on the server and escape approval data", () => {
   const render = createPageRenderer({ stylesheets: [] });
   const query = 'client_id=studio&state="><script>alert(1)</script>';
   const html = render.account({

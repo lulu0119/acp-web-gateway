@@ -21,7 +21,6 @@ import { PendingForm, PendingScope, SubmitButton } from "../components/pending-f
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
 import { buttonVariants } from "../ui/button.js";
-import { Input } from "../ui/input.js";
 import { OTPField } from "../ui/otp-field.js";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "../ui/tabs.js";
 
@@ -137,9 +136,6 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
             aria-describedby={page.problem ? "user-code-problem" : undefined}
             className="justify-center"
           />
-          <noscript>
-            <Input name="user_code" defaultValue={page.userCode} autoComplete="one-time-code" placeholder="ABCD-EFGH" className="mt-2 text-center font-mono uppercase" />
-          </noscript>
           {page.problem ? (
             <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
               <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />

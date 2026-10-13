@@ -9,8 +9,6 @@ export type PageRenderer = {
   dashboard(data: DashboardData, guide: SetupGuideData): string;
 };
 
-// Account pages are complete HTML forms on their own. Their script only hydrates them for the code field, tabs,
-// copy buttons, and pending states, so approving still works when it fails to load.
 export function createPageRenderer(assets: WebAssets): PageRenderer {
   function document(title: string, root: ReactNode, props: unknown, script: string | undefined): string {
     return "<!doctype html>" + renderToStaticMarkup(
