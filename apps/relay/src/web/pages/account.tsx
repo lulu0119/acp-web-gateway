@@ -39,9 +39,9 @@ export function accountPageTitle(page: AccountPageData): string {
 
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
-    <div className="grid-paper min-h-dvh">
+    <div className="min-h-dvh bg-card sm:bg-background sm:grid-paper">
       <div className="band-brand h-1" aria-hidden />
-      <main className="mx-auto flex w-full max-w-5xl flex-col items-center px-4 pt-14 pb-20 sm:pt-20">
+      <main className="mx-auto flex w-full max-w-5xl flex-col items-center sm:px-4 sm:pt-20 sm:pb-20">
         <AccountContent page={page} />
       </main>
     </div>
@@ -61,13 +61,13 @@ function AccountContent({ page }: { page: AccountPageData }) {
 
 function Shell({ header, children, footer, wide }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
-      <div className="flex w-full flex-col gap-6 bg-card p-5 shadow-sheet sm:p-8">
+    <div className={cn("flex w-full flex-col items-center sm:gap-8", wide ? "sm:max-w-2xl" : "sm:max-w-md")}>
+      <div className="flex w-full flex-col gap-6 bg-card px-5 pt-12 pb-5 sm:p-8 sm:shadow-sheet">
         <div className="flex flex-col items-center gap-5 text-center [&_h1]:font-label [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight">{header}</div>
         <span className="tile-rule-brand block w-full" aria-hidden />
         <div className="flex w-full flex-col gap-6">{children}</div>
       </div>
-      {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
+      {footer ? <div className="w-full px-5 pb-8 text-center text-sm text-muted-foreground sm:px-0 sm:pb-0">{footer}</div> : null}
     </div>
   );
 }
