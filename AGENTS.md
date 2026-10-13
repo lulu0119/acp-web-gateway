@@ -17,6 +17,7 @@ When the task matches, read the skill before acting.
 - A domain term crystallizes, or a durable choice needs an ADR → `domain-modeling`
 - Something is broken, throwing, or slow → `diagnosing-bugs`
 - Gathering sources into a dated research note → `research`
+- Building or changing a relay page or web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
 
 ## Changes
 
