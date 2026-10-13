@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
 import { MukaeMark } from "../components/mukae-mark.js";
+import { SiteHeader } from "../components/site-header.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
@@ -37,14 +38,17 @@ export function accountPageTitle(page: AccountPageData): string {
   }
 }
 
-/** White paper for the page beside an orange panel that carries the brand; on a phone the panel is a band on top. */
+/** The site header over graph paper, with the page's content on a sheet centered below it. */
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-card lg:flex-row-reverse">
-      <BrandPanel />
-      <main className="flex flex-1 flex-col items-center px-4 pt-10 pb-20 sm:px-8 sm:pt-16 lg:pt-24">
-        <AccountContent page={page} />
-      </main>
+    <div className="grid-paper min-h-dvh">
+      <div className="band-brand h-1" aria-hidden />
+      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 pt-5 pb-20 sm:px-6">
+        <SiteHeader />
+        <main className="flex flex-col items-center pt-8 sm:pt-14">
+          <AccountContent page={page} />
+        </main>
+      </div>
     </div>
   );
 }
@@ -60,28 +64,9 @@ function AccountContent({ page }: { page: AccountPageData }) {
   }
 }
 
-function BrandPanel() {
-  return (
-    <aside className="band-brand relative flex h-14 shrink-0 items-center overflow-hidden px-4 sm:px-8 lg:sticky lg:top-0 lg:h-dvh lg:w-[min(38%,30rem)] lg:flex-col lg:items-start lg:justify-between lg:p-10">
-      <div className="grid-paper-light pointer-events-none absolute inset-0 mask-[linear-gradient(to_right,black,transparent_70%)] lg:mask-[linear-gradient(to_top,black,transparent_60%)]" aria-hidden />
-      <a href="/" className="relative flex items-center gap-3">
-        <MukaeMark inverse className="size-8" />
-        <span className="font-label text-xl font-light tracking-[0.3em] uppercase">Mukae</span>
-      </a>
-      <p
-        className="relative hidden self-end font-display text-[9rem] leading-none font-black tracking-[0.05em] [writing-mode:vertical-rl] lg:block [&_rt]:text-[1.25rem] [&_rt]:font-normal"
-        aria-hidden
-      >
-        <ruby>迎<rt>むか</rt></ruby>え
-      </p>
-      <p className="relative hidden font-label text-sm font-light tracking-[0.25em] uppercase lg:block">Agents on devices you own</p>
-    </aside>
-  );
-}
-
 /**
- * One account page: a small label with the signed-in account on a rule, the title beside its mark, a row of squares
- * under it, then the content.
+ * One account page on a sheet of paper: a small label with the signed-in account on a rule, the title beside its mark, a
+ * row of squares under it, then the content.
  */
 function Shell({ kicker, account, mark, title, lead, children, footer, wide }: {
   kicker: string;
@@ -95,20 +80,22 @@ function Shell({ kicker, account, mark, title, lead, children, footer, wide }: {
 }) {
   return (
     <div className={cn("flex w-full flex-col gap-7", wide ? "max-w-2xl" : "max-w-md")}>
-      <header className="flex flex-col gap-5">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="font-label tracking-[0.18em] text-primary uppercase">{kicker}</span>
-          <span className="h-px flex-1 bg-foreground/15" aria-hidden />
-          {account ? <SignedInAs account={account} /> : null}
-        </div>
-        <div className="flex items-center gap-4">
-          {mark}
-          <h1 className="font-display text-[1.75rem] leading-tight font-bold text-balance sm:text-3xl sm:leading-tight">{title}</h1>
-        </div>
-        {lead ? <p className="text-muted-foreground">{lead}</p> : null}
-        <span className="tile-rule-brand" aria-hidden />
-      </header>
-      <div className="flex w-full flex-col gap-6">{children}</div>
+      <div className="flex flex-col gap-7 bg-card p-5 shadow-[0_1px_2px_oklch(0_0_0/0.05),0_10px_28px_-10px_oklch(0.4_0.1_40/0.18)] sm:p-8">
+        <header className="flex flex-col gap-5">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="font-label tracking-[0.18em] text-primary uppercase">{kicker}</span>
+            <span className="h-px flex-1 bg-foreground/15" aria-hidden />
+            {account ? <SignedInAs account={account} /> : null}
+          </div>
+          <div className="flex items-center gap-4">
+            {mark}
+            <h1 className="font-display text-[1.75rem] leading-tight font-bold text-balance sm:text-3xl sm:leading-tight">{title}</h1>
+          </div>
+          {lead ? <p className="text-muted-foreground">{lead}</p> : null}
+          <span className="tile-rule-brand" aria-hidden />
+        </header>
+        <div className="flex w-full flex-col gap-6">{children}</div>
+      </div>
       {footer ? <div className="text-sm text-muted-foreground">{footer}</div> : null}
     </div>
   );

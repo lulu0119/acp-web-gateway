@@ -138,14 +138,6 @@
   background-size: 100% 100%, 16px 16px, 16px 16px;
 }
 
-/* White graph paper laid over the band. */
-@utility grid-paper-light {
-  background-image:
-    linear-gradient(oklch(1 0 0 / 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(1 0 0 / 0.12) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-
 /* A row of small squares along the bottom edge, where a list would draw a hairline between rows. */
 @utility tile-underline {
   background-image: linear-gradient(90deg, var(--border) 4px, transparent 4px);

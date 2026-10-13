@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
 import { EmptyState } from "../components/empty-state";
 import { GrantsSection } from "../components/grants-section";
-import { MukaeMark } from "../components/mukae-mark";
+import { SiteHeader } from "../components/site-header";
 import { Section } from "../components/section";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
@@ -54,14 +54,9 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
     <div className="grid-paper min-h-dvh">
       <div className="band-brand h-1" aria-hidden />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-5 pb-24 sm:gap-10 sm:px-6">
-        <header className="flex items-center gap-4">
-          <a href="/" className="flex items-center gap-3">
-            <MukaeMark className="size-8" />
-            <span className="font-label text-xl font-light tracking-[0.3em] uppercase">Mukae</span>
-          </a>
-          <span className="h-px flex-1 bg-foreground/15" aria-hidden />
+        <SiteHeader>
           <UserMenu userName={data.userName} userImage={data.userImage} />
-        </header>
+        </SiteHeader>
 
         <Section
           id="devices-heading"

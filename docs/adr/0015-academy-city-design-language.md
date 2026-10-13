@@ -7,12 +7,13 @@ The relay's pages take their look from the official site and printed material fo
 - **Color.** A band gradient from red `#e2231a` to orange `#f08a2b`. Solid `#c93a12` for primary buttons, so white text on them reaches 5.1:1. Electric cyan `#35b5e5` marks what is live: online devices, live connections, and the focus ring. Amber marks warnings. Off-white `#faf8f6` paper.
 - **Type.** Noto Serif JP for page titles and numerals (`#1`), Oswald for band titles, labels, tabs, and buttons, and Noto Sans for body text. These are the faces the reference site loads.
 - **Shape.** Every corner is square (`--radius: 0`). Only `rounded-full` stays round: avatars and the round icon badges taken from the festival programme page. Status lights are small squares, like the rows of squares.
-- **Motifs.** A section is white paper under a gradient band that holds its title and main action. Account pages put an orange panel with a vertical 迎え and its reading beside the content, which collapses to a band on a phone. Rows are separated by a line of small squares, and a page title has a gradient row of squares under it. Graph paper fades out behind the first screen.
+- **Motifs.** A section is white paper under a gradient band that holds its title and main action. Every page has a thin gradient line across the top and the mark with the spaced-out name on a hairline; account pages center their content on one sheet below it. Rows are separated by a line of small squares, and a page title has a gradient row of squares under it. Graph paper fades out behind the first screen.
 
 ## Rules that keep it readable
 
 - White text on the band sits only at the red end, where it stays above 3:1 at its 24px size. Anything at the orange end, such as the Add device button, is a white button with primary text.
-- Japanese text is decoration (`aria-hidden`). Copy stays English.
+- Copy stays English. Japanese appears only in the mark.
+- The band stays narrow: a section header or a line, never a panel. A large field of red with big white characters reads as a Spring Festival couplet, which an earlier draft of the account pages did.
 - The band carries a section's title, never its status or data, so the `ux` hierarchy rules apply unchanged inside the paper.
 
 ## Considered Options
