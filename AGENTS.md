@@ -18,6 +18,7 @@ When the task matches, read the skill before acting.
 - Something is broken, throwing, or slow → `diagnosing-bugs`
 - Gathering sources into a dated research note → `research`
 - Building or changing a relay page or web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
+- Opening a PR, or making a UI change reviewable → `create-pr`; putting a screenshot into the PR body → `upload-github-attachment`
 
 ## Changes
 

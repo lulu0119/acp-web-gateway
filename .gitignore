@@ -4,3 +4,4 @@ dist/
 .auv/
 .env
 data/
+.captures/
