@@ -1,6 +1,6 @@
 # Visual evidence
 
-How to get a comparable before/after pair for a relay or web app surface. This repository has no Storybook, no visual test runner, and no Playwright dependency; the surfaces are routes of a running relay, so the pair is two relays running side by side — the merge base and the change.
+How to get a comparable before/after pair for a relay or web app surface. This repository has no visual test runner: the surfaces are routes of a running relay, and `apps/relay/capture/capture.ts` is the harness that captures them. Its output is a handoff artifact for one pull request, not a baseline the repository keeps.
 
 Follow this when the diff moves anything a person sees: layout, hierarchy, copy on a page, a state (empty, loading, error, offline), a viewport, a theme. A copy tweak inside one line of a component still counts, because the reviewer cannot otherwise tell where the pixels moved. Skip it for changes with no rendered surface.
 
@@ -9,64 +9,60 @@ Follow this when the diff moves anything a person sees: layout, hierarchy, copy 
 | | Before | After |
 | --- | --- | --- |
 | Source | `git worktree add <path> <merge-base>` | the contributor's worktree, unchanged |
-| Port | 8799, and `BETTER_AUTH_URL` set to it | 8787 (or the dev pair 8787 + 47102) |
-| Data | the same fixture set | the same fixture set |
-| Browser | the same viewport, theme, locale | the same viewport, theme, locale |
+| Port | 8799, and `BETTER_AUTH_URL` set to it | 8891 (a default relay may already hold 8787) |
+| Data | the harness's fixtures | the harness's fixtures |
+| Browser | 1440x900, then 390x844 | the same two viewports |
 
-Never check out or reset the contributor's worktree to reach the base commit. Take a detached worktree of the merge base, run that relay on its own port, and leave the active branch alone. Two relays at once is expected here, which is why the base run uses 8799 — 8787 belongs to whoever is working.
+Never check out or reset the contributor's worktree to reach the base commit. Take a detached worktree of the merge base, capture there, and leave the active branch alone.
 
-## Running a relay for a capture
+## Running the harness
 
-`apps/relay/.env.example` lists the variables. A capture run needs a secret and a port; GitHub keys only for real sign-in, which the seed below replaces.
+It starts its own relay, so nothing has to be running first — except a build:
 
 ```sh
-RUN=<scratch>/relay
-mkdir -p "$RUN/data"
-ln -s <repo>/apps/relay/dist "$RUN/dist"
-ln -s <repo>/apps/relay/node_modules "$RUN/node_modules"
-cd "$RUN" && BETTER_AUTH_URL=http://127.0.0.1:8799 PORT=8799 HOST=127.0.0.1 \
-  BETTER_AUTH_SECRET=<32+ chars> GITHUB_CLIENT_ID=x GITHUB_CLIENT_SECRET=y \
-  node dist/main.js
+# in the worktree being captured, from the repository root
+pnpm install
+pnpm build                     # the relay alone fails without @mukae/contract built first
+node --experimental-strip-types apps/relay/capture/capture.ts --label before --port 8799
+
+# in the contributor's worktree
+node --experimental-strip-types apps/relay/capture/capture.ts --label after --port 8891
 ```
 
-`better-sqlite3` is ABI-specific: run the relay with the Node that built it (`pnpm exec node -p process.execPath`), not with a different one from `PATH`, or it fails with `NODE_MODULE_VERSION`.
+Options: `--label before|after` (required; names the output directory), `--port` (default 8799), `--viewport 1440x900`, `--out <dir>` (default `.captures/`). Run it twice with two `--viewport` values to cover the wide and narrow layouts, or once per viewport in a loop — the file name carries the viewport, so both runs land side by side.
 
-Run the base worktree's own `pnpm install && pnpm --filter @mukae/relay build` first. A base commit whose build fails is not a base — say so instead of comparing against a broken page.
+It writes one PNG per surface into `.captures/<label>/`, named `<surface>-<viewport>.png`. Upload those with the `upload-github-attachment` skill, then remove the base worktree.
 
-## Signing the capture in
+On Windows, `git worktree remove --force` can deregister the worktree and then fail to delete the directory, leaving an orphan under `node_modules`. Check that it is gone (`ls <path>`, `git worktree list`) and delete what remains, rather than assuming the command cleaned up.
 
-Sign-in needs GitHub, and a screenshot of the sign-in page is rarely the pair anyone needs. Seed a session instead, the way `apps/relay/src/server/routes/dashboard.test.ts` does: open the run's SQLite file through `openMukaeAuth` in a scratch script, create a user and a session with `context.internalAdapter`, and sign the token with the secret to make the `better-auth.session_token` cookie. Then set that cookie in the browser context before navigating.
+## What it does for you
 
-Data matters as much as the layout. The dashboard only shows hierarchy at realistic volume: seed several devices — one connected, one offline with a last-seen time — with a few agents each, and one approved web app. Audit the empty state and the populated state separately, and name which one each image shows.
+The parts of a capture that a person forgets, and the reasons it is a script instead of instructions:
 
-## Ports and surfaces
+- **Signs in.** A page captured signed out is not the page under review. It seeds a session and sets the session cookie.
+- **Fixtures the data.** One account, four devices — two connected with agents, one gone 43 minutes, one gone nine days — so the pair exercises the connected and the offline branches of the same row, at a volume where hierarchy is visible.
+- **Connects real daemons.** The two online fixtures announce themselves over the daemon socket through the relay's own device-code flow. Without this, the dashboard renders every device as "Shown when online" and the agents column — the part most changes touch — is never in the picture.
+- **Waits for the state, not a timer.** Each surface declares the condition that only holds once it has settled, and the capture waits for fonts too.
+- **Holds the frame fixed.** Same viewport, device scale factor 2, reduced motion, and animations disabled, so an "after" differs from its "before" only where the code changed.
+
+The fixtures live in `capture.ts` as `fixtureDevices` and `surfaces`. A new page needs an entry in `surfaces` with a ready condition that also holds in the base revision being compared against; a change to what the dashboard shows at realistic volume may need a fixture change. Keep the ready condition honest: waiting for the fix itself means the before capture never completes.
+
+## Surfaces it captures
 
 | Surface | Route | Rendered by |
 | --- | --- | --- |
 | Dashboard | `/` | the browser, from `/api/dashboard` |
 | Sign-in | `/sign-in` | the server |
 | Device code entry | `/device` | the server |
-| Device approval | `/device?user_code=…` | the server |
-| Consent | `/consent` | the server |
 
-Account pages (`/sign-in`, `/device`, `/consent`) render server-side from `apps/relay/src/web/pages/account.tsx`, so a change there is invisible until the relay is rebuilt or restarted — and a dev-server screenshot would not prove the production page changed. Capture account pages from the built relay on 8799 and 8787. The dashboard can be captured from the built relay too, which is the honest pair; `WEB_DEV_SERVER_URL` + `pnpm --filter @mukae/relay web` on 47102 is for iterating, not for evidence.
+Not captured yet: device approval (`/device?user_code=…`), consent (`/consent`), and the dashboard's dialogs and error states. Add them to `surfaces` when a change touches them, and say in the pull request which states were and were not captured.
 
-## Capturing
-
-Screenshots land in `.captures/`, which `.gitignore` covers through `dist/`-style ignore rules only if it is added there — add it if it is missing, and never commit a capture. Name each file by surface, state, and viewport so a pair is obvious: `.captures/<side>-<surface>-<state>-<width>.png`.
-
-Any of these produce the file:
-
-- A headless browser already on the machine. `npx playwright screenshot --viewport-size "1440,900" --wait-for-selector "<ready selector>" http://127.0.0.1:8799/ .captures/before-dashboard-1440.png` covers a signed-out page; a seeded cookie needs the scripted form below.
-- A scratch script running `playwright` (or `puppeteer`) from a temporary directory outside the repository, which can set the cookie, wait for a settled state, and capture several routes in one pass. Do not add the dependency to `package.json` for a PR: the capture is handoff data, not a repository capability.
-- An agent GUI session against the running relay, screenshotting the surface directly.
-
-Whatever the tool, wait for the state to settle — data loaded, no spinner, fonts applied — before the shutter. `--wait-for-timeout` is a guess; a selector for the settled state is evidence.
+Account pages render server-side, so a change under `apps/relay/src/web` is invisible until the relay is rebuilt. The harness serves the built relay (`dist/public`); a dev server would not prove the production page changed.
 
 ## Inspecting and pairing
 
-1. Open every image. A blank page, a loading skeleton, an error page, a sign-in redirect, or an unstyled page is not a pair — it is a capture failure, and it stops the PR body until it is redone.
-2. Confirm both sides show the same surface, state, viewport, theme, locale, and fixture data. A "before" at 1440×900 against an "after" at 390×844 shows nothing.
+1. Open every image. A blank page, a loading skeleton, an error page, a sign-in redirect, or an unstyled page is not a pair — it is a capture failure, and it stops the pull request body until it is redone.
+2. Confirm both sides show the same surface, state, viewport, theme, locale, and fixture data. An "after" at 390x844 against a "before" at 1440x900 shows nothing.
 3. Keep one record per pair for the handoff:
 
    ```text
@@ -74,13 +70,13 @@ Whatever the tool, wait for the state to settle — data loaded, no spinner, fon
    title: Dashboard / devices
    route: /
    viewport: 1440x900
-   data: 3 devices (1 offline), 1 approved app
-   before: /abs/repo-base/.captures/before-dashboard-devices-1440.png
-   after: /abs/worktree/.captures/after-dashboard-devices-1440.png
+   data: 4 devices (2 connected with agents, 1 gone 43m, 1 gone 9d)
+   before: /abs/base-worktree/.captures/before/dashboard-1440x900.png
+   after: /abs/worktree/.captures/after/dashboard-1440x900.png
    ```
 
    Use `before: absent` for a surface the change adds and `after: removed` for one it deletes.
-4. Capture the narrow viewport too (390×844) when the change touches layout — the relay pages are built for both, and hierarchy often breaks only in one.
-5. Upload each file with the `upload-github-attachment` skill, keeping the argument order aligned with the pair record, then remove the base worktree once the upload succeeded.
+4. Capture both viewports when the change touches layout — hierarchy often breaks in only one.
+5. Upload each file with the `upload-github-attachment` skill, keeping the argument order aligned with the pair record, then remove the base worktree.
 
-A capture that cannot be made — the surface needs a real GitHub sign-in, the base build fails — is reported as an unverified state in the PR body with the reason, never quietly dropped from `## Visual changes`.
+A capture that cannot be made — the base revision does not build, the surface needs a real GitHub sign-in — is reported as an unverified state in the pull request body with the reason, never quietly dropped from `## Visual changes`.
