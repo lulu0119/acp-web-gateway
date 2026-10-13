@@ -18,8 +18,8 @@ When the task matches, read the skill before acting.
 - Something is broken, throwing, or slow → `diagnosing-bugs`
 - Gathering sources into a dated research note → `research`
 - Building or changing a relay page or web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
-- Any screenshot task, including a UI inspection or a comparison input → `use-vishot`; a browser route rendered with it → `use-vishot-with-web`
-- Opening a PR, or making a UI change reviewable → `create-pr`; putting a screenshot into the PR body → `upload-github-attachment`
+- A screenshot of a relay or web page → `use-vishot`
+- Opening a PR → `create-pr`. A before/after image is for each page whose appearance this diff changes. Putting that image in the body → `upload-github-attachment`
 
 ## Changes
 

@@ -1,16 +1,16 @@
 # Capture
 
-Screenshots of the relay's pages, for the before/after pair a pull request shows when a surface changed.
+Screenshots of relay pages whose appearance a change affects, for the before/after pair in a pull request.
 
 ```sh
 # in the worktree being captured, after `pnpm build` from the repository root
-pnpm --filter @mukae/relay capture --label after --port 8891
+pnpm --filter @mukae/relay capture --label after --port 8891 --surface dashboard
 ```
 
-`--label before|after` is required and names the output directory. `--port` defaults to 8799, `--viewport` to `1440x900`, `--out` to `.captures/` at the repository root. Run it once per viewport. It prints one path per surface.
+`--label before|after` names the output directory. `--surface` names one page this change affects; repeat it for each such page. Known names: `dashboard`, `sign-in`, `device-code`. `--port` defaults to 8799, `--viewport` to `1440x900`, `--out` to `.captures/` at the repository root. Run again with `--viewport 390x844` when the narrow width is part of the change. It prints one path per page.
 
-The harness is a script, not a test: it starts its own relay, seeds one account and four devices, connects the two online fixtures as daemons, and signs in the browser. What it captures is a handoff artifact for one pull request — `.captures/` is git-ignored, and the images belong in the GitHub copy, not in this repository.
+The script starts its own relay, signs in one account, seeds four devices, and connects the two online ones as daemons. `.captures/` is git-ignored. The images belong in the GitHub copy, not in this repository.
 
-It exists because the pages that need reviewing are behind the session, and a screenshot tool handed only a URL cannot reach them: `use-vishot` renders a signed-out `/` as the sign-in page. For a surface that needs no sign-in, use that skill instead.
+`vishot render` opens a fresh browser, so a capture of `/` is the sign-in page. Use this script for a page that renders only after the account is signed in. For a page that renders without that account, use `use-vishot`.
 
-The procedure around it — which surfaces a change needs, the base worktree, inspecting the images, pairing them — is in [create-pr's visual evidence reference](../../../.agents/skills/create-pr/references/visual-evidence.md). Change `fixtureDevices` and `surfaces` here when a new page needs a pair; a ready condition must also hold in the revision being compared against.
+Which pages a change needs, the base worktree, and how to pair the images are in [create-pr's visual evidence reference](../../../.agents/skills/create-pr/references/visual-evidence.md). Add a page to `surfaces` in `capture.ts` when a new one needs a pair. Its ready condition must also hold in the revision being compared against.

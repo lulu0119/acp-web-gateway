@@ -1,93 +1,38 @@
 # Visual evidence
 
-How to get a comparable before/after pair for a relay or web app surface. This repository has no visual test runner: the surfaces are routes of a running relay, and `apps/relay/capture/capture.ts` is the harness that captures them. Its output is a handoff artifact for one pull request, not a baseline the repository keeps.
+A before/after pair is one page whose appearance this diff changes. Capture that page from the merge base and from this branch. An unchanged page is not a pair.
 
-Follow this when the diff moves anything a person sees: layout, hierarchy, copy on a page, a state (empty, loading, error, offline), a viewport, a theme. A copy tweak inside one line of a component still counts, because the reviewer cannot otherwise tell where the pixels moved. Skip it for changes with no rendered surface.
+## Capture
 
-## Which capture tool
+Take the merge base with `git worktree add`. Leave the working branch checked out as it is.
 
-Two exist, and this is the part worth getting right.
+Build first. The account pages are served from the built relay.
 
-- **`apps/relay/capture/capture.ts`** — for any page behind the session, which is most of them, including the dashboard and every surface whose state depends on account data. It seeds a session and sets the cookie itself.
-- **`use-vishot`** — for a page that needs no sign-in (`/sign-in`, `/device`), and for the scene-app form when a state needs interaction. It is the general screenshot tool; reach for it when the session is not the problem.
-
-The split is forced, not a preference. Vishot renders a URL in a context it builds itself, with no cookie, `storageState`, or header — so a signed-out capture of `/` returns the sign-in page, and it looks like a successful capture. Measured: `vishot render` on `/` while signed out produced a PNG byte-identical to one for `/sign-in`. Use the harness wherever the page would otherwise redirect.
-
-Both are described in `use-vishot-with-web` — the URL form, viewports, readiness, and the scene-app form.
-
-## The pair
-
-| | Before | After |
-| --- | --- | --- |
-| Source | `git worktree add <path> <merge-base>` | the contributor's worktree, unchanged |
-| Port | 8799, and `BETTER_AUTH_URL` set to it | 8891 (a default relay may already hold 8787) |
-| Data | the harness's fixtures | the harness's fixtures |
-| Browser | 1440x900, then 390x844 | the same two viewports |
-
-Never check out or reset the contributor's worktree to reach the base commit. Take a detached worktree of the merge base, capture there, and leave the active branch alone.
-
-## Running the harness
-
-It starts its own relay, so nothing has to be running first — except a build:
+For a page that renders only after the account is signed in, run `apps/relay/capture/capture.ts` once per side. Pass `--surface` for each changed page, and pass the same names on both sides. Give each side its own `--port`. The page names, the default port, and the viewport flag are in [the script's readme](../../../../apps/relay/capture/README.md).
 
 ```sh
-# in the worktree being captured, from the repository root
-pnpm install
-pnpm build                     # the relay alone fails without @mukae/contract built first
-node --experimental-strip-types apps/relay/capture/capture.ts --label before --port 8799
-
-# in the contributor's worktree
-node --experimental-strip-types apps/relay/capture/capture.ts --label after --port 8891
+pnpm --filter @mukae/relay capture --label before --surface <page>
+pnpm --filter @mukae/relay capture --label after --port <other> --surface <page>
 ```
 
-Options: `--label before|after` (required; names the output directory), `--port` (default 8799), `--viewport 1440x900`, `--out <dir>` (default `.captures/`). Run it twice with two `--viewport` values to cover the wide and narrow layouts, or once per viewport in a loop — the file name carries the viewport, so both runs land side by side.
+Repeat `--surface` for each changed page. When the narrow width is part of the change, run again with the script's narrow `--viewport`. The file name includes the viewport.
 
-It writes one PNG per surface into `.captures/<label>/`, named `<surface>-<viewport>.png`. Upload those with the `upload-github-attachment` skill, then remove the base worktree.
+`use-vishot` is for a page that renders without that account, and for a state that needs a click. `vishot render` starts a fresh browser, so a signed-in page comes back as the sign-in page and the command still exits 0.
 
-On Windows, `git worktree remove --force` can deregister the worktree and then fail to delete the directory, leaving an orphan under `node_modules`. Check that it is gone (`ls <path>`, `git worktree list`) and delete what remains, rather than assuming the command cleaned up.
+## Pair
 
-## What it does for you
-
-The parts of a capture that a person forgets, and the reasons it is a script instead of instructions:
-
-- **Signs in.** A page captured signed out is not the page under review. It seeds a session and sets the session cookie.
-- **Fixtures the data.** One account, four devices — two connected with agents, one gone 43 minutes, one gone nine days — so the pair exercises the connected and the offline branches of the same row, at a volume where hierarchy is visible.
-- **Connects real daemons.** The two online fixtures announce themselves over the daemon socket through the relay's own device-code flow. Without this, the dashboard renders every device as "Shown when online" and the agents column — the part most changes touch — is never in the picture.
-- **Waits for the state, not a timer.** Each surface declares the condition that only holds once it has settled, and the capture waits for fonts too.
-- **Holds the frame fixed.** Same viewport, device scale factor 2, reduced motion, and animations disabled, so an "after" differs from its "before" only where the code changed.
-
-The fixtures live in `capture.ts` as `fixtureDevices` and `surfaces`. A new page needs an entry in `surfaces` with a ready condition that also holds in the base revision being compared against; a change to what the dashboard shows at realistic volume may need a fixture change. Keep the ready condition honest: waiting for the fix itself means the before capture never completes.
-
-## Surfaces it captures
-
-| Surface | Route | Rendered by |
-| --- | --- | --- |
-| Dashboard | `/` | the browser, from `/api/dashboard` |
-| Sign-in | `/sign-in` | the server |
-| Device code entry | `/device` | the server |
-
-Not captured yet: device approval (`/device?user_code=…`), consent (`/consent`), and the dashboard's dialogs and error states. Add them to `surfaces` when a change touches them, and say in the pull request which states were and were not captured.
-
-Account pages render server-side, so a change under `apps/relay/src/web` is invisible until the relay is rebuilt. The harness serves the built relay (`dist/public`); a dev server would not prove the production page changed.
-
-## Inspecting and pairing
-
-1. Open every image. A blank page, a loading skeleton, an error page, a sign-in redirect, or an unstyled page is not a pair — it is a capture failure, and it stops the pull request body until it is redone.
-2. Confirm both sides show the same surface, state, viewport, theme, locale, and fixture data. An "after" at 390x844 against a "before" at 1440x900 shows nothing.
-3. Keep one record per pair for the handoff:
+1. Open each image. A blank page, a spinner, an error page, or the sign-in page where another page was asked for is a failed capture. Redo it before writing the body.
+2. Both sides show the same page, state, and viewport. The script's fixtures are the data. Keep them the same on both sides.
+3. One record per pair, then upload in that order with `upload-github-attachment`:
 
    ```text
-   id: dashboard-devices
-   title: Dashboard / devices
-   route: /
-   viewport: 1440x900
-   data: 4 devices (2 connected with agents, 1 gone 43m, 1 gone 9d)
-   before: /abs/base-worktree/.captures/before/dashboard-1440x900.png
-   after: /abs/worktree/.captures/after/dashboard-1440x900.png
+   id: <page>
+   title: <page, state>
+   viewport: <width>x<height>
+   before: <path>
+   after: <path>
    ```
 
-   Use `before: absent` for a surface the change adds and `after: removed` for one it deletes.
-4. Capture both viewports when the change touches layout — hierarchy often breaks in only one.
-5. Upload each file with the `upload-github-attachment` skill, keeping the argument order aligned with the pair record, then remove the base worktree.
+   `before: absent` when the diff adds the page. `after: removed` when it deletes the page.
 
-A capture that cannot be made — the base revision does not build, the surface needs a real GitHub sign-in — is reported as an unverified state in the pull request body with the reason, never quietly dropped from `## Visual changes`.
+Remove the base worktree after the upload. A page that cannot be captured is named in `## Visual changes` with the reason.

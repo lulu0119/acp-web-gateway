@@ -3,12 +3,13 @@
 //
 // Start it from the tree you want to capture, after `pnpm --filter @mukae/relay build`:
 //
-//   node --experimental-strip-types apps/relay/capture/capture.ts --label before
+//   node --experimental-strip-types apps/relay/capture/capture.ts --label before --surface dashboard
 //
 // It serves the built relay from a scratch directory, seeds one account with a
-// fixed set of devices, and writes one PNG per surface and viewport into
-// `.captures/<label>/`. The images are git-ignored; the `upload-github-attachment`
-// skill turns them into pull request URLs.
+// fixed set of devices, and writes one PNG per named page and viewport into
+// `.captures/<label>/`. Pass `--surface` for each page this change affects.
+// The images are git-ignored; the `upload-github-attachment` skill turns them
+// into pull request URLs.
 
 import { spawn } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
@@ -64,9 +65,10 @@ type Options = {
   port: number;
   viewport: string;
   outDir: string;
+  surfaces: string[];
 };
 
-const usage = "Usage: capture.ts --label <before|after> [--port 8799] [--viewport 1440x900] [--out <dir>]\n";
+const usage = "Usage: capture.ts --label <before|after> --surface <name> [--surface <name>] [--port 8799] [--viewport 1440x900] [--out <dir>]\n";
 
 /**
  * Placeholder GitHub credentials. The relay renders "GitHub sign-in is not set up" without them,
@@ -75,7 +77,7 @@ const usage = "Usage: capture.ts --label <before|after> [--port 8799] [--viewpor
 const placeholderGithub = { clientId: "capture-client-id", clientSecret: "capture-client-secret" };
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { label: "", port: 8799, viewport: "1440x900", outDir: join(repositoryRoot, ".captures") };
+  const options: Options = { label: "", port: 8799, viewport: "1440x900", outDir: join(repositoryRoot, ".captures"), surfaces: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--label") {
@@ -94,6 +96,12 @@ function parseOptions(argv: string[]): Options {
       options.outDir = resolve(argv[++index] ?? "");
       continue;
     }
+    if (argument === "--surface") {
+      const name = argv[++index] ?? "";
+      if (!name) throw new Error(`--surface needs a page name. ${usage}`);
+      options.surfaces.push(name);
+      continue;
+    }
     if (argument === "--help" || argument === "-h") {
       process.stdout.write(usage);
       process.exit(0);
@@ -106,6 +114,10 @@ function parseOptions(argv: string[]): Options {
   }
   if (!Number.isInteger(options.port) || options.port <= 0) throw new Error(`--port must be a port number, got ${options.port}`);
   if (!/^\d+x\d+$/.test(options.viewport)) throw new Error(`--viewport must look like 1440x900, got ${options.viewport}`);
+  const known = surfaces.map((surface) => surface.name);
+  if (options.surfaces.length === 0) throw new Error(`Pass --surface for each page this change affects. Known: ${known.join(", ")}. ${usage}`);
+  const unknown = options.surfaces.filter((name) => !known.includes(name));
+  if (unknown.length > 0) throw new Error(`Unknown page: ${unknown.join(", ")}. Known: ${known.join(", ")}.`);
   return options;
 }
 
@@ -259,7 +271,8 @@ async function capture(input: { browser: Browser; publicUrl: string; sessionValu
   });
   await context.addCookies([{ name: "better-auth.session_token", value: input.sessionValue, domain: "127.0.0.1", path: "/" }]);
   try {
-    for (const surface of surfaces) {
+    const selected = surfaces.filter((surface) => input.options.surfaces.includes(surface.name));
+    for (const surface of selected) {
       const page = await context.newPage();
       const response = await page.goto(`${input.publicUrl}${surface.path}`, { waitUntil: "domcontentloaded" });
       if (!response?.ok()) throw new Error(`${surface.path} answered ${response?.status() ?? "no response"}`);

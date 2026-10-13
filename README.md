@@ -2,31 +2,14 @@
 
 A web app reaches an [Agent Client Protocol (ACP)](https://agentclientprotocol.com) agent on a computer the person owns.
 
-Mukae is the account and the relay. The person signs in with GitHub. A device signs in with `mukae login`, shows on the dashboard, and runs a daemon that stays connected. The web app is a separate site: it sends the person to Mukae, comes back with its own access token, and opens one live agent session. Example in this repo is one such web app.
+Mukae is the account and the relay. The person signs in with GitHub. A device signs in with `mukae login`, shows on the dashboard, and runs a daemon that stays connected. A web app is a separate site: it sends the person to Mukae, comes back with its own access token, and opens one connection. Example in this repo is one such web app.
 
-The daemon does not implement ACP. It forwards each WebSocket text frame as one JSON line on the agent’s stdin, and each stdout line as one WebSocket text frame. Tool permission requests are forwarded unchanged. The web app is the ACP client.
+The web app is the ACP client. The daemon forwards each message to the agent and back. Tool permission requests pass through unchanged.
 
-## Layout
+## Use
 
-pnpm workspace:
+1. Start Mukae with GitHub OAuth credentials. See `apps/relay/.env.example`. From a checkout, `pnpm relay` listens on `127.0.0.1:8787`.
 
-- `apps/relay` — Mukae. Better Auth, the device list, and the ACP ticket.
-- `packages/contract` — relay paths and the daemon messages
-- `packages/gateway` — the `mukae` daemon and `agent-config`
-- `packages/client` — sign-in and session open for a web app or the daemon
-- `apps/example` — a page that signs in, lists devices, and opens an agent. Coolify builds this image and the relay image from their Dockerfiles.
-
-Inside `packages/gateway`, `src/bin/mukae.ts` is the executable, which tsdown bundles with every dependency into `dist/bin/mukae.mjs`, and `src/cli/` holds the commands: each command declares its options, help, and examples, and `src/cli/cli.ts` runs them through cac. The modules beside it sign in, store sign-ins and agent configurations, and run the daemon.
-
-Inside `apps/relay`, `src/main.ts` opens dependencies and starts the server. `src/server/app.ts` assembles the complete application; its explicit mounts lead to every route in `src/server/routes/`. Identity operations live in `src/server/identity/`, and the connection registry owns machine, connection, and ticket lifecycles in `src/server/connections/`.
-
-All page markup and UI live in `src/web/`. Account forms render on the server and submit through ordinary HTTP forms; the dashboard runs in the browser. Both use the same UI modules, layout, and stylesheet. `src/shared/` holds the data passed between the relay and its own pages. The public daemon and web-app protocol stays in `packages/contract`.
-
-For UI development, run `pnpm --filter @mukae/relay web` alongside the relay with `WEB_DEV_SERVER_URL=http://127.0.0.1:47102`, then open the relay at `http://127.0.0.1:8787`. It serves the account pages and loads the dashboard and shared CSS from Vite. Account markup changes require rebuilding and restarting the relay. Set the same `BETTER_AUTH_URL` for both processes when using a different relay origin. Production reads the asset manifest once when the application is assembled.
-
-## Flow
-
-1. Start Mukae with GitHub OAuth credentials. See `apps/relay/.env.example`. From the repo root, `pnpm relay` listens on `127.0.0.1:8787`.
 2. On the device that should run agents, install the preview CLI and sign it in:
 
    ```bash
@@ -35,26 +18,19 @@ For UI development, run `pnpm --filter @mukae/relay web` alongside the relay wit
    npx --package=https://pkg.pr.new/lulu0119/mukae@main -- mukae daemon
    ```
 
-   `@main` is the latest preview published from `main`. npx caches a package by its address and keeps running the first `@main` it downloaded, so use a commit hash, such as `@0b26097`, to get a newer publish. The package is one bundled file with no dependencies, so npx and pnpm install it the same way. From a checkout, the same commands are `node packages/gateway/dist/bin/mukae.mjs`. `mukae --help` and `mukae <command> --help` describe each command. `login` prints a link with the code filled in. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`.
+   `@main` is the latest preview published from `main`. npx caches a package by its address and keeps running the first `@main` it downloaded, so use a commit hash, such as `@0b26097`, to get a newer publish. The package is one bundled file with no dependencies. From a checkout, the same commands are `node packages/gateway/dist/bin/mukae.mjs`.
 
-3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**: there is nothing to configure, and the app receives its client id together with the approval. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
+   `login` prints a link with the code filled in. Approve that code on Mukae after signing in with GitHub. `daemon` keeps an outbound connection.
+
+   `mukae --help` and `mukae <command> --help` describe each command. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names.
+
+3. The web app redirects the person to Mukae. Mukae asks for consent, then sends them back. Example does this from **Sign in with Mukae**: there is nothing to configure, and the app receives its client id together with the approval. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/mukae/@mukae/client@main`.
+
 4. The web app lists the account's online devices and asks Mukae to open one agent. Mukae returns a one-time WebSocket address. The page uses that address as the ACP connection.
 
 `login --relay <url>` signs the device in to a Mukae other than `http://127.0.0.1:8787`. A bare host such as `relay.example.com` means https. A device keeps one sign-in per relay in `~/.config/mukae/sign-ins/`, and can be signed in to several relays. `daemon` and `logout` act on the only sign-in, or on the one named with `--relay` or `MUKAE_RELAY`; with several and none named, they list the choices and stop. One daemon serves one relay, so serving two relays takes two daemons. `status` lists the sign-ins. Example reads `VITE_MUKAE_URL` at image build time for the same reason. A push to `main` publishes `mukae`, `@mukae/contract`, and `@mukae/client` from this repository. npm comes later, when the product is ready.
 
-The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials or a second 401 after refresh stop the daemon with instructions to sign in again. Connection, refresh, and retry messages go to stderr with timestamps, without printing credentials.
-
-## Scripts
-
-```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm relay
-pnpm example
-node packages/gateway/dist/bin/mukae.mjs login
-node packages/gateway/dist/bin/mukae.mjs daemon
-```
+The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials or a second 401 after refresh stop the daemon with instructions to sign in again.
 
 ## Decisions
 
