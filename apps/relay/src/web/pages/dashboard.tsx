@@ -4,10 +4,12 @@ import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/acc
 import { EmptyState } from "../components/empty-state";
 import { GrantsSection } from "../components/grants-section";
 import { MukaeMark } from "../components/mukae-mark";
+import { SectionHeading } from "../components/section-heading";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
+import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
@@ -48,7 +50,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const online = data.devices.filter((device) => device.machineId).length;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-12 px-4 pt-6 pb-24 sm:px-6">
+    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
       <header className="flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <MukaeMark className="size-7" />
@@ -57,23 +59,19 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
         <UserMenu userName={data.userName} userImage={data.userImage} />
       </header>
 
-      <section className="flex flex-col gap-5" aria-labelledby="devices-heading">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <h1 id="devices-heading" className="text-3xl font-semibold tracking-tight">Devices</h1>
-            <p className="text-muted-foreground">Computers signed in to your account. Web apps you authorize open agents on the online ones.</p>
-          </div>
-          <AddDeviceMenu onSetUp={() => setSetupOpen(true)} />
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant="secondary">{data.devices.length} {data.devices.length === 1 ? "device" : "devices"}</Badge>
-          <Badge variant="secondary">
+      <section className="flex flex-col gap-6" aria-labelledby="devices-heading">
+        <SectionHeading id="devices-heading" title="Devices" as="h1" action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}>
+          Computers signed in to your account. Web apps you authorize open agents on the online ones.
+        </SectionHeading>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-6 text-muted-foreground">
+          <span><span className="font-medium text-foreground">{data.devices.length}</span> {data.devices.length === 1 ? "device" : "devices"}</span>
+          <span className="inline-flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-success-500" />
-            {online} online
-          </Badge>
-          <Badge variant="secondary">{data.sessions.length} live {data.sessions.length === 1 ? "connection" : "connections"}</Badge>
+            <span><span className="font-medium text-foreground">{online}</span> online</span>
+          </span>
+          <span><span className="font-medium text-foreground">{data.sessions.length}</span> live {data.sessions.length === 1 ? "connection" : "connections"}</span>
           {stale ? (
-            <span className="text-muted-foreground" role="status">
+            <span className="basis-full" role="status">
               Couldn't refresh. Showing data from {new Date(refreshedAt).toLocaleTimeString()}; retrying.
             </span>
           ) : null}
@@ -104,29 +102,37 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
 
 function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="lg" />}>
-        <PlusIcon data-icon="inline-start" />
+    <ButtonGroup variant="primary" className="shrink-0" aria-label="Add device">
+      <a href="/device" data-slot="button" className={buttonVariants({ size: "lg" })}>
+        <PlusIcon data-icon="inline-start" aria-hidden />
         Add device
-        <ChevronDownIcon data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem onClick={onSetUp} className="items-start gap-2.5 py-2">
-          <TerminalIcon className="mt-0.5" />
-          <span className="flex flex-col">
-            <span className="font-medium">Set up a new device</span>
-            <span className="text-xs text-muted-foreground">Steps for an AI assistant or a terminal</span>
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2.5 py-2">
-          <KeyRoundIcon className="mt-0.5" />
-          <span className="flex flex-col">
-            <span className="font-medium">Enter a device code</span>
-            <span className="text-xs text-muted-foreground">The code <code className="font-mono">mukae login</code> printed</span>
-          </span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </a>
+      <ButtonGroupSeparator />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button size="icon-lg" />}
+          aria-label="More ways to add a device"
+        >
+          <ChevronDownIcon aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuItem onClick={onSetUp} className="items-start gap-2.5 py-2">
+            <TerminalIcon className="mt-0.5" />
+            <span className="flex flex-col">
+              <span className="font-medium">Set up a new device</span>
+              <span className="text-xs text-muted-foreground">Steps for an AI assistant or a terminal</span>
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2.5 py-2">
+            <KeyRoundIcon className="mt-0.5" />
+            <span className="flex flex-col">
+              <span className="font-medium">Enter a device code</span>
+              <span className="text-xs text-muted-foreground">The code <code className="font-mono">mukae login</code> printed</span>
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </ButtonGroup>
   );
 }
 
@@ -140,27 +146,27 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
 
   return (
     <div>
-      <table className="w-full text-sm">
-        <thead className="hidden border-b border-border text-left text-sm text-muted-foreground sm:table-header-group">
+      <table className="w-full text-sm leading-6 sm:table-fixed">
+        <thead className="hidden border-b border-border text-left text-xs leading-5 text-muted-foreground sm:table-header-group">
           <tr>
-            <th scope="col" className="py-2.5 pr-4 font-medium">Device</th>
-            <th scope="col" className="px-4 py-2.5 font-medium">Agents</th>
-            <th scope="col" className="py-2.5 pl-4 font-medium">Last seen</th>
+            <th scope="col" className="w-2/5 py-3 pr-4 font-medium">Device</th>
+            <th scope="col" className="w-2/5 px-4 py-3 font-medium">Agents</th>
+            <th scope="col" className="w-1/5 py-3 pl-4 font-medium">Last seen</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {sorted.map((device) => (
-            <tr key={device.id} className="flex flex-col gap-2 py-4 sm:table-row sm:p-0">
-              <td className="sm:py-3.5 sm:pr-4 sm:align-top">
+            <tr key={device.id} className="flex flex-col gap-1 py-4 sm:table-row sm:p-0">
+              <td className="sm:py-4 sm:pr-4 sm:align-top">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/70"><LaptopIcon className="size-4" /></span>
-                  <span className="font-semibold break-all">{device.hostname}</span>
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><LaptopIcon className="size-4" /></span>
+                  <span className="min-w-0 text-base leading-6 font-semibold wrap-anywhere">{device.hostname}</span>
                 </div>
               </td>
-              <td className="sm:px-4 sm:py-3.5 sm:align-top">
+              <td className="pl-11 sm:px-4 sm:py-4 sm:align-top">
                 <AgentList device={device} live={live} />
               </td>
-              <td className="whitespace-nowrap sm:py-3.5 sm:pl-4 sm:align-top">
+              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:py-4 sm:pl-4 sm:align-top">
                 <Presence device={device} />
               </td>
             </tr>

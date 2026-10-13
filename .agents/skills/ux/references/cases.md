@@ -32,6 +32,8 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 ## no-flat-hierarchy
 
 - ❌ `c94dada`: the consent heading printed the full app URL at display size and wrapped. `web/pages/account.tsx`
+- ❌ `d3f06a4` (2026-10-13; L2, 1280×900 and 390×844): dashboard peer headings were 30px and 20px; device names were smaller than their descriptions. `web/pages/dashboard.tsx`, `web/components/grants-section.tsx`
+- ✅ `d3f06a4` + dashboard hierarchy change (L2, desktop and 390×844): keeping the device table and agent chips, both sections use 16px/600 entity names, 12px timestamps, 32px icons and 16px row padding. App origins use 14px/500 and authorization dates occupy a separate level. `web/components/section-heading.tsx`, `web/pages/dashboard.tsx`, `web/components/grants-section.tsx`
 
 ## no-buried-answer
 
@@ -50,6 +52,8 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 ## no-inconsistent-readout
 
 ## no-inert-action
+
+- ✅ `d3f06a4` + dashboard split button (2026-10-13; L2/L3, desktop and 390×844): the primary link opens device-code entry directly; the separate menu retains setup and code entry, with keyboard navigation and focus return. `web/pages/dashboard.tsx`
 
 ## no-false-feedback
 

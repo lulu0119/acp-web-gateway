@@ -7,9 +7,9 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "../ui/tabs";
 export function SetupGuide({ guide }: { guide: SetupGuideData }) {
   return (
     <Tabs defaultValue="assistant">
-      <TabsList>
-        <TabsTab value="assistant"><BotIcon />Ask an AI assistant</TabsTab>
-        <TabsTab value="terminal"><TerminalIcon />Use a terminal</TabsTab>
+      <TabsList className="max-w-full">
+        <TabsTab value="assistant" className="h-auto min-h-8 min-w-0 whitespace-normal"><BotIcon />Ask an AI assistant</TabsTab>
+        <TabsTab value="terminal" className="h-auto min-h-8 min-w-0 whitespace-normal"><TerminalIcon />Use a terminal</TabsTab>
       </TabsList>
       <TabsPanel value="assistant" className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
