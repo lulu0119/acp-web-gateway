@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
 import { MukaeMark } from "../components/mukae-mark.js";
+import { PaperPage } from "../components/paper-page.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
@@ -39,12 +40,11 @@ export function accountPageTitle(page: AccountPageData): string {
 
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
-    <div className="min-h-dvh bg-card sm:bg-background sm:grid-paper">
-      <div className="band-brand h-1" aria-hidden />
-      <main className="mx-auto flex w-full max-w-5xl flex-col items-center sm:px-4 sm:pt-20 sm:pb-20">
+    <PaperPage frame="account">
+      <main className="flex w-full flex-col items-center">
         <AccountContent page={page} />
       </main>
-    </div>
+    </PaperPage>
   );
 }
 
@@ -61,13 +61,13 @@ function AccountContent({ page }: { page: AccountPageData }) {
 
 function Shell({ header, children, footer, wide }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("flex w-full flex-col items-center sm:gap-8", wide ? "sm:max-w-2xl" : "sm:max-w-md")}>
-      <div className="flex w-full flex-col gap-6 bg-card px-5 pt-12 pb-5 sm:p-8 sm:shadow-sheet">
-        <div className="flex flex-col items-center gap-5 text-center [&_h1]:font-label [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight">{header}</div>
+    <div className={cn("flex w-full flex-col items-center sm:gap-s4", wide ? "sm:max-w-2xl" : "sm:max-w-md")}>
+      <div className="flex w-full flex-col gap-s3 sm:bg-card sm:p-s4 sm:shadow-sheet">
+        <div className="flex flex-col items-center gap-s3 text-center [&_h1]:font-label [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight">{header}</div>
         <span className="tile-rule-brand block w-full" aria-hidden />
-        <div className="flex w-full flex-col gap-6">{children}</div>
+        <div className="flex w-full flex-col gap-s3">{children}</div>
       </div>
-      {footer ? <div className="w-full px-5 pb-8 text-center text-sm text-muted-foreground sm:px-0 sm:pb-0">{footer}</div> : null}
+      {footer ? <div className="w-full pt-s4 text-center text-sm text-muted-foreground sm:pt-0">{footer}</div> : null}
     </div>
   );
 }

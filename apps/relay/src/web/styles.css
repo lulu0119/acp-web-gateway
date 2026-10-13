@@ -20,6 +20,13 @@
   --color-electric-mint: var(--electric-mint);
   --color-electric-ink: var(--electric-ink);
   --shadow-sheet: var(--sheet-shadow);
+  /* Layout space doubles each step: 4, 8, 16, 32, 64, 128px. Step n is `s{n}`. */
+  --spacing-s1: 0.25rem;
+  --spacing-s2: 0.5rem;
+  --spacing-s3: 1rem;
+  --spacing-s4: 2rem;
+  --spacing-s5: 4rem;
+  --spacing-s6: 8rem;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

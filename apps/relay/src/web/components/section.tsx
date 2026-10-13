@@ -10,12 +10,12 @@ export function Section({ id, title, as: Heading = "h2", description, action, ch
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col bg-card shadow-sheet" aria-labelledby={id}>
-      <div className="band-brand flex min-h-13 items-center justify-between gap-4 py-2 pr-2 pl-4 sm:pl-5">
+    <section className="flex flex-col bg-card sm:shadow-sheet" aria-labelledby={id}>
+      <div className="band-brand flex min-h-13 items-center justify-between gap-s3 py-s2 pr-s2 pl-s3">
         <Heading id={id} className="band-title">{title}</Heading>
         {action}
       </div>
-      <div className="flex flex-col gap-5 p-4 sm:p-6">
+      <div className="flex flex-col gap-s3 p-s3">
         <p className="max-w-prose text-sm leading-6 text-muted-foreground">{description}</p>
         {children}
       </div>

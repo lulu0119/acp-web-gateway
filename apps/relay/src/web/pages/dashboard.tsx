@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
 import { EmptyState } from "../components/empty-state";
 import { GrantsSection } from "../components/grants-section";
+import { PaperPage } from "../components/paper-page";
 import { SiteHeader } from "../components/site-header";
 import { Section } from "../components/section";
 import { SetupGuide } from "../components/setup-guide";
@@ -51,14 +52,12 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const online = data.devices.filter((device) => device.machineId).length;
 
   return (
-    <div className="grid-paper min-h-dvh">
-      <div className="band-brand h-1" aria-hidden />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-5 pb-24 sm:gap-10 sm:px-6">
-        <SiteHeader>
-          <UserMenu userName={data.userName} userImage={data.userImage} />
-        </SiteHeader>
+    <PaperPage frame="dashboard">
+      <SiteHeader className="px-s3 sm:px-0">
+        <UserMenu userName={data.userName} userImage={data.userImage} />
+      </SiteHeader>
 
-        <Section
+      <Section
           id="devices-heading"
           title="Devices"
           as="h1"
@@ -95,8 +94,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
             <SetupGuide guide={guide} />
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
+    </PaperPage>
   );
 }
 

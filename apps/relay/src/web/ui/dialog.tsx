@@ -23,13 +23,13 @@ export function DialogContent({ title, description, children, className }: {
           className,
         )}
       >
-        <div className="band-brand flex min-h-12 items-center justify-between gap-4 px-5">
+        <div className="band-brand flex min-h-12 items-center justify-between gap-s3 px-s3">
           <DialogPrimitive.Title className="band-title">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Close className="-mr-2 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-white/90 hover:bg-white/15 hover:text-white" aria-label="Close">
             <XIcon className="size-4" />
           </DialogPrimitive.Close>
         </div>
-        <div className="flex flex-col gap-5 p-6">
+        <div className="flex flex-col gap-s3 p-s3">
           {description ? <DialogPrimitive.Description className="text-sm text-muted-foreground">{description}</DialogPrimitive.Description> : null}
           {children}
         </div>
