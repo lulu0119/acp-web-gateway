@@ -11,4 +11,6 @@ pnpm --filter @mukae/relay capture --label after --port 8891
 
 The harness is a script, not a test: it starts its own relay, seeds one account and four devices, connects the two online fixtures as daemons, and signs in the browser. What it captures is a handoff artifact for one pull request — `.captures/` is git-ignored, and the images belong in the GitHub copy, not in this repository.
 
+It exists because the pages that need reviewing are behind the session, and a screenshot tool handed only a URL cannot reach them: `use-vishot` renders a signed-out `/` as the sign-in page. For a surface that needs no sign-in, use that skill instead.
+
 The procedure around it — which surfaces a change needs, the base worktree, inspecting the images, pairing them — is in [create-pr's visual evidence reference](../../../.agents/skills/create-pr/references/visual-evidence.md). Change `fixtureDevices` and `surfaces` here when a new page needs a pair; a ready condition must also hold in the revision being compared against.

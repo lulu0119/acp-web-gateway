@@ -19,7 +19,7 @@ A reviewer reads the body before the diff. So the body states what changed in th
    - a single workspace → `pnpm --filter @mukae/relay test`, or `... build`
    - `apps/relay/src/web` → the relay must be **rebuilt**: the server serves those pages from `dist/public/.vite/manifest.json`, and a dev server hides a broken production build.
 5. Read [the body template](references/pr-body.md) and compose the body from what the checks actually printed.
-6. Publish. A UI change is not publishable without its images: run [visual evidence](references/visual-evidence.md) first, and use the `upload-github-attachment` skill for every image.
+6. Publish. A UI change is not publishable without its images: run [visual evidence](references/visual-evidence.md) first, capture with `use-vishot`, and upload with `upload-github-attachment`.
 7. `gh pr create` with the title, base `main`, and the composed body. Then reopen the PR and verify the title, base, head, body, tables, and that each image renders.
 8. Read the review threads, comments, and check status. Fix each confirmed error, rerun the focused check, push, and reply on the thread with the evidence.
 9. `*.test.ts` beside its source is this repository's test idiom (`apps/relay/src/server/routes/dashboard.test.ts`); a behavior change lands with the test that covers it. The roadmap bullet is deleted in the same change when the work finishes.

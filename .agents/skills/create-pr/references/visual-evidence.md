@@ -4,6 +4,17 @@ How to get a comparable before/after pair for a relay or web app surface. This r
 
 Follow this when the diff moves anything a person sees: layout, hierarchy, copy on a page, a state (empty, loading, error, offline), a viewport, a theme. A copy tweak inside one line of a component still counts, because the reviewer cannot otherwise tell where the pixels moved. Skip it for changes with no rendered surface.
 
+## Which capture tool
+
+Two exist, and this is the part worth getting right.
+
+- **`apps/relay/capture/capture.ts`** — for any page behind the session, which is most of them, including the dashboard and every surface whose state depends on account data. It seeds a session and sets the cookie itself.
+- **`use-vishot`** — for a page that needs no sign-in (`/sign-in`, `/device`), and for the scene-app form when a state needs interaction. It is the general screenshot tool; reach for it when the session is not the problem.
+
+The split is forced, not a preference. Vishot renders a URL in a context it builds itself, with no cookie, `storageState`, or header — so a signed-out capture of `/` returns the sign-in page, and it looks like a successful capture. Measured: `vishot render` on `/` while signed out produced a PNG byte-identical to one for `/sign-in`. Use the harness wherever the page would otherwise redirect.
+
+Both are described in `use-vishot-with-web` — the URL form, viewports, readiness, and the scene-app form.
+
 ## The pair
 
 | | Before | After |
