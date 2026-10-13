@@ -80,7 +80,7 @@ export function GrantsSection() {
               role="listitem"
               className="tile-underline items-start gap-3 border-0 px-0 py-4 first:pt-0 last:bg-none"
             >
-              <ItemMedia variant="icon" className="size-8 bg-muted font-display font-bold text-muted-foreground">
+              <ItemMedia variant="icon" className="size-8 bg-muted font-semibold text-muted-foreground">
                 {(app.clientName.trim().charAt(0) || "?").toUpperCase()}
               </ItemMedia>
               <ItemContent className="min-w-0">

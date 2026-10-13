@@ -104,7 +104,7 @@ function Stat({ value, label, live }: { value: number; label: string; live?: boo
   return (
     <span className="inline-flex items-baseline gap-1.5">
       {live ? <LiveDot className="self-center" /> : null}
-      <span className="font-label text-xl leading-6 font-medium text-foreground">{value}</span>
+      <span className="text-xl leading-6 font-semibold text-foreground">{value}</span>
       {label}
     </span>
   );
@@ -162,7 +162,7 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
   return (
     <div>
       <table className="w-full text-sm leading-6 sm:table-fixed">
-        <thead className="hidden text-left font-label text-[13px] leading-5 tracking-[0.12em] text-muted-foreground uppercase sm:table-header-group">
+        <thead className="hidden text-left font-label text-xs leading-5 font-medium tracking-wider text-muted-foreground uppercase sm:table-header-group">
           <tr>
             <th scope="col" className="tile-underline w-2/5 pt-1 pr-4 pb-3 font-normal">Device</th>
             <th scope="col" className="tile-underline w-2/5 px-4 pt-1 pb-3 font-normal">Agents</th>
@@ -206,7 +206,7 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
             <Badge variant="outline" className="h-6 gap-1.5 px-2 has-data-live:pr-0.5" title={agent.agentType}>
               {agent.name}
               {agent.name !== agent.agentType ? <span className="font-mono text-muted-foreground">{agent.agentType}</span> : null}
-              {count > 0 ? <span data-live className="bg-linear-to-r from-electric-mint to-electric px-1.5 font-semibold text-[#0b3a4a]">{count} live</span> : null}
+              {count > 0 ? <span data-live className="bg-linear-to-r from-electric-mint to-electric px-1.5 font-semibold text-electric-ink">{count} live</span> : null}
             </Badge>
           </li>
         );

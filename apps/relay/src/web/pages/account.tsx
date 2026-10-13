@@ -17,7 +17,6 @@ import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
 import { MukaeMark } from "../components/mukae-mark.js";
-import { SiteHeader } from "../components/site-header.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
@@ -38,17 +37,13 @@ export function accountPageTitle(page: AccountPageData): string {
   }
 }
 
-/** The site header over graph paper, with the page's content on a sheet centered below it. */
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
     <div className="grid-paper min-h-dvh">
       <div className="band-brand h-1" aria-hidden />
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 pt-5 pb-20 sm:px-6">
-        <SiteHeader />
-        <main className="flex flex-col items-center pt-8 sm:pt-14">
-          <AccountContent page={page} />
-        </main>
-      </div>
+      <main className="mx-auto flex w-full max-w-5xl flex-col items-center px-4 pt-14 pb-20 sm:pt-20">
+        <AccountContent page={page} />
+      </main>
     </div>
   );
 }
@@ -64,39 +59,15 @@ function AccountContent({ page }: { page: AccountPageData }) {
   }
 }
 
-/**
- * One account page on a sheet of paper: a small label with the signed-in account on a rule, the title beside its mark, a
- * row of squares under it, then the content.
- */
-function Shell({ kicker, account, mark, title, lead, children, footer, wide }: {
-  kicker: string;
-  account?: AccountView;
-  mark: ReactNode;
-  title: ReactNode;
-  lead?: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
-  wide?: boolean;
-}) {
+function Shell({ header, children, footer, wide }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("flex w-full flex-col gap-7", wide ? "max-w-2xl" : "max-w-md")}>
-      <div className="flex flex-col gap-7 bg-card p-5 shadow-[0_1px_2px_oklch(0_0_0/0.05),0_10px_28px_-10px_oklch(0.4_0.1_40/0.18)] sm:p-8">
-        <header className="flex flex-col gap-5">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="font-label tracking-[0.18em] text-primary uppercase">{kicker}</span>
-            <span className="h-px flex-1 bg-foreground/15" aria-hidden />
-            {account ? <SignedInAs account={account} /> : null}
-          </div>
-          <div className="flex items-center gap-4">
-            {mark}
-            <h1 className="font-display text-[1.75rem] leading-tight font-bold text-balance sm:text-3xl sm:leading-tight">{title}</h1>
-          </div>
-          {lead ? <p className="text-muted-foreground">{lead}</p> : null}
-          <span className="tile-rule-brand" aria-hidden />
-        </header>
+    <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
+      <div className="flex w-full flex-col gap-6 bg-card p-5 shadow-sheet sm:p-8">
+        <div className="flex flex-col items-center gap-5 text-center [&_h1]:font-label [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight">{header}</div>
+        <span className="tile-rule-brand block w-full" aria-hidden />
         <div className="flex w-full flex-col gap-6">{children}</div>
       </div>
-      {footer ? <div className="text-sm text-muted-foreground">{footer}</div> : null}
+      {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
     </div>
   );
 }
@@ -104,9 +75,9 @@ function Shell({ kicker, account, mark, title, lead, children, footer, wide }: {
 function SignedInAs({ account }: { account: AccountView }) {
   if (!account.name) return null;
   return (
-    <p className="flex shrink-0 items-center gap-2 text-muted-foreground">
+    <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
       <Avatar name={account.name} image={account.image} className="size-5 text-[10px]" />
-      <span><span className="sr-only">Signed in as </span><span className="font-semibold text-foreground">{account.name}</span></span>
+      Signed in as <span className="font-semibold text-foreground">{account.name}</span>
     </p>
   );
 }
@@ -114,10 +85,15 @@ function SignedInAs({ account }: { account: AccountView }) {
 function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> }) {
   return (
     <Shell
-      kicker="Account"
-      mark={<MukaeMark className="size-12" />}
-      title="Sign in to Mukae"
-      lead="Mukae lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device."
+      header={(
+        <>
+          <MukaeMark className="size-14" />
+          <h1>Sign in to Mukae</h1>
+          <p className="max-w-sm text-muted-foreground">
+            Mukae lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device.
+          </p>
+        </>
+      )}
     >
       {page.configured ? (
         <PendingForm method="post" action="/sign-in/github" className="flex flex-col">
@@ -139,13 +115,17 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
 function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-code" }> }) {
   return (
     <Shell
-      kicker="Device sign-in"
-      account={page.account}
-      mark={<IconBadge><TerminalIcon /></IconBadge>}
-      title="Connect a device"
-      lead={<>Enter the code your device printed after <code className="bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">mukae login</code>.</>}
-      footer="Only enter a code your own device printed. Mukae never sends you a code."
+      header={(
+        <>
+          <IconBadge><TerminalIcon /></IconBadge>
+          <h1>Connect a device</h1>
+          <SignedInAs account={page.account} />
+        </>
+      )}
     >
+      <p className="text-center text-sm text-muted-foreground">
+        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono whitespace-nowrap text-foreground">mukae login</code>.
+      </p>
       <PendingForm method="get" action="/device" className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <label htmlFor="user-code" className="sr-only">Device code</label>
@@ -159,6 +139,7 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
             required
             aria-invalid={page.problem ? true : undefined}
             aria-describedby={page.problem ? "user-code-problem" : undefined}
+            className="justify-center"
           />
           {page.problem ? (
             <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
@@ -179,13 +160,16 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
 function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "device" }> }) {
   return (
     <Shell
-      kicker="Device sign-in"
-      account={page.account}
-      mark={<IconBadge><LaptopIcon /></IconBadge>}
-      title="Connect this device?"
+      header={(
+        <>
+          <IconBadge><LaptopIcon /></IconBadge>
+          <h1>Connect this device?</h1>
+          <SignedInAs account={page.account} />
+        </>
+      )}
       footer={<a href="/device" className="underline underline-offset-4 hover:text-foreground">Enter a different code</a>}
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col items-center gap-2">
         <p className="text-sm text-muted-foreground">Check that this matches the code on your device</p>
         <CodeDisplay code={page.userCode} />
       </div>
@@ -218,18 +202,23 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
   return (
     <Shell
       wide
-      kicker="Device sign-in"
-      mark={<StatusMark tone="success" />}
-      title="Device connected"
-      lead={<>The device is signed in to your account. <code className="font-mono text-sm">mukae login</code> on it finishes on its own.</>}
+      header={(
+        <>
+          <StatusMark tone="success" />
+          <h1>Device connected</h1>
+          <p className="max-w-md text-muted-foreground">
+            The device is signed in to your account. <code className="font-mono text-sm">mukae login</code> on it finishes on its own.
+          </p>
+        </>
+      )}
     >
       <Tabs defaultValue="user">
-        <TabsList>
+        <TabsList className="self-center">
           <TabsTab value="user"><UserIcon />I'm setting it up</TabsTab>
           <TabsTab value="developer"><CodeIcon />I'm a developer</TabsTab>
         </TabsList>
-        <TabsPanel value="user" className="flex flex-col gap-6">
-          <ol className="flex flex-col gap-5">
+        <TabsPanel value="user" className="flex flex-col gap-5">
+          <ol className="flex flex-col gap-4">
             <Step n={1} title="Go back to your AI assistant or terminal">
               If an assistant is setting this device up, it continues by itself: it configures the agents installed there and keeps the device online.
             </Step>
@@ -266,21 +255,28 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
   return (
     <Shell
       wide
-      kicker="App approval"
-      account={page.account}
-      mark={<AppMonogram label={name || site} />}
-      title={name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
-      lead={(
-        <span className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
-          {page.unverified ? <Badge className="bg-warning-100 text-warning-800">Unverified</Badge> : null}
-        </span>
+      header={(
+        <>
+          <div className="flex items-center gap-3" aria-hidden>
+            <AppMonogram label={name || site} />
+            <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
+            <MukaeMark className="size-14" />
+          </div>
+          <h1 className="max-w-lg text-balance">
+            {name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
+          </h1>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
+            {page.unverified ? <Badge className="bg-warning-100 text-warning-800">Unverified</Badge> : null}
+          </div>
+        </>
       )}
       footer="You can revoke this app anytime from your Mukae dashboard."
     >
-      <section className="flex flex-col gap-4">
-        <h2 className="font-label text-sm tracking-[0.14em] text-muted-foreground uppercase">This app will be able to</h2>
-        <ul className="flex flex-col gap-5">
+      <SignedInAs account={page.account} />
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">This app will be able to</h2>
+        <ul className="flex flex-col gap-4">
           {page.permissions.map((permission) => <Permission key={permission.scope} permission={permission} />)}
         </ul>
       </section>
@@ -290,7 +286,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
         </Notice>
       ) : null}
-      <details className="group text-sm">
+      <details className="group rounded-lg text-sm">
         <summary className="cursor-pointer text-muted-foreground select-none hover:text-foreground">Details</summary>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
           <dt className="text-muted-foreground">Returns to</dt>
@@ -325,7 +321,15 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
 
 function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }> }) {
   return (
-    <Shell kicker="Mukae" mark={<StatusMark tone={page.tone} />} title={page.title} lead={page.message}>
+    <Shell
+      header={(
+        <>
+          <StatusMark tone={page.tone} />
+          <h1>{page.title}</h1>
+        </>
+      )}
+    >
+      <p className="text-center text-muted-foreground">{page.message}</p>
       <div className="flex flex-col gap-3">
         {page.action ? (
           <a href={page.action.href} className={cn(buttonVariants({ size: "xl" }), "w-full")}>
@@ -339,15 +343,13 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
   );
 }
 
-/** A permission set like an event in a programme: a round mark, the name, a heavy rule, then what it means. */
 function Permission({ permission }: { permission: PermissionView }) {
   const icon = permission.scope === "machines" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
   return (
     <li className="flex gap-3">
-      <span className="band-brand flex size-9 shrink-0 items-center justify-center rounded-full [&_svg]:size-4">{icon}</span>
-      <div className="flex flex-1 flex-col gap-1.5">
-        <span className="pt-1.5 font-semibold tracking-[0.03em]">{permission.title}</span>
-        <span className="h-[3px] bg-muted" aria-hidden />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/70 [&_svg]:size-4">{icon}</span>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">{permission.title}</span>
         <span className="text-sm text-muted-foreground">{permission.detail}</span>
       </div>
     </li>
@@ -357,7 +359,7 @@ function Permission({ permission }: { permission: PermissionView }) {
 function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 text-primary [&_svg]:size-4">{icon}</span>
+      <span className="mt-0.5 text-muted-foreground [&_svg]:size-4">{icon}</span>
       <span>{children}</span>
     </li>
   );
@@ -365,25 +367,30 @@ function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode })
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
-    <li className="flex gap-4">
-      <span className="w-9 shrink-0 font-display text-2xl leading-7 font-bold text-primary">#{n}</span>
+    <li className="flex gap-3">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">{n}</span>
       <div className="flex flex-col gap-0.5">
-        <span className="font-semibold">{title}</span>
+        <span className="text-sm font-semibold">{title}</span>
         <span className="text-sm text-muted-foreground">{children}</span>
       </div>
     </li>
   );
 }
 
-/** A notice with its title on a colored band, like a boxed aside in a printed guide. */
 function Notice({ tone, title, children }: { tone: "warning" | "error"; title: string; children: ReactNode }) {
   return (
-    <div role={tone === "error" ? "alert" : undefined} className="flex flex-col text-sm">
-      <div className={cn("flex items-center gap-2 px-3 py-1.5 font-semibold", tone === "warning" ? "bg-brand-amber text-[#3a2a00]" : "bg-danger-600 text-white")}>
-        <ShieldAlertIcon className="size-4 shrink-0" aria-hidden />
-        {title}
+    <div
+      role={tone === "error" ? "alert" : undefined}
+      className={cn(
+        "flex gap-3 rounded-xl p-4 text-sm",
+        tone === "warning" ? "bg-warning-50 text-warning-900" : "bg-danger-50 text-danger-900",
+      )}
+    >
+      <ShieldAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <div className="flex flex-col gap-0.5">
+        <span className="font-semibold">{title}</span>
+        <span className="opacity-90">{children}</span>
       </div>
-      <div className={cn("px-3 py-3", tone === "warning" ? "bg-warning-50 text-warning-900" : "bg-danger-50 text-danger-900")}>{children}</div>
     </div>
   );
 }
@@ -395,7 +402,7 @@ function CodeDisplay({ code }: { code: string }) {
       {characters.map((character, index) => (
         <span key={index} className="contents">
           {index === userCodeGroups[0] ? <span className="px-1 text-muted-foreground" aria-hidden>-</span> : null}
-          <span className="flex h-12 w-9 items-center justify-center border-2 border-input" aria-hidden>{character}</span>
+          <span className="flex h-12 w-9 items-center justify-center rounded-lg bg-muted" aria-hidden>{character}</span>
         </span>
       ))}
     </div>
@@ -406,16 +413,16 @@ function CodeDisplay({ code }: { code: string }) {
 function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
   const style = tone === "success" ? "bg-success-500 text-white" : tone === "error" ? "bg-danger-500 text-white" : "bg-muted text-muted-foreground";
   const icon = tone === "success" ? <CheckIcon strokeWidth={3} /> : tone === "error" ? <CircleAlertIcon /> : <InfoIcon />;
-  return <span className={cn("flex size-12 shrink-0 items-center justify-center [&_svg]:size-6", style)} aria-hidden>{icon}</span>;
+  return <span className={cn("flex size-14 items-center justify-center [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
 }
 
 function IconBadge({ children }: { children: ReactNode }) {
-  return <span className="band-brand flex size-12 shrink-0 items-center justify-center rounded-full [&_svg]:size-6">{children}</span>;
+  return <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-foreground/80 [&_svg]:size-6">{children}</span>;
 }
 
 function AppMonogram({ label }: { label: string }) {
   return (
-    <span className="flex size-12 shrink-0 items-center justify-center bg-muted font-display text-xl font-bold text-muted-foreground" aria-hidden>
+    <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-xl font-semibold text-muted-foreground">
       {(label.trim().charAt(0) || "?").toUpperCase()}
     </span>
   );

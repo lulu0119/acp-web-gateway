@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/noto-sans";
-@import "@fontsource-variable/noto-serif-jp";
 @import "@fontsource-variable/oswald";
 @import "@fontsource/maple-mono/400.css";
 @import "@fontsource/maple-mono/600.css";
@@ -14,13 +13,13 @@
 @theme inline {
   --font-sans: "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-display: "Noto Serif JP Variable", ui-serif, Georgia, serif;
   --font-label: "Oswald Variable", ui-sans-serif, system-ui, sans-serif;
   --color-brand-red: var(--brand-red);
   --color-brand-orange: var(--brand-orange);
-  --color-brand-amber: var(--brand-amber);
   --color-electric: var(--electric);
   --color-electric-mint: var(--electric-mint);
+  --color-electric-ink: var(--electric-ink);
+  --shadow-sheet: var(--sheet-shadow);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -52,10 +51,11 @@
 :root {
   --brand-red: #e2231a;
   --brand-orange: #f08a2b;
-  --brand-amber: #f6a623;
   --brand-gradient: linear-gradient(100deg, var(--brand-red) 0%, #ec4e21 45%, var(--brand-orange) 100%);
   --electric: #35b5e5;
   --electric-mint: #6fe3c8;
+  --electric-ink: var(--color-sky-950);
+  --sheet-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 10px 28px -10px oklch(0.4 0.1 40 / 0.18);
   --grid-line: oklch(0.55 0.12 40 / 0.07);
   --background: #faf8f6;
   --foreground: #2a2320;
@@ -129,13 +129,26 @@
   color: white;
 }
 
+/* Oswald at the size a band title uses, on a section or a dialog. */
+@utility band-title {
+  @apply font-label text-2xl leading-8 font-medium;
+}
+
 /* Fine graph paper that fades out below the first screen. */
 @utility grid-paper {
   background-image:
     linear-gradient(to bottom, transparent 0, var(--background) 32rem),
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 100% 100%, 16px 16px, 16px 16px;
+  background-size: 100% 100%, 1rem 1rem, 1rem 1rem;
+}
+
+/* A row of small squares in the band gradient, drawn under a centered title. */
+@utility tile-rule-brand {
+  height: 6px;
+  background:
+    linear-gradient(90deg, transparent 6px, var(--card) 6px) 0 0 / 8px 100%,
+    var(--brand-gradient);
 }
 
 /* A row of small squares along the bottom edge, where a list would draw a hairline between rows. */
@@ -144,14 +157,6 @@
   background-size: 6px 4px;
   background-position: 0 100%;
   background-repeat: repeat-x;
-}
-
-/* The same squares drawn as a rule of their own, in the band's gradient. */
-@utility tile-rule-brand {
-  height: 6px;
-  background:
-    linear-gradient(90deg, transparent 6px, var(--card) 6px) 0 0 / 8px 100%,
-    var(--brand-gradient);
 }
 
 /* Server-highlighted code (see server/rendering/highlight.ts), sized like GitHub's README blocks. */

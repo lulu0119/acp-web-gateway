@@ -16,7 +16,6 @@
     "@base-ui/react": "^1.9.0",
     "@better-auth/oauth-provider": "^1.6.0",
     "@fontsource-variable/noto-sans": "^5.3.0",
-    "@fontsource-variable/noto-serif-jp": "^5.3.1",
     "@fontsource-variable/oswald": "^5.3.0",
     "@fontsource/maple-mono": "^5.3.0",
     "@guiiai/logg": "^1.2.12",

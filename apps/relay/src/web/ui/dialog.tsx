@@ -24,7 +24,7 @@ export function DialogContent({ title, description, children, className }: {
         )}
       >
         <div className="band-brand flex min-h-12 items-center justify-between gap-4 px-5">
-          <DialogPrimitive.Title className="font-label text-2xl leading-8 font-medium">{title}</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="band-title">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Close className="-mr-2 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-white/90 hover:bg-white/15 hover:text-white" aria-label="Close">
             <XIcon className="size-4" />
           </DialogPrimitive.Close>
