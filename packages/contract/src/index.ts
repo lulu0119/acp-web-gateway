@@ -58,7 +58,7 @@ export type Machine = {
   agents: readonly AgentSlot[];
 };
 
-/** What `mukae login` tells the relay about the device it just signed in. */
+/** What `exterior login` tells the relay about the device it just signed in. */
 export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
 
 export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;

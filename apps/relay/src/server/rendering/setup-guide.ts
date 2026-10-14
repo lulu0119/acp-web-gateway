@@ -1,8 +1,8 @@
 import type { SetupGuideData } from "../../shared/account-web.js";
 import { highlight } from "./highlight.js";
 
-const previewPackage = "https://pkg.pr.new/lulu0119/mukae@main";
-const runner = `npx --package=${previewPackage} -- mukae`;
+const previewPackage = "https://pkg.pr.new/lulu0119/exterior@main";
+const runner = `npx --package=${previewPackage} -- exterior`;
 
 export function setupGuide(relayUrl: string): SetupGuideData {
   return {
@@ -14,9 +14,9 @@ export function setupGuide(relayUrl: string): SetupGuideData {
 }
 
 function agentPrompt(relayUrl: string): string {
-  return `Connect this computer to Mukae so my web page can use the ACP agents installed here.
+  return `Connect this computer to Exterior so my web page can use the ACP agents installed here.
 
-Mukae relay: ${relayUrl}
+Exterior relay: ${relayUrl}
 
 1. Sign this device in. It prints a link with the code filled in. Ask me to open that link and approve it, then wait for sign-in to finish.
 

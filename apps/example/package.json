@@ -1,5 +1,5 @@
 {
-  "name": "@mukae/example",
+  "name": "@exterior/example",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mukae/client": "workspace:*",
-    "@mukae/contract": "workspace:*",
+    "@exterior/client": "workspace:*",
+    "@exterior/contract": "workspace:*",
     "@agentclientprotocol/sdk": "^1.7.0",
     "@assistant-ui/react": "^0.15.26",
     "@assistant-ui/react-markdown": "^0.14.20",

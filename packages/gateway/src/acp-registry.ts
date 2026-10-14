@@ -1,4 +1,4 @@
-import { isEnvName, isRecord } from "@mukae/contract";
+import { isEnvName, isRecord } from "@exterior/contract";
 import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -45,7 +45,7 @@ export type AgentLaunch = {
 };
 
 export function acpRegistryCachePath(homeDirectory = homedir()): string {
-  return join(homeDirectory, ".config", "mukae", "acp-registry.json");
+  return join(homeDirectory, ".config", "exterior", "acp-registry.json");
 }
 
 export function platformTarget(platform = process.platform, arch = process.arch): string | undefined {

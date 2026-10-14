@@ -45,7 +45,7 @@ export function ConnectionPane({
     connection: { type: "adapter", adapter: directories.adapter },
     // Fallback only: every session takes its directory from `createSessionIn`.
     workspace: { cwd: "/" },
-    clientInfo: { name: "mukae-example", version: "0.0.0" },
+    clientInfo: { name: "exterior-example", version: "0.0.0" },
   });
 
   return (

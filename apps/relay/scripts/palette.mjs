@@ -1,5 +1,5 @@
 // Writes src/web/palette.css: status colors from @proj-airi/chromatic as Tailwind theme tokens.
-// Run with `pnpm --filter @mukae/relay palette` after changing a hue; the output is committed.
+// Run with `pnpm --filter @exterior/relay palette` after changing a hue; the output is committed.
 import { writeFileSync } from "node:fs";
 import { colorBy } from "@proj-airi/chromatic";
 

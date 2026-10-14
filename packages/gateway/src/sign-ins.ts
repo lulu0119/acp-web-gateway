@@ -1,4 +1,4 @@
-import { isRecord } from "@mukae/contract";
+import { isRecord } from "@exterior/contract";
 import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +14,7 @@ export type SignIn = {
 };
 
 function configDirectory(homeDirectory: string): string {
-  return join(homeDirectory, ".config", "mukae");
+  return join(homeDirectory, ".config", "exterior");
 }
 
 function signInDirectory(homeDirectory: string): string {
@@ -91,9 +91,9 @@ export function chooseRelay(input: {
 }): { ok: true; relayUrl: string } | { ok: false; message: string } {
   if (input.requested) return { ok: true, relayUrl: input.requested };
   const [only, ...others] = input.signedIn;
-  if (!only) return { ok: false, message: "This device is not signed in. Run mukae login --relay <url>." };
+  if (!only) return { ok: false, message: "This device is not signed in. Run exterior login --relay <url>." };
   if (others.length === 0) return { ok: true, relayUrl: only.relayUrl };
-  const choices = input.signedIn.map((signIn) => `  mukae ${input.command} --relay ${signIn.relayUrl}`).join("\n");
+  const choices = input.signedIn.map((signIn) => `  exterior ${input.command} --relay ${signIn.relayUrl}`).join("\n");
   return { ok: false, message: `This device is signed in to ${input.signedIn.length} relays. Pick one:\n${choices}` };
 }
 

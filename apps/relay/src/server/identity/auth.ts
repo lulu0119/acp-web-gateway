@@ -4,7 +4,7 @@ import { getMigrations } from "better-auth/db/migration";
 import { bearer, jwt } from "better-auth/plugins";
 import type Database from "better-sqlite3";
 
-export type MukaeAuthConfig = {
+export type ExteriorAuthConfig = {
   database: Database.Database;
   secret: string;
   publicUrl: string;
@@ -12,16 +12,16 @@ export type MukaeAuthConfig = {
   githubClientSecret: string;
 };
 
-export async function openMukaeAuth(config: MukaeAuthConfig) {
-  const built = buildMukaeAuth(config);
+export async function openExteriorAuth(config: ExteriorAuthConfig) {
+  const built = buildExteriorAuth(config);
   await migrateAuth(built.options);
   return { ...built, auth: betterAuth(built.options) };
 }
 
-function buildMukaeAuth(config: MukaeAuthConfig) {
+function buildExteriorAuth(config: ExteriorAuthConfig) {
   const publicUrl = new URL(config.publicUrl).origin;
   const options = {
-    appName: "Mukae",
+    appName: "Exterior",
     baseURL: publicUrl,
     secret: config.secret,
     database: config.database,
@@ -39,7 +39,7 @@ function buildMukaeAuth(config: MukaeAuthConfig) {
         loginPage: "/sign-in",
         consentPage: "/consent",
         scopes: ["openid", "profile", "email", "offline_access", "machines"],
-        resources: [{ identifier: publicUrl, name: "Mukae", allowedScopes: ["machines", "offline_access", "openid", "profile", "email"] }],
+        resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: ["machines", "offline_access", "openid", "profile", "email"] }],
       }),
       oauthDeviceAuthorization({
         verificationUri: "/device",
@@ -60,4 +60,4 @@ async function migrateAuth(options: Parameters<typeof getMigrations>[0]): Promis
   await plan.runMigrations();
 }
 
-export type MukaeAuth = Awaited<ReturnType<typeof openMukaeAuth>>;
+export type ExteriorAuth = Awaited<ReturnType<typeof openExteriorAuth>>;

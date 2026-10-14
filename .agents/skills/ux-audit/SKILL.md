@@ -1,6 +1,6 @@
 ---
 name: ux-audit
-description: Audit one Mukae web surface against the `ux` rules and land the result. Answers "does this surface do its job?" before listing defects, and reports each rule as a finding, a pass, or not checked. Use for UX audits, "is this page readable", "why does this feel cluttered", comparing two layouts, and the required change verification before any relay page or web app UI change is declared complete. Produces a report and rule or case updates, not UI changes.
+description: Audit one Exterior web surface against the `ux` rules and land the result. Answers "does this surface do its job?" before listing defects, and reports each rule as a finding, a pass, or not checked. Use for UX audits, "is this page readable", "why does this feel cluttered", comparing two layouts, and the required change verification before any relay page or web app UI change is declared complete. Produces a report and rule or case updates, not UI changes.
 ---
 
 # ux-audit

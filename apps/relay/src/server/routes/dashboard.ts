@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import type { RelayEnv } from "../http.js";
-import type { MukaeAuth } from "../identity/auth.js";
+import type { ExteriorAuth } from "../identity/auth.js";
 import type { DashboardData, DeviceView } from "../../shared/account-web.js";
 import type { Registry } from "../connections/registry.js";
 import type { DeviceStore } from "../devices/store.js";
@@ -9,19 +9,19 @@ import type { PageRenderer } from "../rendering/render-page.js";
 import { setupGuide } from "../rendering/setup-guide.js";
 
 export function mountDashboard(app: Hono<RelayEnv>, input: {
-  mukae: MukaeAuth;
+  exterior: ExteriorAuth;
   registry: Registry;
   devices: DeviceStore;
   render: PageRenderer;
 }): void {
   app.get("/", async (c) => {
-    const account = await readAccount(c.req.raw, input.mukae);
+    const account = await readAccount(c.req.raw, input.exterior);
     if (!account) return c.redirect("/sign-in?next=%2F");
-    return c.html(input.render.dashboard(readDashboard(account, input), setupGuide(input.mukae.publicUrl)));
+    return c.html(input.render.dashboard(readDashboard(account, input), setupGuide(input.exterior.publicUrl)));
   });
 
   app.get("/api/dashboard", async (c) => {
-    const account = await readAccount(c.req.raw, input.mukae);
+    const account = await readAccount(c.req.raw, input.exterior);
     if (!account) return c.json({ message: "Sign in again." }, 401);
     return c.json(readDashboard(account, input));
   });

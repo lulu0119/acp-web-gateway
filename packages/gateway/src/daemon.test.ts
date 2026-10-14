@@ -129,7 +129,7 @@ test("a second 401 after refresh stops instead of refreshing forever", async () 
       inform: () => undefined,
       hostname: "studio", agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
-    }), /Relay rejected the refreshed access token. Run mukae login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
+    }), /Relay rejected the refreshed access token. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1", "Bearer access-2"]);
     assert.deepEqual(relay.refreshes, ["refresh-1"]);
   } finally {
@@ -149,7 +149,7 @@ test.each(["invalid_grant", "invalid_client", "unauthorized_client", "access_den
       inform: () => undefined,
       hostname: "studio", agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
-    }), /Run mukae login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
+    }), /Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1"]);
     assert.deepEqual(relay.refreshes, ["refresh-1"]);
     assert.equal((await readSignIn(relay.origin, relay.home))?.refreshToken, "refresh-1");
@@ -186,7 +186,7 @@ test("refresh without a replacement refresh token keeps the previous one", async
 test("the daemon cannot use credentials saved for a different relay", async () => {
   const relay = await daemonRelay();
   try {
-    await assert.rejects(usableSignIn({ relayUrl: "http://127.0.0.1:8787", homeDirectory: relay.home }), /not signed in to http:\/\/127\.0\.0\.1:8787\. Run mukae login --relay http:\/\/127\.0\.0\.1:8787\./);
+    await assert.rejects(usableSignIn({ relayUrl: "http://127.0.0.1:8787", homeDirectory: relay.home }), /not signed in to http:\/\/127\.0\.0\.1:8787\. Run exterior login --relay http:\/\/127\.0\.0\.1:8787\./);
     assert.deepEqual(relay.refreshes, []);
     assert.deepEqual(relay.tokens, []);
   } finally {
@@ -327,7 +327,7 @@ async function daemonRelay(input: {
   http.listen(0, "127.0.0.1");
   await once(http, "listening");
   const origin = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
-  const home = await mkdtemp(join(tmpdir(), "mukae-daemon-"));
+  const home = await mkdtemp(join(tmpdir(), "exterior-daemon-"));
   await writeSignIn({ relayUrl: origin, accessToken: "access-1", refreshToken: "refresh-1", expiresAt: input.expiresAt ?? Date.now() + 3_600_000 }, home);
   return {
     origin, home, tokens, refreshes, sockets, http,

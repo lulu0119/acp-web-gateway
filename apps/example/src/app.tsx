@@ -5,10 +5,10 @@ import { ConnectForm, type ConnectedAgent } from "@/components/app/connect-form"
 import { ConnectionPane, type Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
-import type { AccountSession } from "@mukae/client/react";
-import { useAccount } from "@mukae/client/react";
+import type { AccountSession } from "@exterior/client/react";
+import { useAccount } from "@exterior/client/react";
 import { Button } from "@/components/ui/button";
-import { mukaeRelayUrl } from "@/lib/relay-url";
+import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
@@ -53,7 +53,7 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
-  const session = useAccount(mukaeRelayUrl());
+  const session = useAccount(exteriorRelayUrl());
 
   const handleSignOut = useCallback(() => {
     session.signOut();
@@ -69,7 +69,7 @@ export function App() {
           <SidebarHeader>
             <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
               <PlugIcon className="size-4" />
-              Mukae
+              Exterior
             </div>
           </SidebarHeader>
           <SidebarContent>

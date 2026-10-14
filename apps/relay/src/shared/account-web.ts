@@ -1,4 +1,4 @@
-import type { AgentSlot } from "@mukae/contract";
+import type { AgentSlot } from "@exterior/contract";
 
 export type LiveSessionInfo = {
   machineId: string;

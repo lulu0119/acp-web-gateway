@@ -30,12 +30,12 @@ export function createPageRenderer(assets: WebAssets): PageRenderer {
   }
   return {
     account: (page) => document(
-      `${accountPageTitle(page)} · Mukae`,
+      `${accountPageTitle(page)} · Exterior`,
       <div id="root" dangerouslySetInnerHTML={{ __html: renderToString(<AccountPage page={page} />) }} />,
       page,
       assets.accountScript,
     ),
-    dashboard: (data, guide) => document("Devices · Mukae", <div id="root" />, { data, guide }, assets.dashboardScript),
+    dashboard: (data, guide) => document("Devices · Exterior", <div id="root" />, { data, guide }, assets.dashboardScript),
   };
 }
 

@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { AgentSlot, DaemonMessage, Machine, RelayMessage } from "@mukae/contract";
+import type { AgentSlot, DaemonMessage, Machine, RelayMessage } from "@exterior/contract";
 import type { LiveSessionInfo } from "../../shared/account-web.js";
 
 const defaultTicketTtlMs = 60_000;

@@ -1,18 +1,18 @@
 {
-  "name": "mukae",
+  "name": "exterior",
   "version": "0.1.0-beta.1",
-  "description": "Daemon that runs ACP agents for a Mukae account.",
+  "description": "Daemon that runs ACP agents for an Exterior account.",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lulu0119/mukae.git",
+    "url": "git+https://github.com/lulu0119/exterior.git",
     "directory": "packages/gateway"
   },
   "bin": {
-    "mukae": "./dist/bin/mukae.mjs"
+    "exterior": "./dist/bin/exterior.mjs"
   },
   "files": ["dist"],
   "scripts": {
@@ -21,8 +21,8 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "devDependencies": {
-    "@mukae/client": "workspace:*",
-    "@mukae/contract": "workspace:*",
+    "@exterior/client": "workspace:*",
+    "@exterior/contract": "workspace:*",
     "@types/node": "^24.6.0",
     "@types/ws": "^8.18.1",
     "cac": "^7.1.0",

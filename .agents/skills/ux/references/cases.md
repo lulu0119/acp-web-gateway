@@ -4,7 +4,7 @@ Instances of each `ux` rule in this repository. ❌ is a violation, ✅ is a cas
 
 Paths are relative to `apps/relay/src/` unless they start with `apps/` or `packages/`.
 
-Seeded from the first audit of the relay pages (`c94dada`, 2026-10-13; L1 from code, L2 from the reported screenshots) and the change that followed (`feat/relay-ux`; L1, L2 at 1280×860 and 390×844, L3 driving `mukae login` → approve → `mukae daemon` against a seeded relay).
+Seeded from the first audit of the relay pages (`c94dada`, 2026-10-13; L1 from code, L2 from the reported screenshots) and the change that followed (`feat/relay-ux`; L1, L2 at 1280×860 and 390×844, L3 driving `exterior login` → approve → `exterior daemon` against a seeded relay).
 
 Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- ✅ <hash>: <behavior>. <path>`.
 
@@ -16,7 +16,7 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 ## no-silent-drop
 
 - ❌ `c94dada`: the dashboard listed only devices whose daemon was connected, under the heading "Machines"; a device approved a minute earlier was missing. `server/routes/dashboard.ts`
-- ✅ `feat/relay-ux`: devices persist with a stable id from `mukae login`; offline ones stay listed with last seen. L3: approved in the browser, listed before the daemon ran, Connected after, "Just now" after stopping it. `server/devices/store.ts`, `server/routes/dashboard.ts`
+- ✅ `feat/relay-ux`: devices persist with a stable id from `exterior login`; offline ones stay listed with last seen. L3: approved in the browser, listed before the daemon ran, Connected after, "Just now" after stopping it. `server/devices/store.ts`, `server/routes/dashboard.ts`
 
 ## no-shared-failure
 

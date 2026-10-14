@@ -3,10 +3,10 @@ import {
   beginDeviceAuthorization,
   fetchPublicClients,
   pollDeviceAuthorization,
-  refreshMukaeAccessToken,
+  refreshExteriorAccessToken,
   RefreshTokenRejectedError,
   registerDevice,
-} from "@mukae/client";
+} from "@exterior/client";
 import { readSignIn, writeSignIn, type SignIn } from "./sign-ins.js";
 
 const refreshWindowMs = 60_000;
@@ -19,7 +19,7 @@ export class DaemonLoginRequiredError extends Error {
 }
 
 export function loginAgain(relayUrl: string): string {
-  return `Run mukae login --relay ${relayUrl} again.`;
+  return `Run exterior login --relay ${relayUrl} again.`;
 }
 
 export function newDeviceId(): string {
@@ -42,7 +42,7 @@ export async function signInDaemon(input: {
   }
   input.inform(`The code expires in ${Math.max(1, Math.round((pending.expiresAt - Date.now()) / 60_000))} minutes. Waiting for approval…`);
   const tokens = await pollDeviceAuthorization(pending, input.signal);
-  if (!tokens.refreshToken) throw new Error("Mukae did not return a refresh token.");
+  if (!tokens.refreshToken) throw new Error("Exterior did not return a refresh token.");
   const relayUrl = new URL(input.relayUrl).origin;
   const previous = await readSignIn(relayUrl, input.homeDirectory);
   const deviceId = previous?.deviceId ?? newDeviceId();
@@ -55,7 +55,7 @@ export async function signInDaemon(input: {
   }, input.homeDirectory);
   // Listing the device right away is a convenience: the daemon announces it again whenever it connects.
   await registerDevice(relayUrl, tokens.accessToken, { deviceId, hostname: input.hostname.slice(0, 256) }, input.signal).catch(() => {
-    input.inform("The relay did not record this device yet. It appears once mukae daemon connects.");
+    input.inform("The relay did not record this device yet. It appears once exterior daemon connects.");
   });
 }
 
@@ -77,12 +77,12 @@ export async function usableSignIn(input: {
 }): Promise<SignIn> {
   const relayUrl = new URL(input.relayUrl).origin;
   const signIn = await readSignIn(relayUrl, input.homeDirectory);
-  if (!signIn) throw new DaemonLoginRequiredError(`This device is not signed in to ${relayUrl}. Run mukae login --relay ${relayUrl}.`);
+  if (!signIn) throw new DaemonLoginRequiredError(`This device is not signed in to ${relayUrl}. Run exterior login --relay ${relayUrl}.`);
   if (!input.forceRefresh && signIn.expiresAt - Date.now() > refreshWindowMs) return signIn;
   const timeout = AbortSignal.timeout(10_000);
   const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
   const clients = await fetchPublicClients(relayUrl, signal);
-  const tokens = await refreshMukaeAccessToken({
+  const tokens = await refreshExteriorAccessToken({
     relayUrl,
     clientId: clients.daemonClientId,
     refreshToken: signIn.refreshToken,

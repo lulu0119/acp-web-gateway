@@ -1,23 +1,23 @@
 import assert from "node:assert/strict";
-import { devicesPath, machinesScope } from "@mukae/contract";
+import { devicesPath, machinesScope } from "@exterior/contract";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";
 import { onTestFinished, test } from "vitest";
-import { openMukaeAuth } from "../identity/auth.js";
+import { openExteriorAuth } from "../identity/auth.js";
 import { ensureDaemonClient, registerClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
 test("github sign-in sends the state cookie the callback checks", async () => {
   const publicUrl = "http://127.0.0.1:8787";
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret: "test-secret-test-secret-test-secret",
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const { app } = await createTestApp(mukae);
+  const { app } = await createTestApp(exterior);
 
   const started = await app.request(`${publicUrl}/sign-in/github`, {
     method: "POST",
@@ -41,23 +41,23 @@ test("approving a web app redirects back with an authorization code", async () =
   const publicUrl = "http://127.0.0.1:8787";
   const redirectUri = "http://127.0.0.1:47100/oauth/callback";
   const secret = "test-secret-test-secret-test-secret";
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret,
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const context = await mukae.auth.$context;
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
-  const registered = await registerClient(mukae, user.id, {
+  const registered = await registerClient(exterior, user.id, {
     clientName: "Example",
     redirectUris: [redirectUri],
     confidential: false,
   });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
-  const { app } = await createTestApp(mukae);
+  const { app } = await createTestApp(exterior);
 
   const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
   authorize.searchParams.set("client_id", registered.clientId);
@@ -90,19 +90,19 @@ test("an approved device appears on the dashboard once its sign-in records it", 
   const port = await freePort();
   const publicUrl = `http://127.0.0.1:${port}`;
   const secret = "test-secret-test-secret-test-secret";
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret,
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const daemonClientId = await ensureDaemonClient(mukae);
-  const context = await mukae.auth.$context;
+  const daemonClientId = await ensureDaemonClient(exterior);
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
-  const { app } = await createTestApp(mukae);
+  const { app } = await createTestApp(exterior);
   const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" });
   onTestFinished(() => {
     server.close();
@@ -166,18 +166,18 @@ test("an approved device appears on the dashboard once its sign-in records it", 
 test("an expired approval link offers to start again instead of failing", async () => {
   const publicUrl = "http://127.0.0.1:8787";
   const secret = "test-secret-test-secret-test-secret";
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret,
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const context = await mukae.auth.$context;
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
-  const { app } = await createTestApp(mukae);
+  const { app } = await createTestApp(exterior);
   const query = "client_id=studio&redirect_uri=https%3A%2F%2Fstudio.example.test%2Fcallback&state=s&exp=1&ba_iat=1&ba_param=state&sig=stale";
 
   const shown = await app.request(`${publicUrl}/consent?${query}`, { headers: { cookie } });
@@ -199,25 +199,25 @@ test("an expired approval link offers to start again instead of failing", async 
 test("a wrong device code keeps the person on the code form with the reason", async () => {
   const publicUrl = "http://127.0.0.1:8787";
   const secret = "test-secret-test-secret-test-secret";
-  const mukae = await openMukaeAuth({
+  const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret,
     publicUrl,
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const context = await mukae.auth.$context;
+  const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
-  const { app } = await createTestApp(mukae);
+  const { app } = await createTestApp(exterior);
 
   const page = await app.request(`${publicUrl}/device?user_code=WXYZ-2345`, { headers: { cookie } });
   assert.equal(page.status, 400);
   const text = await page.text();
   assert.match(text, /name="user_code"/);
   assert.match(text, /role="alert"/);
-  assert.match(text, /mukae login<\/code> again for a new one/);
+  assert.match(text, /exterior login<\/code> again for a new one/);
 });
 
 async function sessionCookie(token: string, secret: string): Promise<string> {

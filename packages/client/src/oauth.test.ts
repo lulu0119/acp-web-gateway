@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { test } from "vitest";
-import { machinesScope } from "@mukae/contract";
+import { machinesScope } from "@exterior/contract";
 import {
   beginBrowserSignIn,
   beginDeviceAuthorization,
   clearBrowserSignIn,
   createAuthorizationRequest,
-  fetchMukaeUser,
+  fetchExteriorUser,
   finishBrowserSignIn,
   listMachines,
   openConnection,
@@ -25,8 +25,8 @@ test("a known client builds an authorization url and exchanges the callback", as
       clientId: "example-client",
       redirectUri: `${relay.origin}/oauth/callback`,
     });
-    store.setItem("mukae.codeVerifier", request.codeVerifier);
-    store.setItem("mukae.state", request.state);
+    store.setItem("exterior.codeVerifier", request.codeVerifier);
+    store.setItem("exterior.state", request.state);
     const url = new URL(request.url);
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
@@ -47,8 +47,8 @@ test("a known client builds an authorization url and exchanges the callback", as
       store,
     });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem("mukae.accessToken"), "access-1");
-    assert.equal(store.getItem("mukae.codeVerifier"), null);
+    assert.equal(store.getItem("exterior.accessToken"), "access-1");
+    assert.equal(store.getItem("exterior.codeVerifier"), null);
   } finally {
     relay.close();
   }
@@ -86,11 +86,11 @@ test("a web app without a client id starts approval without one", async () => {
   try {
     const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
     assert.equal(url.searchParams.get("client_id"), "pending-client");
-    assert.ok(store.getItem("mukae.codeVerifier"));
-    assert.ok(store.getItem("mukae.state"));
+    assert.ok(store.getItem("exterior.codeVerifier"));
+    assert.ok(store.getItem("exterior.state"));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", store.getItem("mukae.state") ?? "");
+    callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     callback.searchParams.set("client_id", "pending-client");
     const tokens = await finishBrowserSignIn({
@@ -100,7 +100,7 @@ test("a web app without a client id starts approval without one", async () => {
       store,
     });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem(`mukae.clientId:${relay.origin}`), "pending-client");
+    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "pending-client");
   } finally {
     relay.close();
   }
@@ -109,20 +109,20 @@ test("a web app without a client id starts approval without one", async () => {
 test("the account behind an access token identifies itself", async () => {
   const relay = await fakeRelay();
   try {
-    assert.deepEqual(await fetchMukaeUser({ relayUrl: relay.origin, accessToken: "access-1" }), { sub: "user-1" });
+    assert.deepEqual(await fetchExteriorUser({ relayUrl: relay.origin, accessToken: "access-1" }), { sub: "user-1" });
   } finally {
     relay.close();
   }
 });
 
 test("signing out clears the stored browser tokens", () => {  const store = memoryStore();
-  store.setItem("mukae.accessToken", "access-1");
-  store.setItem("mukae.refreshToken", "refresh-1");
-  store.setItem("mukae.expiresAt", String(Date.now() + 3_600_000));
+  store.setItem("exterior.accessToken", "access-1");
+  store.setItem("exterior.refreshToken", "refresh-1");
+  store.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
   clearBrowserSignIn(store);
-  assert.equal(store.getItem("mukae.accessToken"), null);
-  assert.equal(store.getItem("mukae.refreshToken"), null);
-  assert.equal(store.getItem("mukae.expiresAt"), null);
+  assert.equal(store.getItem("exterior.accessToken"), null);
+  assert.equal(store.getItem("exterior.refreshToken"), null);
+  assert.equal(store.getItem("exterior.expiresAt"), null);
 });
 
 test("two racing callback exchanges share one code redemption", async () => {
@@ -130,8 +130,8 @@ test("two racing callback exchanges share one code redemption", async () => {
   const store = memoryStore();
   const redirectUri = `${relay.origin}/oauth/callback`;
   try {
-    store.setItem("mukae.codeVerifier", "verifier-1");
-    store.setItem("mukae.state", "state-1");
+    store.setItem("exterior.codeVerifier", "verifier-1");
+    store.setItem("exterior.state", "state-1");
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", "state-1");

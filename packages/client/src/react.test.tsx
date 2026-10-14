@@ -9,8 +9,8 @@ import { useAccount } from "./react.js";
 test("a callback under a custom base signs in and returns to the app root", async () => {
   const relay = await fakeTokenRelay();
   try {
-    window.sessionStorage.setItem("mukae.codeVerifier", "verifier-1");
-    window.sessionStorage.setItem("mukae.state", "state-1");
+    window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
+    window.sessionStorage.setItem("exterior.state", "state-1");
     const redirectUri = `${relay.origin}/playground/oauth/callback`;
     const callback = new URL(redirectUri);
     callback.searchParams.set("code", "code-1");
@@ -23,7 +23,7 @@ test("a callback under a custom base signs in and returns to the app root", asyn
     const { result } = renderHook(() => useAccount(relay.origin, { redirectUri, returnTo: "/playground/" }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     assert.equal(window.location.pathname, "/playground/");
-    assert.equal(window.sessionStorage.getItem("mukae.accessToken"), "access-1");
+    assert.equal(window.sessionStorage.getItem("exterior.accessToken"), "access-1");
   } finally {
     relay.close();
     window.sessionStorage.clear();
@@ -33,8 +33,8 @@ test("a callback under a custom base signs in and returns to the app root", asyn
 test("without options the callback stays at the root path", async () => {
   const relay = await fakeTokenRelay();
   try {
-    window.sessionStorage.setItem("mukae.codeVerifier", "verifier-1");
-    window.sessionStorage.setItem("mukae.state", "state-1");
+    window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
+    window.sessionStorage.setItem("exterior.state", "state-1");
     const callback = new URL("/oauth/callback", window.location.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", "state-1");

@@ -1,4 +1,4 @@
-import { isAgentType, isEnvName } from "@mukae/contract";
+import { isAgentType, isEnvName } from "@exterior/contract";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -16,7 +16,7 @@ export type GatewayConfig = {
 };
 
 export function configFilePath(homeDirectory = homedir()): string {
-  return join(homeDirectory, ".config", "mukae", "config.json");
+  return join(homeDirectory, ".config", "exterior", "config.json");
 }
 
 export function parseGatewayConfig(value: unknown): GatewayConfig {

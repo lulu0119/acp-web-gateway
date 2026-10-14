@@ -3,7 +3,7 @@ import { stringOption, UsageError, type CommandContext, type CommandOptions } fr
 
 export const relayOption = {
   flags: "--relay <url>",
-  description: "Mukae relay address; a bare host means https. Defaults to MUKAE_RELAY, then the only sign-in",
+  description: "Exterior relay address; a bare host means https. Defaults to EXTERIOR_RELAY, then the only sign-in",
 };
 
 /** Reads a relay origin. A bare host means https, except a loopback host, which means http. */
@@ -20,7 +20,7 @@ export function parseRelayUrl(text: string): string | undefined {
   }
 }
 
-/** The relay named by `--relay`, then by `MUKAE_RELAY`. */
+/** The relay named by `--relay`, then by `EXTERIOR_RELAY`. */
 export function requestedRelay(context: CommandContext, options: CommandOptions): string | undefined {
   const flag = stringOption(options, "relay");
   if (flag !== undefined) {
@@ -28,10 +28,10 @@ export function requestedRelay(context: CommandContext, options: CommandOptions)
     if (!relayUrl) throw new UsageError(`--relay is not a relay address: ${flag}`);
     return relayUrl;
   }
-  const environment = context.io.env.MUKAE_RELAY;
+  const environment = context.io.env.EXTERIOR_RELAY;
   if (!environment) return undefined;
   const relayUrl = parseRelayUrl(environment);
-  if (!relayUrl) throw new UsageError(`MUKAE_RELAY is not a relay address: ${environment}`);
+  if (!relayUrl) throw new UsageError(`EXTERIOR_RELAY is not a relay address: ${environment}`);
   return relayUrl;
 }
 

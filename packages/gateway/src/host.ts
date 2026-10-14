@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import type { AgentSlot, DaemonMessage, RelayMessage } from "@mukae/contract";
+import type { AgentSlot, DaemonMessage, RelayMessage } from "@exterior/contract";
 import type { AgentLaunch } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";

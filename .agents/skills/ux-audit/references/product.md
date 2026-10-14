@@ -7,7 +7,7 @@ Facts the audit needs that the code does not state. Domain terms follow the root
 Two people, often the same one:
 
 - **The account holder.** Signs in with GitHub, approves a machine with a code its CLI printed, approves a web app that asks for access, and checks what is online. Often sent here by an AI assistant running on the machine, mid-task.
-- **The developer** of a web app. Reads the setup instructions, runs the CLI, and wires `@mukae/client` into an app.
+- **The developer** of a web app. Reads the setup instructions, runs the CLI, and wires `@exterior/client` into an app.
 
 Each relay page interrupts another task. The person arrives from a terminal or a web app and must leave knowing whether it worked and where to go back to.
 
@@ -38,6 +38,6 @@ Capabilities this class usually has: a code field that accepts paste and shows g
 | Object | Created by | On the relay pages |
 | --- | --- | --- |
 | Account | GitHub sign-in | The signed-in person. |
-| Device | `mukae login` with a device code | Approved on `/device`; listed on the dashboard from sign-in on, online while its daemon is connected. |
-| Web app (OAuth client) | Registration, or a pending request from `@mukae/client` | Approved on `/consent`; listed under authorized apps; revocable. |
+| Device | `exterior login` with a device code | Approved on `/device`; listed on the dashboard from sign-in on, online while its daemon is connected. |
+| Web app (OAuth client) | Registration, or a pending request from `@exterior/client` | Approved on `/consent`; listed under authorized apps; revocable. |
 | Connection | A web app opening an agent | Counted on the dashboard. |

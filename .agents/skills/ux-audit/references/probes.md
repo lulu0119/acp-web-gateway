@@ -9,14 +9,14 @@ cp apps/relay/.env.example apps/relay/.env   # set BETTER_AUTH_SECRET; GitHub ke
 pnpm relay                                   # builds and serves http://127.0.0.1:8787
 ```
 
-For UI work, run `pnpm --filter @mukae/relay web` beside the relay and set `WEB_DEV_SERVER_URL=http://127.0.0.1:47102` in `.env`; the relay then loads styles and scripts from Vite.
+For UI work, run `pnpm --filter @exterior/relay web` beside the relay and set `WEB_DEV_SERVER_URL=http://127.0.0.1:47102` in `.env`; the relay then loads styles and scripts from Vite.
 
-Signing in needs GitHub. Without it, seed a session: open the relay's SQLite file (`apps/relay/data/relay.sqlite`) through `openMukaeAuth` in a scratch script, create a user and a session with `context.internalAdapter`, and send the session token as the `better-auth.session_token` cookie (signed with the secret, the same way `apps/relay/src/server/routes/dashboard.test.ts` does). Start a daemon with `node packages/gateway/dist/bin/mukae.mjs daemon --relay http://127.0.0.1:8787` to populate the dashboard.
+Signing in needs GitHub. Without it, seed a session: open the relay's SQLite file (`apps/relay/data/relay.sqlite`) through `openExteriorAuth` in a scratch script, create a user and a session with `context.internalAdapter`, and send the session token as the `better-auth.session_token` cookie (signed with the secret, the same way `apps/relay/src/server/routes/dashboard.test.ts` does). Start a daemon with `node packages/gateway/dist/bin/exterior.mjs daemon --relay http://127.0.0.1:8787` to populate the dashboard.
 
 Setup traps:
 
 - **Ports.** 8787 and 47102 are fixed in `.env` and `vite.config.ts`; stop only processes you started.
-- **Dev CSS.** The Vite dev server generates CSS on demand; check a missing utility against `pnpm --filter @mukae/relay build` output, not the dev stylesheet.
+- **Dev CSS.** The Vite dev server generates CSS on demand; check a missing utility against `pnpm --filter @exterior/relay build` output, not the dev stylesheet.
 - **Account pages render on the server.** A change in `apps/relay/src/web/pages/account.tsx` needs the relay restarted (or rebuilt) before it shows.
 
 Record the viewport (for example 1440×900 and 390×844) and the data (machines, apps) in the report.
@@ -66,4 +66,4 @@ Then click each action that sends a request with the network throttled (DevTools
 
 ## Production build
 
-`pnpm --filter @mukae/relay build`. Account pages render from the server build, the dashboard from `dist/public`; check both.
+`pnpm --filter @exterior/relay build`. Account pages render from the server build, the dashboard from `dist/public`; check both.

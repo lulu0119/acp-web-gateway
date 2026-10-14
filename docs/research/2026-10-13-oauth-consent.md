@@ -1,4 +1,4 @@
-# Consent screen redesign: OAuth/OIDC research and Mukae audit
+# Consent screen redesign: OAuth/OIDC research and Exterior audit
 
 Date: 2026-10-13. Scope: relay consent page (`/consent`), pending clients (`POST /api/authorize-request`), scopes, CORS, token binding. Code refs are against `main` at `c94dada`. better-auth / @better-auth/oauth-provider are at 1.7.7 in `node_modules`.
 
@@ -11,9 +11,9 @@ Status after `feat/relay-ux`: A1 and A2 fixed by checking `azp` ([ADR 0014](../a
 | A1 | **Any `machines` token can connect as a daemon.** `/api/daemon` uses the same `accessAccount` check as the web-app API: valid JWT, audience = relay, scope `machines`. Web-app tokens and daemon tokens are not told apart. An approved web app (or anyone who steals its token from `sessionStorage`) can open `/api/daemon`, send `hello` with a copied hostname, and appear as a second machine. Every web app of that person then lists it, and ACP frames (prompts, file contents) for sessions opened on it go to the attacker. | `routes/sockets.ts:12-41`, `http.ts:6-15`, `identity/session.ts:21`, `connections/registry.ts:130-131` (hostname is self-reported, id is a fresh `randomUUID`) | High |
 | A2 | Reverse direction: a daemon token (device grant) can call `/api/machines` and `/api/sessions` and open agents on **other** machines of the account. A compromised machine can pivot to the others. | `routes/connections.ts:7-28` | Medium |
 | A3 | Only one scope exists for both roles: `machinesScope = "machines offline_access"`. The SDK always asks for it; daemon and registered clients are created with it. | `packages/contract/src/index.ts:14`, `packages/client/src/oauth.ts:67,139,264`, `identity/clients.ts:219,255` | — |
-| A4 | `openid profile email` are in the server scope list and the resource's `allowedScopes`, but **not grantable** through Mukae-created clients: pending clients are limited by `grantableScopes = ["machines","offline_access"]`, registered/daemon clients carry an explicit `scope`, and better-auth rejects requested scopes outside `client.scopes` (`authorize-K1WHCNih.mjs` ~5585). Dead config; also note DCR is off (`allowDynamicClientRegistration` defaults to false). | `identity/auth.ts:41-42`, `identity/clients.ts:100,118-121` | Low |
-| A5 | **Pending client is unauthenticated and self-asserted.** Anyone can `POST /api/authorize-request` with `clientName: "GitHub"`, any https `logoUri`, and their own `redirectUri`. The only name rule is "not starting with Mukae". No rate limit (better-auth's limiter covers only `/api/auth/*`); rows are pruned only after 1 h. | `routes/clients.ts:29-37`, `identity/clients.ts:102-140,143-164,183-200` | High (phishing), Medium (DB spam) |
-| A6 | **Approval makes the self-asserted name permanent.** `approvePendingClient` flips `mukae-pending:` to `mukae-open-client:` without any check. | `identity/clients.ts:166-181`, `identity/account.ts:71` | Medium |
+| A4 | `openid profile email` are in the server scope list and the resource's `allowedScopes`, but **not grantable** through Exterior-created clients: pending clients are limited by `grantableScopes = ["machines","offline_access"]`, registered/daemon clients carry an explicit `scope`, and better-auth rejects requested scopes outside `client.scopes` (`authorize-K1WHCNih.mjs` ~5585). Dead config; also note DCR is off (`allowDynamicClientRegistration` defaults to false). | `identity/auth.ts:41-42`, `identity/clients.ts:100,118-121` | Low |
+| A5 | **Pending client is unauthenticated and self-asserted.** Anyone can `POST /api/authorize-request` with `clientName: "GitHub"`, any https `logoUri`, and their own `redirectUri`. The only name rule is "not starting with Exterior". No rate limit (better-auth's limiter covers only `/api/auth/*`); rows are pruned only after 1 h. | `routes/clients.ts:29-37`, `identity/clients.ts:102-140,143-164,183-200` | High (phishing), Medium (DB spam) |
+| A6 | **Approval makes the self-asserted name permanent.** `approvePendingClient` flips `exterior-pending:` to `exterior-open-client:` without any check. | `identity/clients.ts:166-181`, `identity/account.ts:71` | Medium |
 | A7 | **Each sign-in creates a new client.** `beginBrowserSignIn` always calls `requestApprovalUrl`, so the cached `client_id` is never reused for authorization. Remembered grants (`hasRememberedGrant`) almost never match, the person approves every time (consent fatigue), and "Connected apps" fills with copies. | `packages/client/src/oauth.ts:289-305`, `identity/grants.ts:69-83`, `identity/account.ts:39-47` | Medium (UX + security habit) |
 | A8 | **Consent page shows the raw `client_id` and raw scope string**; it ignores `logoUri`/`clientUri` that `findClientMeta` already returns; the title falls back to the client id; the redirect URI is the only "where" and is shown in small mono text. No resource (machine/agent) is shown. | `identity/account.ts:48-57`, `web/pages/account.tsx:44-66`, `shared/account-web.ts:26` | Medium |
 | A9 | **Third-party logo loaded directly in the browser** on the dashboard "Connected apps" list (tracking pixel, mixed trust). | `web/components/grants-section.tsx:53-54` | Medium |
@@ -34,14 +34,14 @@ Status after `feat/relay-ux`: A1 and A2 fixed by checking `azp` ([ADR 0014](../a
 - CIMD draft §8.8: the AS SHOULD **prefetch `logo_uri` and cache it** for the life of the metadata document, so the logo cannot change after review and cannot track users across domains. §8.6: MUST NOT fetch URLs that resolve to special-use addresses (RFC 6890); MUST NOT follow redirects (§5). <https://drafts.oauth.net/draft-ietf-oauth-client-id-metadata-document/draft-ietf-oauth-client-id-metadata-document.html>
 - OWASP SSRF cheat sheet: block private/reserved ranges for IPv4 and IPv6, validate the *resolved* address and connect only to it (rebinding), disable redirects, allowlist schemes. <https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html>
 
-**Recommendation for Mukae**
+**Recommendation for Exterior**
 1. Fetch once, at `POST /api/authorize-request` (or lazily on first consent render, then frozen). Store bytes in the DB keyed by `sha256`; store the hash on the client row. Never store or render the original URL in HTML.
 2. Serve from `GET /api/client-icons/:sha256.png` with `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cache-Control: public, max-age=31536000, immutable`, `Cross-Origin-Resource-Policy: same-origin`. Consent page and dashboard use only this path (fixes A9).
 3. Fetch rules:
    - `https:` only, port 443 only, no userinfo.
    - Resolve DNS yourself, reject if **any** answer is in 0.0.0.0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.0/24, 192.168/16, 198.18/15, 224/4, 240/4, ::1, ::/128, fc00::/7, fe80::/10, ff00::/8, IPv4-mapped/NAT64 forms of the above. Connect to the validated IP (undici `Agent({ connect: { lookup } })`) while sending the original SNI/Host. This defeats DNS rebinding.
    - `redirect: "manual"`; either reject 3xx (CIMD rule) or follow at most 1 hop with full re-validation.
-   - 5 s total timeout; abort after 256 KB; no cookies; no `Referer`; generic `User-Agent: Mukae-IconFetcher`.
+   - 5 s total timeout; abort after 256 KB; no cookies; no `Referer`; generic `User-Agent: Exterior-IconFetcher`.
    - Sniff magic bytes (PNG, JPEG, WebP, GIF, ICO); ignore the remote `Content-Type`. Decode and **re-encode** to a 128×128 PNG (strips metadata, polyglots, decompression bombs: cap decoded pixel count). If adding a native image dependency is unwanted, the fallback is strict magic-byte allowlist + `nosniff` + sandbox CSP, but re-encoding is the safe choice.
    - **SVG: reject** (or rasterize server-side with no external refs). SVG can carry script, external fetches (tracking), and XML entity bombs.
 4. On any failure, render a generated monogram (first letter on a color derived from the origin). Never fall back to the remote URL.
@@ -55,8 +55,8 @@ Options compared:
 | Option | Works for localhost / LAN app? | Who proves what | Notes |
 |---|---|---|---|
 | **Icon bytes in the `POST /api/authorize-request` body** (`logo: "data:image/png;base64,…"`) | Yes | Nothing; self-asserted like the name | Already a POST, so size is not a URL problem. Cap at 64 KB decoded, same sniff + re-encode pipeline. Cheapest. |
-| Registration page on the relay (exists: `POST /api/clients/register`, signed-in, owner known) | Yes | Owner = a Mukae account | Adds file upload for the icon. Owner can be shown ("Registered by @login"). Best for apps that want a stable `client_id`. |
-| **RFC 7591 Dynamic Client Registration** <https://www.rfc-editor.org/rfc/rfc7591.html> | Yes | Nothing unless a **software statement** (§2.3, signed JWT of metadata from a trusted issuer) is required | Mukae's pending client is effectively a custom DCR. better-auth supports DCR but it is off. A software statement only adds trust if Mukae (or a publisher Mukae trusts) signs it. |
+| Registration page on the relay (exists: `POST /api/clients/register`, signed-in, owner known) | Yes | Owner = an Exterior account | Adds file upload for the icon. Owner can be shown ("Registered by @login"). Best for apps that want a stable `client_id`. |
+| **RFC 7591 Dynamic Client Registration** <https://www.rfc-editor.org/rfc/rfc7591.html> | Yes | Nothing unless a **software statement** (§2.3, signed JWT of metadata from a trusted issuer) is required | Exterior's pending client is effectively a custom DCR. better-auth supports DCR but it is off. A software statement only adds trust if Exterior (or a publisher Exterior trusts) signs it. |
 | **Client ID Metadata Documents** (draft-ietf-oauth-client-id-metadata-document, latest Aug 2026) | **No.** `client_id` is an https URL the AS fetches; it must be publicly reachable (§1, §3). Appendix A allows a hosted "CIMD service" for dev. | Control of the origin that hosts the JSON | MCP 2025-11-25 made CIMD the default registration path and demoted DCR. <https://aaronparecki.com/2025/11/25/1/mcp-authorization-spec-update>, <https://workos.com/blog/client-id-metadata-documents-cimd-oauth-client-registration-mcp> |
 
 **Recommendation.** Accept `logo` as a data URI in the POST body now (same pipeline as §1; `logoUri` stays optional for public apps). Support CIMD later as the *verified* path for public apps (the hostname is proven by the fetch, and the logo/name come from a document under that origin). Localhost apps stay "unverified, on this computer".
@@ -91,7 +91,7 @@ Options compared:
 - **Phishing of `clientName`.** Today anyone can POST `clientName: "GitHub"` (A5). Mitigations, in order:
   1. Make the origin the **headline identity** ("app.example.com wants to …") and the name a secondary, quoted label ("calls itself “GitHub”").
   2. Add an "Unverified" pill for every pending client and every localhost origin.
-  3. Reject names that are a confusable of reserved brands (Mukae, GitHub, Google, Anthropic, Cloudflare …) after Unicode NFKC + confusable skeleton (UTS #39), and reject names that look like a domain different from the origin.
+  3. Reject names that are a confusable of reserved brands (Exterior, GitHub, Google, Anthropic, Cloudflare …) after Unicode NFKC + confusable skeleton (UTS #39), and reject names that look like a domain different from the origin.
   4. Limit `clientName` to printable characters; strip bidi controls.
 
 ## 5. How OAuth/OIDC frames consent overall
@@ -106,8 +106,8 @@ Options compared:
 ## 6. Scopes and resources
 
 **Specs**
-- RFC 8707 Resource Indicators: `resource` names the API; the token's `aud` is that API. Mukae already sends `resource=<relay origin>` (`identity/clients.ts:333`, `oauth.ts:71,139`). <https://www.rfc-editor.org/rfc/rfc8707.html>
-- RFC 9396 Rich Authorization Requests: `authorization_details=[{type, locations, actions, identifier…}]` for fine-grained, per-object grants; the AS may let the user narrow them at consent and returns the granted set in the token response. <https://www.rfc-editor.org/rfc/rfc9396.html>. better-auth does not implement RAR; Mukae would store the choice itself.
+- RFC 8707 Resource Indicators: `resource` names the API; the token's `aud` is that API. Exterior already sends `resource=<relay origin>` (`identity/clients.ts:333`, `oauth.ts:71,139`). <https://www.rfc-editor.org/rfc/rfc8707.html>
+- RFC 9396 Rich Authorization Requests: `authorization_details=[{type, locations, actions, identifier…}]` for fine-grained, per-object grants; the AS may let the user narrow them at consent and returns the granted set in the token response. <https://www.rfc-editor.org/rfc/rfc9396.html>. better-auth does not implement RAR; Exterior would store the choice itself.
 
 **Proposed scope set**
 
@@ -116,28 +116,28 @@ Options compared:
 | `machines:read` | `GET /api/machines` (hostnames, agent names) | web apps | "See your machines and their agents" |
 | `agents:connect` | `POST /api/sessions` (+ ticket) on **selected** machines/agents | web apps | "Open agent sessions — the agent can read and change files on that machine" |
 | `offline_access` | refresh token | web apps, daemon | "Stay connected after you close the tab" |
-| `daemon` | `/api/daemon` only | **only** the daemon client (`software_id=mukae-daemon`) | device page: "Let this computer run agents for your account" |
-| `openid` (optional) | `sub` via userinfo (the SDK's `fetchMukaeUser`) | web apps that need a stable account id | "Know which Mukae account you use" |
+| `daemon` | `/api/daemon` only | **only** the daemon client (`software_id=exterior-daemon`) | device page: "Let this computer run agents for your account" |
+| `openid` (optional) | `sub` via userinfo (the SDK's `fetchExteriorUser`) | web apps that need a stable account id | "Know which Exterior account you use" |
 
 Drop `profile`/`email` from `auth.ts:41-42` until something needs them.
 
-**Resource selection at consent.** Default "All machines, now and later"; option "Only: [machine ▾] [agent ▾]". Store the selection on the consent row (or a side table) and enforce it in `openSession`. This needs a stable machine id (A14): derive it from the daemon's sign-in (e.g. the refresh-token family or a machine key registered at `mukae login`) instead of `randomUUID` per socket. RAR is the standard shape if the SDK later asks for a specific agent up front: `authorization_details=[{"type":"mukae_agent","actions":["connect"],"identifier":"<machine>/<agent>"}]`.
+**Resource selection at consent.** Default "All machines, now and later"; option "Only: [machine ▾] [agent ▾]". Store the selection on the consent row (or a side table) and enforce it in `openSession`. This needs a stable machine id (A14): derive it from the daemon's sign-in (e.g. the refresh-token family or a machine key registered at `exterior login`) instead of `randomUUID` per socket. RAR is the standard shape if the SDK later asks for a specific agent up front: `authorization_details=[{"type":"exterior_agent","actions":["connect"],"identifier":"<machine>/<agent>"}]`.
 
 **Fix A1/A2 independent of the new scopes:** in `accessAccount`, also return `azp`; `/api/daemon` requires `azp === daemonClientId` (and `daemon` scope once it exists); `/api/machines` and `/api/sessions` require `azp !== daemonClientId`. Alternatively give the daemon a separate resource (`<relay>/daemon`) so `aud` differs (RFC 8707).
 
 ## 7. Recommended consent page order
 
-1. **Identity row:** [app icon, relay-served] ⇄ [Mukae icon].
+1. **Identity row:** [app icon, relay-served] ⇄ [Exterior icon].
 2. **Headline:** "**app.example.com** wants to use your agents" — origin in bold; under it: `“My Notes App”` + pill: *Unverified* / *Registered by @login* / *Verified domain* (CIMD). Localhost: "runs on this computer (localhost:5173)".
 3. **Account:** "Signed in as @github-login · Not you? Switch account" (GitHub is the only IdP; switch = sign out + sign in).
 4. **Permissions, grouped**, each with one plain line of consequence:
    - Machines: "See your machines and their agents"
    - Agents: "Open agent sessions" + resource picker (All / choose machine + agent)
    - Access duration: "Stay connected" (offline_access) with the refresh lifetime
-5. **Warning box** only when unverified or name/origin mismatch: "Mukae has not checked who runs this site. Approve only if you opened it yourself."
+5. **Warning box** only when unverified or name/origin mismatch: "Exterior has not checked who runs this site. Approve only if you opened it yourself."
 6. **Details (collapsed):** full redirect URL, client id, created at, `policy_uri`/`tos_uri` links if same-origin.
 7. **Buttons:** `Cancel` (secondary, left) and `Authorize` (primary, right). Send `frame-ancestors 'none'` on this page (A12).
-8. Footer: "You can revoke this at any time in Mukae → Connected apps."
+8. Footer: "You can revoke this at any time in Exterior → Connected apps."
 
 ---
 
@@ -158,7 +158,7 @@ Drop `profile`/`email` from `auth.ts:41-42` until something needs them.
 **(b) Needs a product-owner decision**
 1. Scope set and names (`machines:read`, `agents:connect`, `daemon`, `offline_access`, optional `openid`) and whether web apps may ask for only `machines:read`.
 2. Per-machine/per-agent selection at consent (requires stable machine ids, A14) — and the default ("All machines" vs. "choose").
-3. What "verified" means: registered-by-account (owner shown), CIMD domain proof, manual review by Mukae, or a combination; and whether unverified apps get extra friction (interstitial, user cap like Google).
+3. What "verified" means: registered-by-account (owner shown), CIMD domain proof, manual review by Exterior, or a combination; and whether unverified apps get extra friction (interstitial, user cap like Google).
 4. Whether to block brand-like names or only warn.
 5. Refresh lifetime for browser apps and whether `offline_access` is optional in the UI (Cloudflare-style editable optional scopes).
 
