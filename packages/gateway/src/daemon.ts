@@ -44,6 +44,9 @@ export async function runDaemon(input: {
     input.inform("Connecting to relay.");
     const result = await connectOnce({ ...input, accessToken, catalog });
     if (input.signal?.aborted) return;
+    if (result === "forbidden") {
+      throw new DaemonLoginRequiredError(`Relay rejected this device (HTTP 403). ${loginAgain(input.relayUrl)}`);
+    }
     if (result === "unauthorized") {
       if (authentication === "refreshed") throw new DaemonLoginRequiredError(`Relay rejected the refreshed access token. ${loginAgain(input.relayUrl)}`);
       input.inform("Relay rejected the access token (HTTP 401). Refreshing credentials.");
@@ -67,12 +70,13 @@ function connectOnce(input: {
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
-}): Promise<"failed" | "disconnected" | "unauthorized"> {
+}): Promise<"failed" | "disconnected" | "unauthorized" | "forbidden"> {
   const socket = new WebSocket(relayWebSocketUrl(input.relayUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
     handshakeTimeout: 10_000,
   });
   let unauthorized = false;
+  let forbidden = false;
   let connected = false;
   const host = createDaemonHost({
     hostname: input.hostname,
@@ -113,18 +117,19 @@ function connectOnce(input: {
     });
     socket.on("unexpected-response", (_request, response) => {
       if (response.statusCode === 401) unauthorized = true;
+      if (response.statusCode === 403) forbidden = true;
       input.inform(`Relay handshake failed (HTTP ${response.statusCode}).`);
       response.resume();
       socket.terminate();
     });
     socket.on("error", () => {
-      if (!unauthorized && !input.signal?.aborted) input.inform("Relay connection failed.");
+      if (!unauthorized && !forbidden && !input.signal?.aborted) input.inform("Relay connection failed.");
     });
     socket.on("close", (code) => {
       host.close();
       input.signal?.removeEventListener("abort", stop);
-      if (!input.signal?.aborted && !unauthorized) input.inform(`Relay disconnected (code ${code}).`);
-      resolve(unauthorized ? "unauthorized" : connected ? "disconnected" : "failed");
+      if (!input.signal?.aborted && !unauthorized && !forbidden) input.inform(`Relay disconnected (code ${code}).`);
+      resolve(unauthorized ? "unauthorized" : forbidden ? "forbidden" : connected ? "disconnected" : "failed");
     });
     input.signal?.addEventListener("abort", stop, { once: true });
     if (input.signal?.aborted) stop();
