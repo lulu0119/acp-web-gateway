@@ -19,6 +19,16 @@ export function configFilePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "exterior", "config.json");
 }
 
+/**
+ * The directory the daemon runs agents in when a web app names none.
+ *
+ * The daemon creates it when it starts, so every device has a real directory
+ * of its own to report instead of a path such as `/`.
+ */
+export function workingDirectoryPath(homeDirectory = homedir()): string {
+  return join(homeDirectory, ".config", "exterior", "workspace");
+}
+
 export function parseGatewayConfig(value: unknown): GatewayConfig {
   const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   const items = Array.isArray(record.agents) ? record.agents : [];

@@ -24,3 +24,4 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.
+- A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in `~/.config/exterior/workspace`. The launch, `session/new`, and stop were checked against the real agents without the relay.

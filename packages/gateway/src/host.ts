@@ -1,9 +1,9 @@
-import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import type { AgentSlot, DaemonMessage, RelayMessage } from "@exterior/contract";
 import type { AgentLaunch } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
+import { startProcess } from "./launch.js";
 
 export type AgentPipe = {
   write(text: string): void;
@@ -22,33 +22,39 @@ const maxFailureLength = 500;
 export function createDaemonHost(input: {
   hostname: string;
   deviceId?: string;
+  workingDirectory: string;
   agents: readonly StoredAgent[];
   send: (message: DaemonMessage) => void;
-  resolveLaunch?: (agent: StoredAgent) => AgentLaunch | undefined;
-  spawnAgent?: (agent: StoredAgent, launch: AgentLaunch, hooks: AgentHooks) => AgentPipe;
+  resolveLaunch: (agent: StoredAgent) => AgentLaunch | undefined;
+  spawnAgent?: (launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string) => AgentPipe;
 }): { hello(): void; receive(message: RelayMessage): void; close(): void } {
   const sessions = new Map<string, { pipe?: AgentPipe; opened: boolean }>();
-  const resolveLaunch = input.resolveLaunch ?? customLaunch;
 
   return {
     hello() {
       const agents: AgentSlot[] = input.agents.flatMap((agent) =>
-        resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : [],
+        input.resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : [],
       );
-      input.send({ type: "hello", hostname: input.hostname.slice(0, 256), ...(input.deviceId ? { deviceId: input.deviceId } : {}), agents });
+      input.send({
+        type: "hello",
+        hostname: input.hostname.slice(0, 256),
+        ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+        workingDirectory: input.workingDirectory,
+        agents,
+      });
     },
     receive(message) {
       if (message.type === "open") {
         if (sessions.has(message.sessionId)) return;
         const agent = input.agents.find((item) => item.name === message.agentName);
-        const launch = agent ? resolveLaunch(agent) : undefined;
+        const launch = agent ? input.resolveLaunch(agent) : undefined;
         if (!agent || !launch) {
           input.send({ type: "open-failed", sessionId: message.sessionId, message: "That agent is not configured." });
           return;
         }
         const current: { pipe?: AgentPipe; opened: boolean } = { opened: false };
         sessions.set(message.sessionId, current);
-        current.pipe = (input.spawnAgent ?? startAgent)(agent, launch, {
+        current.pipe = (input.spawnAgent ?? startAgent)(launch, {
           onReady() {
             current.opened = true;
             input.send({ type: "opened", sessionId: message.sessionId });
@@ -66,7 +72,7 @@ export function createDaemonHost(input: {
             sessions.delete(message.sessionId);
             if (live?.opened) input.send({ type: "close", sessionId: message.sessionId });
           },
-        });
+        }, input.workingDirectory);
         return;
       }
       const current = sessions.get(message.sessionId);
@@ -86,11 +92,24 @@ export function createDaemonHost(input: {
   };
 }
 
-export function startAgent(_agent: StoredAgent, launch: AgentLaunch, hooks: AgentHooks): AgentPipe {
-  const child = spawn(launch.command, [...launch.args], {
-    env: { ...process.env, ...launch.env },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+export function startAgent(launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string): AgentPipe {
+  let started: ReturnType<typeof startProcess>;
+  try {
+    started = startProcess({
+      executable: launch.executable,
+      args: launch.args,
+      env: { ...process.env, ...launch.env },
+      workingDirectory,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The agent did not start.";
+    queueMicrotask(() => {
+      hooks.onFail(message);
+      hooks.onClose();
+    });
+    return { write() {}, stop() {} };
+  }
+  const { child } = started;
   let settled = false;
   let ready = false;
   const finish = (): void => {
@@ -117,11 +136,8 @@ export function startAgent(_agent: StoredAgent, launch: AgentLaunch, hooks: Agen
     if (!ready) hooks.onFail(error.message);
     finish();
   });
-  child.on("exit", finish);
-  const stop = (): void => {
-    child.kill();
-    finish();
-  };
+  child.on("exit", () => finish());
+  const stop = (): void => started.stop(finish);
   return {
     write(text) {
       if (settled || !child.stdin?.writable) return;
@@ -129,11 +145,6 @@ export function startAgent(_agent: StoredAgent, launch: AgentLaunch, hooks: Agen
     },
     stop,
   };
-}
-
-function customLaunch(agent: StoredAgent): AgentLaunch | undefined {
-  if (!agent.command) return undefined;
-  return { command: agent.command, args: agent.args ?? [], env: agent.env };
 }
 
 function clip(message: string): string {

@@ -1,5 +1,5 @@
 import { isAgentType, isEnvName } from "@exterior/contract";
-import { acpRegistryCachePath, commandOnPath, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
+import { acpRegistryCachePath, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
 import { addAgentConfig, parseCommandArgv } from "../../../agents.js";
 import { readGatewayConfigForWrite, writeGatewayConfig, type StoredAgent } from "../../../config.js";
 import { defineCommand, stringOption, stringsOption, UsageError } from "../../command.js";
@@ -77,7 +77,6 @@ async function addRegistryAgent(
   const launch = launchForEntry({
     entry,
     platform: platformTarget(),
-    commandExists: (command) => commandOnPath(command),
   });
   if (!launch.ok) return launch;
   return addAgentConfig({ agents, agentType: entry.id, name: input.name, env: input.env, knownTypes: [entry.id] });

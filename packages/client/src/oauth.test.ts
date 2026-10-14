@@ -70,7 +70,7 @@ test("machine list and session open use the access token", async () => {
   const relay = await fakeRelay();
   try {
     assert.deepEqual(await listMachines(relay.origin, "access-1"), [
-      { id: "machine-1", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] },
+      { id: "machine-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] },
     ]);
     const opened = await openConnection(relay.origin, "access-1", { machineId: "machine-1", agentName: "work" });
     assert.equal(opened.agentName, "work");
@@ -219,7 +219,7 @@ async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close:
       return json(response, { access_token: "access-1", token_type: "bearer", expires_in: 3600, refresh_token: "refresh-1" });
     }
     if (url.pathname === "/api/machines") {
-      return json(response, { machines: [{ id: "machine-1", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }] });
+      return json(response, { machines: [{ id: "machine-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }] });
     }
     if (url.pathname === "/api/sessions") {
       return json(response, { url: `${origin.replace("http", "ws")}/api/acp?ticket=once`, agentType: "opencode", agentName: "work" });

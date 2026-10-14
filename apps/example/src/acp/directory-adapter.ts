@@ -16,8 +16,11 @@ export type DirectoryAdapter = {
  * One ACP connection serves many working directories. Session cwd comes from
  * the directory chosen for that session, and loads reuse the cwd it was
  * created with.
+ *
+ * `fallbackDirectory` is the directory the device itself works in: what a
+ * session created without a chosen directory gets.
  */
-export function createSessionDirectoryGate(): {
+export function createSessionDirectoryGate(fallbackDirectory: string): {
   cwd(): string;
   run<T>(directory: string, createSession: () => Promise<T>): Promise<T>;
 } {
@@ -25,10 +28,7 @@ export function createSessionDirectoryGate(): {
   let chain: Promise<void> = Promise.resolve();
   return {
     cwd() {
-      if (pendingDirectory === undefined) {
-        throw new Error("No working directory was chosen for the new session.");
-      }
-      return pendingDirectory;
+      return pendingDirectory ?? fallbackDirectory;
     },
     run(directory, createSession) {
       const result = chain.then(async () => {
@@ -48,10 +48,10 @@ export function createSessionDirectoryGate(): {
   };
 }
 
-export function createDirectoryAdapter(createStream: AcpStreamFactory): DirectoryAdapter {
+export function createDirectoryAdapter(createStream: AcpStreamFactory, fallbackDirectory: string): DirectoryAdapter {
   const sdkAdapter = new SdkAcpClientAdapter(createStream);
   const directoryBySession = new Map<string, string>();
-  const directoryGate = createSessionDirectoryGate();
+  const directoryGate = createSessionDirectoryGate(fallbackDirectory);
 
   function withSessionDirectory<T extends { sessionId: string; cwd: string }>(request: T): T {
     return { ...request, cwd: directoryBySession.get(request.sessionId) ?? request.cwd };

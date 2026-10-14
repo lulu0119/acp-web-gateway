@@ -40,11 +40,11 @@ export function ConnectionPane({
   treeSlot: HTMLElement | null;
   onStatusChange: (id: string, status: AcpConnectionStatus) => void;
 }) {
-  const [directories] = useState(() => createDirectoryAdapter(() => createWebSocketStream(connection.url)));
+  const [directories] = useState(() => createDirectoryAdapter(() => createWebSocketStream(connection.url), connection.workingDirectory));
   const runtime = useAcpRuntime({
     connection: { type: "adapter", adapter: directories.adapter },
-    // Fallback only: every session takes its directory from `createSessionIn`.
-    workspace: { cwd: "/" },
+    // The device's directory, for a session created without a chosen one.
+    workspace: { cwd: connection.workingDirectory },
     clientInfo: { name: "exterior-example", version: "0.0.0" },
   });
 

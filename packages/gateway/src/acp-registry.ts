@@ -1,9 +1,9 @@
 import { isEnvName, isRecord } from "@exterior/contract";
-import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { delimiter, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import type { StoredAgent } from "./config.js";
+import { resolveCommand, type Executable } from "./launch.js";
 
 export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 
@@ -38,11 +38,16 @@ type BinaryDistribution = {
   env: Record<string, string>;
 };
 
+/** The file to start for an agent configuration, resolved on this machine. */
 export type AgentLaunch = {
-  command: string;
+  executable: Executable;
   args: readonly string[];
   env: Record<string, string>;
 };
+
+type Resolve = (command: string) => Executable | undefined;
+
+const resolveOnThisMachine: Resolve = (command) => resolveCommand(command);
 
 export function acpRegistryCachePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "exterior", "acp-registry.json");
@@ -93,13 +98,14 @@ export async function loadAcpRegistry(input?: {
 export function launchForEntry(input: {
   entry: RegistryAgent;
   platform: string | undefined;
-  commandExists: (command: string) => boolean;
+  resolve?: Resolve;
   userEnv?: Record<string, string>;
 }): { ok: true; launch: AgentLaunch } | { ok: false; message: string } {
-  if (input.entry.npx) return { ok: true, launch: packageLaunch("npx", input.entry.npx, input.userEnv) };
-  if (input.entry.uvx) return { ok: true, launch: packageLaunch("uvx", input.entry.uvx, input.userEnv) };
+  const resolve = input.resolve ?? resolveOnThisMachine;
+  if (input.entry.npx) return packageLaunch("npx", input.entry.npx, resolve, input.userEnv);
+  if (input.entry.uvx) return packageLaunch("uvx", input.entry.uvx, resolve, input.userEnv);
   const binary = input.platform ? input.entry.binary?.[input.platform] : undefined;
-  if (binary) return binaryLaunch(binary, input.commandExists, input.userEnv);
+  if (binary) return binaryLaunch(binary, resolve, input.userEnv);
   if (input.entry.binary) return { ok: false, message: `Agent type "${input.entry.id}" has no build for this platform.` };
   return { ok: false, message: `Agent type "${input.entry.id}" has no launch method.` };
 }
@@ -108,37 +114,17 @@ export function resolveStoredAgent(input: {
   agent: StoredAgent;
   agents: readonly RegistryAgent[];
   platform: string | undefined;
-  commandExists: (command: string) => boolean;
+  resolve?: Resolve;
 }): AgentLaunch | undefined {
+  const resolve = input.resolve ?? resolveOnThisMachine;
   if (input.agent.command) {
-    return { command: input.agent.command, args: input.agent.args ?? [], env: input.agent.env };
+    const executable = resolve(input.agent.command);
+    return executable ? { executable, args: input.agent.args ?? [], env: input.agent.env } : undefined;
   }
   const entry = input.agents.find((agent) => agent.id === input.agent.agentType);
   if (!entry) return undefined;
-  const launch = launchForEntry({
-    entry,
-    platform: input.platform,
-    commandExists: input.commandExists,
-    userEnv: input.agent.env,
-  });
+  const launch = launchForEntry({ entry, platform: input.platform, resolve, userEnv: input.agent.env });
   return launch.ok ? launch.launch : undefined;
-}
-
-export function commandOnPath(
-  command: string,
-  pathValue = process.env.PATH ?? "",
-  options?: { windows?: boolean; pathExt?: string },
-): boolean {
-  if (command.length === 0 || command.includes("/") || command.includes("\\")) return false;
-  const windows = options?.windows ?? process.platform === "win32";
-  const extensions = windows ? windowsExtensions(command, options?.pathExt) : [""];
-  for (const directory of pathValue.split(delimiter)) {
-    if (directory.length === 0) continue;
-    for (const extension of extensions) {
-      if (isRunnable(join(directory, `${command}${extension}`), windows)) return true;
-    }
-  }
-  return false;
 }
 
 export function formatRegistryAgents(agents: readonly RegistryAgent[]): string {
@@ -146,43 +132,42 @@ export function formatRegistryAgents(agents: readonly RegistryAgent[]): string {
   return `${agents.map((agent) => `${agent.id}\t${agent.name}`).join("\n")}\n`;
 }
 
-function packageLaunch(command: "npx" | "uvx", distribution: PackageDistribution, userEnv: Record<string, string> | undefined): AgentLaunch {
+function packageLaunch(
+  command: "npx" | "uvx",
+  distribution: PackageDistribution,
+  resolve: Resolve,
+  userEnv: Record<string, string> | undefined,
+): { ok: true; launch: AgentLaunch } | { ok: false; message: string } {
+  const executable = resolve(command);
+  if (!executable) return { ok: false, message: `"${command}" is not installed.` };
   const args = command === "npx" ? ["-y", distribution.package, ...distribution.args] : [distribution.package, ...distribution.args];
-  return { command, args, env: { ...distribution.env, ...userEnv } };
+  return { ok: true, launch: { executable, args, env: { ...distribution.env, ...userEnv } } };
 }
 
 function binaryLaunch(
   distribution: BinaryDistribution,
-  commandExists: (command: string) => boolean,
+  resolve: Resolve,
   userEnv: Record<string, string> | undefined,
 ): { ok: true; launch: AgentLaunch } | { ok: false; message: string } {
   const command = commandName(distribution.cmd);
   if (!command) return { ok: false, message: "The registry command is not a file name." };
-  if (!commandExists(command)) return { ok: false, message: `"${command}" is not installed.` };
-  return { ok: true, launch: { command, args: distribution.args, env: { ...distribution.env, ...userEnv } } };
+  const executable = resolve(command);
+  if (!executable) return { ok: false, message: `"${command}" is not installed.` };
+  return { ok: true, launch: { executable, args: distribution.args, env: { ...distribution.env, ...userEnv } } };
 }
 
+/**
+ * The command a person installs, from the file a registry archive holds.
+ *
+ * `./dist/opencode.exe` names a file inside the archive. Exterior does not
+ * unpack archives, so what runs is whatever the person installed as
+ * `opencode`: an `opencode.exe`, or the `opencode.cmd` npm writes.
+ */
 function commandName(cmd: string): string | undefined {
   const base = cmd.replaceAll("\\", "/").split("/").pop() ?? "";
-  if (base.length === 0 || base === "." || base === "..") return undefined;
-  return base;
-}
-
-function windowsExtensions(command: string, pathExt: string | undefined): string[] {
-  const listed = (pathExt ?? process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((extension) => extension.length > 0);
-  const already = listed.some((extension) => command.toLowerCase().endsWith(extension.toLowerCase()));
-  return already ? [""] : ["", ...listed];
-}
-
-function isRunnable(filePath: string, windows: boolean): boolean {
-  try {
-    if (!statSync(filePath).isFile()) return false;
-    if (windows) return true;
-    accessSync(filePath, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+  if (base === "." || base === "..") return undefined;
+  const stem = base.replace(/\.(exe|com|cmd|bat)$/i, "");
+  return stem.length > 0 ? stem : undefined;
 }
 
 async function fetchRegistryText(): Promise<string> {

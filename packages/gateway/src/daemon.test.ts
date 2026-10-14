@@ -11,6 +11,8 @@ import { runDaemon } from "./daemon.js";
 import { usableSignIn } from "./login.js";
 import { readSignIn, writeSignIn } from "./sign-ins.js";
 
+const workingDirectory = join(tmpdir(), "exterior-daemon-workspace");
+
 test("the daemon connects with its access token and says hello", async () => {
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   await once(server, "listening");
@@ -29,7 +31,7 @@ test("the daemon connects with its access token and says hello", async () => {
     relayUrl: `http://127.0.0.1:${address.port}`,
     getAccessToken: async () => "token-1",
     inform: () => undefined,
-    hostname: "studio",
+    hostname: "studio", workingDirectory,
     agents: [{ name: "work", agentType: "opencode", env: {} }],
     signal: controller.signal,
     catalog: [{ id: "opencode", name: "OpenCode", binary: { "darwin-aarch64": { cmd: "./opencode", args: ["acp"], env: {} } } }],
@@ -39,6 +41,7 @@ test("the daemon connects with its access token and says hello", async () => {
     assert.match(message, /Bearer token-1/);
     assert.match(message, /"type":"hello"/);
     assert.match(message, /studio/);
+    assert.equal(JSON.parse(message.slice(message.indexOf("{"))).workingDirectory, workingDirectory);
   } finally {
     controller.abort();
     server.close();
@@ -70,7 +73,7 @@ test("the daemon obtains a fresh token when reconnecting after an hour", async (
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio",
+    hostname: "studio", workingDirectory,
     agents: [],
     signal: controller.signal,
     catalog: [],
@@ -104,7 +107,7 @@ test("a 401 forces refresh even when the stored token has not expired", async ()
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", workingDirectory, agents: [], catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -127,7 +130,7 @@ test("a second 401 after refresh stops instead of refreshing forever", async () 
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", agents: [], catalog: [],
+      hostname: "studio", workingDirectory, agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Relay rejected the refreshed access token. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1", "Bearer access-2"]);
@@ -147,7 +150,7 @@ test.each(["invalid_grant", "invalid_client", "unauthorized_client", "access_den
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", agents: [], catalog: [],
+      hostname: "studio", workingDirectory, agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1"]);
@@ -170,7 +173,7 @@ test("refresh without a replacement refresh token keeps the previous one", async
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: () => undefined,
-    hostname: "studio", agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", workingDirectory, agents: [], catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -207,7 +210,7 @@ test.each([false, true])("transient refresh failure is retried (forced refresh: 
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", workingDirectory, agents: [], catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -232,7 +235,7 @@ test("a temporary relay handshake failure retries without refreshing credentials
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", workingDirectory, agents: [], catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -258,7 +261,7 @@ test("stopping the daemon cancels an in-flight token refresh", async () => {
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", agents: [], catalog: [], signal: controller.signal,
+      hostname: "studio", workingDirectory, agents: [], catalog: [], signal: controller.signal,
     });
     assert.ok(controller.signal.aborted);
     assert.deepEqual(relay.tokens, []);

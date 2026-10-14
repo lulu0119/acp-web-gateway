@@ -17,9 +17,9 @@ test("the dashboard asks a signed-out account to sign in", async () => {
 test("a signed-in account sees its own devices and connections", async () => {
   const { app, cookie, registry, userId } = await openSignedInRelay(relayUrl);
   const daemon = registry.connectDaemon({ userId, send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
   const other = registry.connectDaemon({ userId: "someone-else", send: () => undefined });
-  other.receive({ type: "hello", hostname: "elsewhere", deviceId: "device-elsewhere", agents: [] });
+  other.receive({ type: "hello", hostname: "elsewhere", workingDirectory: "/home/ada/work", deviceId: "device-elsewhere", agents: [] });
 
   const home = await app.request(`${relayUrl}/`, { headers: { cookie } });
   assert.equal(home.status, 200);
@@ -41,7 +41,7 @@ test("a signed-in account sees its own devices and connections", async () => {
 test("a device stays listed as offline after its daemon disconnects", async () => {
   const { app, cookie, registry, userId } = await openSignedInRelay(relayUrl);
   const daemon = registry.connectDaemon({ userId, send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
   daemon.close();
 
   const [device] = (await readDashboard(app, cookie)).devices;
@@ -50,7 +50,7 @@ test("a device stays listed as offline after its daemon disconnects", async () =
   assert.equal(typeof device?.lastSeenAt, "number");
 
   const again = registry.connectDaemon({ userId, send: () => undefined });
-  again.receive({ type: "hello", hostname: "studio-renamed", deviceId: "device-studio-1", agents: [] });
+  again.receive({ type: "hello", hostname: "studio-renamed", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
   const devices = (await readDashboard(app, cookie)).devices;
   assert.equal(devices.length, 1);
   assert.equal(devices[0]?.hostname, "studio-renamed");
@@ -61,7 +61,7 @@ test("a device stays listed as offline after its daemon disconnects", async () =
 test("a daemon too old to name its device is listed only while connected", async () => {
   const { app, cookie, registry, userId } = await openSignedInRelay(relayUrl);
   const daemon = registry.connectDaemon({ userId, send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "legacy", agents: [] });
+  daemon.receive({ type: "hello", hostname: "legacy", workingDirectory: "/home/ada/work", agents: [] });
   assert.deepEqual((await readDashboard(app, cookie)).devices.map((device) => device.hostname), ["legacy"]);
   daemon.close();
   assert.deepEqual((await readDashboard(app, cookie)).devices, []);
