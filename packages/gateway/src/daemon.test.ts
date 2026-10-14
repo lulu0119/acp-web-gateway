@@ -222,6 +222,23 @@ test.each([false, true])("transient refresh failure is retried (forced refresh: 
   }
 });
 
+// A 403 means the token was issued to another client, so refreshing it cannot help.
+test("HTTP 403 on the daemon socket requires a new sign-in instead of a refresh", async () => {
+  const relay = await daemonRelay({ authorize: () => false, handshakeStatus: 403 });
+  try {
+    await assert.rejects(runDaemon({
+      relayUrl: relay.origin,
+      getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
+      inform: () => undefined,
+      hostname: "studio", agents: [], catalog: [],
+      signal: AbortSignal.timeout(2_000),
+    }), /Relay rejected this device \(HTTP 403\)\. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
+    assert.deepEqual(relay.refreshes, []);
+  } finally {
+    await relay.close();
+  }
+});
+
 test("a temporary relay handshake failure retries without refreshing credentials", async () => {
   let attempts = 0;
   const relay = await daemonRelay({ authorize: () => ++attempts > 1, handshakeStatus: 503 });
