@@ -2,12 +2,12 @@ import { expect, test } from "vitest";
 import { createSessionDirectoryGate } from "./directory-adapter";
 
 test("a session created without a directory works where the device works", () => {
-  const gate = createSessionDirectoryGate("C:\\Users\\person\\.config\\exterior\\workspace");
-  expect(gate.cwd()).toBe("C:\\Users\\person\\.config\\exterior\\workspace");
+  const gate = createSessionDirectoryGate("C:\\Users\\person\\.local\\share\\exterior\\workspace");
+  expect(gate.cwd()).toBe("C:\\Users\\person\\.local\\share\\exterior\\workspace");
 });
 
 test("overlapping session creates keep their own directories", async () => {
-  const gate = createSessionDirectoryGate("/home/person/.config/exterior/workspace");
+  const gate = createSessionDirectoryGate("/home/person/.local/share/exterior/workspace");
   let releaseFirst: () => void = () => {};
   const firstCanRead = new Promise<void>((resolve) => {
     releaseFirst = resolve;

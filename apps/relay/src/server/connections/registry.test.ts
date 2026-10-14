@@ -23,8 +23,8 @@ test("a machine appears only for the account that connected it", () => {
 test("a machine lists the working directory its daemon reported", () => {
   const registry = createRegistry();
   const daemon = registry.connectDaemon({ userId: "ada", send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/.config/exterior/workspace", agents: [] });
-  assert.equal(registry.listMachines("ada")[0]?.workingDirectory, "/home/ada/.config/exterior/workspace");
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/.local/share/exterior/workspace", agents: [] });
+  assert.equal(registry.listMachines("ada")[0]?.workingDirectory, "/home/ada/.local/share/exterior/workspace");
 });
 
 test("opening a session waits until the machine starts the agent, then the ticket works once", async () => {

@@ -333,7 +333,7 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
     type: "hello",
     hostname: input.hostname,
     deviceId: input.deviceId,
-    workingDirectory: "/home/ada/.config/exterior/workspace",
+    workingDirectory: "/home/ada/.local/share/exterior/workspace",
     agents: input.agents.map((name) => ({ name, agentType: "opencode" })),
   };
   socket.send(JSON.stringify(hello));

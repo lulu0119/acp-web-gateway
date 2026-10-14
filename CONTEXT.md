@@ -29,7 +29,7 @@ One live ACP session with one agent on one device.
 _Avoid_: port, nonce, gateway process
 
 **Working directory**:
-The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, `~/.config/exterior/workspace`, which the device reports when it connects.
+The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, `~/.local/share/exterior/workspace`, which the device reports when it connects.
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
 **Ticket**:

@@ -9,8 +9,13 @@ import {
   parseGatewayConfig,
   readGatewayConfig,
   readGatewayConfigForWrite,
+  workingDirectoryPath,
   writeGatewayConfig,
 } from "./config.js";
+
+test("the working directory is the device data directory", () => {
+  assert.equal(workingDirectoryPath("/home/person"), join("/home/person", ".local", "share", "exterior", "workspace"));
+});
 
 test("config stores named agents and ignores a leftover agent command", () => {
   assert.deepEqual(parseGatewayConfig({ agentCommand: "opencode acp", port: 1 }), { agents: [] });

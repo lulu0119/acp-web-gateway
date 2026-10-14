@@ -6,7 +6,7 @@ test("a daemon hello names the machine, its working directory, and its agent con
   const hello = {
     type: "hello",
     hostname: "studio",
-    workingDirectory: "C:\\Users\\person\\.config\\exterior\\workspace",
+    workingDirectory: "C:\\Users\\person\\.local\\share\\exterior\\workspace",
     agents: [{ name: "work", agentType: "opencode" }],
   };
   assert.deepEqual(parseDaemonMessage(hello), hello);

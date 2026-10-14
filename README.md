@@ -20,7 +20,7 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
    `@main` is the latest preview published from `main`. npx caches a package by its address and keeps running the first `@main` it downloaded, so use a commit hash, such as `@0b26097`, to get a newer publish. The package is one bundled file with no dependencies. From a checkout, the same commands are `node packages/gateway/dist/bin/exterior.mjs`.
 
-   `login` prints a link with the code filled in. Approve that code on Exterior after signing in with GitHub. `daemon` keeps an outbound connection. It starts agents in `~/.config/exterior/workspace` and reports that directory, so a web app has a real working directory on the device to send when the person has not chosen one.
+   `login` prints a link with the code filled in. Approve that code on Exterior after signing in with GitHub. `daemon` keeps an outbound connection. It starts agents in `~/.local/share/exterior/workspace` and reports that directory, so a web app has a real working directory on the device to send when the person has not chosen one.
 
    `exterior --help` and `exterior <command> --help` describe each command. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names.
 

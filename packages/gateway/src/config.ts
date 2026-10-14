@@ -22,11 +22,11 @@ export function configFilePath(homeDirectory = homedir()): string {
 /**
  * The directory the daemon runs agents in when a web app names none.
  *
- * The daemon creates it when it starts, so every device has a real directory
- * of its own to report instead of a path such as `/`.
+ * Sign-ins live in `~/.config/exterior`. This path is the data directory, the
+ * same relative path on every system. The daemon creates it when it starts.
  */
 export function workingDirectoryPath(homeDirectory = homedir()): string {
-  return join(homeDirectory, ".config", "exterior", "workspace");
+  return join(homeDirectory, ".local", "share", "exterior", "workspace");
 }
 
 export function parseGatewayConfig(value: unknown): GatewayConfig {
