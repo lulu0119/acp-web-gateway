@@ -1,7 +1,8 @@
 import type { AcpConnectionStatus } from "@hafbit/react-acp";
-import { PlugIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useCallback, useState } from "react";
-import { ConnectForm, type ConnectedAgent } from "@/components/app/connect-form";
+import { ConnectForm, ManageAgentsLink, type ConnectedAgent } from "@/components/app/connect-form";
+import { ExteriorMark } from "@/components/exterior-mark";
 import { ConnectionPane, type Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
@@ -69,7 +70,7 @@ export function App() {
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
-              <PlugIcon className="size-4" />
+              <ExteriorMark className="size-5" />
               Exterior
             </div>
           </SidebarHeader>
@@ -102,21 +103,26 @@ export function App() {
           </SidebarContent>
           <SidebarFooter>
             {session.account.phase === "signed-in" ? (
-              <div className="flex items-center justify-between gap-2 px-2 py-1">
-                <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-                  <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-                  Signed in
-                </span>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                  Sign out
-                </Button>
+              <div className="flex flex-col gap-1">
+                <ManageAgentsLink className="w-full" />
+                <div className="flex h-7 items-center justify-between gap-2 pl-2 pr-1">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                    <span className="flex size-4 shrink-0 items-center justify-center">
+                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    Signed in
+                  </span>
+                  <Button variant="ghost" size="sm" className="px-2" onClick={handleSignOut}>
+                    Sign out
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="px-2 py-1">
+              <div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full justify-start"
+                  className="w-full justify-start px-2"
                   disabled={session.busy || session.account.phase === "checking"}
                   onClick={session.signIn}
                 >
