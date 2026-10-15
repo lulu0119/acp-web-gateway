@@ -55,9 +55,12 @@ export function daemonStateReporter(input: {
   const now = input.now ?? Date.now;
   let state: DaemonState = { relayUrl: input.relayUrl, pid: process.pid, status: "connecting", since: now(), agents: [...input.agents] };
   let writes = Promise.resolve();
+  let written = "";
   const update = (change: Partial<DaemonState>) => {
     const since = change.status && change.status !== state.status ? now() : state.since;
     state = { ...state, ...change, since };
+    if (JSON.stringify(state) === written) return writes;
+    written = JSON.stringify(state);
     const snapshot = state;
     input.onState?.(snapshot);
     writes = writes.then(() => writeDaemonState(snapshot, input.homeDirectory)).catch(() => undefined);

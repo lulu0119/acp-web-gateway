@@ -1,0 +1,17 @@
+@import "../../relay/src/web/styles.css";
+
+@source "./";
+
+/* A desktop window, not a page: no rubber-band scroll, and text is not selectable by accident. */
+html,
+body {
+  overscroll-behavior: none;
+}
+body {
+  user-select: none;
+}
+input,
+textarea,
+.selectable {
+  user-select: text;
+}

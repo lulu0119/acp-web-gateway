@@ -24,6 +24,27 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
    `exterior --help` and `exterior <command> --help` describe each command. `agent-config types` prints the ids in the [ACP Registry](https://agentclientprotocol.com/get-started/registry). `create --agent-type` uses one of those ids. An `npx` or `uvx` entry is started with that tool. A binary entry runs only when its command is already on `PATH`. An agent that is not in the registry is added with `--command`. Add another configuration with `--name`, and repeat `--env KEY=VALUE` for that slot. `agent-config list` prints the names. A running daemon picks up a changed configuration file and tells the relay; sessions already open keep their agent. A daemon with no configurations stays connected and offers none until one is added.
 
+   On a desktop, the Exterior app does the same without a terminal. It sits in the tray, starts at login, and runs one daemon for each relay the device is signed in to, starting it again if it stops. Its window signs in to relays and adds or removes agents. Quitting the app stops the daemons, so the device goes offline. From a checkout, `pnpm --filter @exterior/desktop dev` builds the `exterior` executable it ships beside itself and starts the app; `bundle` instead of `dev` builds the installer. Both need Rust and Node 26.
+
+   On a Linux server without a desktop, run the daemon under a systemd user unit, such as `~/.config/systemd/user/exterior.service`:
+
+   ```ini
+   [Unit]
+   Description=Exterior daemon
+
+   [Service]
+   ExecStart=%h/.local/bin/exterior daemon --relay relay.example.com
+   Restart=on-failure
+   RestartSec=5
+   # 3: the relay rejected the sign-in, so run exterior login again first.
+   RestartPreventExitStatus=3
+
+   [Install]
+   WantedBy=default.target
+   ```
+
+   Then `systemctl --user enable --now exterior`. A user unit runs while you are logged in; `loginctl enable-linger` keeps it running without a login.
+
 3. The web app redirects the person to Exterior. Exterior asks for consent, then sends them back. Example does this from **Sign in with Exterior**: there is nothing to configure, and the app receives its client id together with the approval. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/exterior/@exterior/client@main`.
 
 4. The web app lists the account's online devices and asks Exterior to open one agent. Exterior returns a one-time WebSocket address. The page uses that address as the ACP connection.

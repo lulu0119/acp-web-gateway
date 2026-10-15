@@ -19,8 +19,13 @@ export const daemon = defineCommand({
     "One daemon serves one relay. Run a second daemon to serve a second relay. A second daemon for the same relay exits with 4.",
     "A change to the agent configurations reaches the relay while the daemon runs. Sessions already open keep their agent.",
     `When the relay rejects this device's sign-in, the daemon exits with ${daemonExit.signInRequired}. --json prints each state change as one JSON line on stdout.`,
+    "--stop-when-stdin-closes is for a program that runs the daemon, such as the desktop app: closing the pipe stops it cleanly on every system, and so does that program exiting.",
   ].join("\n\n"),
-  options: [relayOption, { flags: "--json", description: "Print each state change as a JSON line" }],
+  options: [
+    relayOption,
+    { flags: "--json", description: "Print each state change as a JSON line" },
+    { flags: "--stop-when-stdin-closes", description: "Stop, and stop its agents, when stdin closes" },
+  ],
   examples: ["exterior daemon", "exterior daemon --relay relay.example.com"],
   async action(context, options) {
     const { io } = context;
@@ -57,6 +62,7 @@ export const daemon = defineCommand({
     // Command lookup and agents read process.env.PATH, which an app started at login gets minimal.
     const shellPath = await loginShellPath({ env: process.env });
     if (shellPath) process.env.PATH = shellPath;
+    const lifeline = options.stopWhenStdinCloses ? stdinLifeline(context.signal) : undefined;
     try {
       await runDaemon({
         relayUrl,
@@ -79,7 +85,7 @@ export const daemon = defineCommand({
             },
             onWarning: inform,
           }),
-        signal: context.signal,
+        signal: lifeline?.signal ?? context.signal,
         catalog: registry.ok ? registry.agents : [],
       });
       await state.stopped("The daemon was stopped.");
@@ -89,6 +95,23 @@ export const daemon = defineCommand({
       inform(message);
       await state.stopped(message);
       return error instanceof DaemonLoginRequiredError ? daemonExit.signInRequired : 1;
+    } finally {
+      lifeline?.release();
     }
   },
 });
+
+/** A signal that also aborts when stdin closes. `release` stops reading stdin so the process can exit. */
+function stdinLifeline(signal: AbortSignal | undefined) {
+  const controller = new AbortController();
+  signal?.addEventListener("abort", () => controller.abort(), { once: true });
+  const stop = () => controller.abort();
+  process.stdin.on("end", stop).on("error", stop).resume();
+  return {
+    signal: controller.signal,
+    release() {
+      process.stdin.off("end", stop).off("error", stop).pause();
+      process.stdin.unref?.();
+    },
+  };
+}

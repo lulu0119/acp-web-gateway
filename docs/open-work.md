@@ -8,7 +8,6 @@ Code still missing.
 
 - `agent-config check`: a broken configuration is only found when a connection opens. Check with an ACP `initialize` before writing.
 - Release workflow for the daemon executable and the desktop app ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): Node 26 on native runners for macOS arm64, Linux x64 and arm64, and Windows x64 and arm64; strip the Linux Node before injecting; sign macOS ad hoc; GitHub Releases, `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget.
-- A systemd user unit example for Linux servers without a desktop, in the README.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
@@ -25,6 +24,8 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
+- The desktop app on macOS and Linux: the tray, start at login, the window as the app when GNOME shows no tray, and the daemon finding `npx` through the login shell's `PATH` when the app starts at login.
+- The systemd user unit in the README, on a Linux server.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
