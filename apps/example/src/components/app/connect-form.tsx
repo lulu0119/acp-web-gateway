@@ -1,8 +1,10 @@
 import { listMachines, openConnection } from "@exterior/client";
 import type { Machine } from "@exterior/contract";
+import { BotIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AccountSession } from "@exterior/client/react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -33,7 +35,7 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
         const first = listed.find((machine) => machine.agents.length > 0);
         const agent = first?.agents[0];
         if (first && agent) setSelection(selectionOf(first.id, agent.name));
-        setStatus(listed.length === 0 ? "No machine is online. On that computer, run exterior daemon." : "");
+        setStatus(agentListStatus(listed));
       })
       .catch((error: unknown) => {
         if (!cancelled) setStatus(error instanceof Error ? error.message : "Sign in again.");
@@ -51,6 +53,10 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
     })),
   );
   const selected = items.find((item) => item.value === selection);
+
+  if (accessToken && items.length === 0 && emptyAgentList(status)) {
+    return <NoAgents status={status} />;
+  }
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
@@ -113,6 +119,52 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
       <p className="text-muted-foreground min-h-5 text-sm">{accessToken ? status : ""}</p>
     </div>
   );
+}
+
+export function ManageAgentsLink({ className }: { className?: string }) {
+  return (
+    <a
+      href={exteriorRelayUrl()}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "justify-start gap-2 px-2", className)}
+    >
+      <BotIcon className="size-4" aria-hidden />
+      Agents
+    </a>
+  );
+}
+
+function NoAgents({ status }: { status: string }) {
+  const noMachine = status === "No machine is online.";
+  return (
+    <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
+      <div className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground/70">
+        <BotIcon className="size-5" aria-hidden />
+      </div>
+      <div className="flex max-w-sm flex-col gap-1">
+        <p className="font-semibold">No agents online</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {noMachine
+            ? "A session needs an agent on a device that is online. Set that up on Exterior."
+            : "The online machines have no agents. Configure one on Exterior, then connect it here."}
+        </p>
+      </div>
+      <a href={exteriorRelayUrl()} target="_blank" rel="noreferrer" className={cn(buttonVariants({ size: "lg" }), "mt-1")}>
+        Manage agents
+      </a>
+    </div>
+  );
+}
+
+function emptyAgentList(status: string): boolean {
+  return status === "No machine is online." || status === "The online machines have no agents.";
+}
+
+function agentListStatus(machines: Machine[]): string {
+  if (machines.length === 0) return "No machine is online.";
+  if (machines.every((machine) => machine.agents.length === 0)) return "The online machines have no agents.";
+  return "";
 }
 
 function selectionOf(machineId: string, agentName: string): string {
