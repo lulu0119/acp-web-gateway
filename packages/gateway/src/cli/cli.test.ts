@@ -56,7 +56,8 @@ test("a mistyped command names the mistake and exits with 2", async () => {
     [["status", "extra"], /^Unused args: `extra`/],
     [["status", "--relay", "a.example"], /^Unknown option `--relay`/],
     [["agent-config"], /^exterior agent-config needs a command:\n {2}exterior agent-config list\n/],
-    [["agent-config", "remove"], /^Unknown command "exterior agent-config remove"\. Pick one:/],
+    [["agent-config", "rename"], /^Unknown command "exterior agent-config rename"\. Pick one:/],
+    [["agent-config", "remove"], /^Pass --name <name>\./],
     [["agent-config", "list", "--name", "x"], /^Unknown option --name for exterior agent-config list\.\nRun `exterior agent-config list --help`/],
     [["agent-config", "create"], /^Pass --agent-type <type> or --command <command>\./],
     [["agent-config", "create", "--agent-type", "opencode", "--command", "x"], /^Pass --agent-type or --command, not both\./],
@@ -135,6 +136,37 @@ test("agent-config create stores a custom command with its environment", async (
   const saved = JSON.parse(await readFile(join(result.home, ".config", "exterior", "config.json"), "utf8"));
   assert.deepEqual(saved.agents, [{ name: "123", agentType: "custom", env: { A: "1", B: "x=y" }, command: "my-agent", args: ["--stdio"] }]);
   assert.equal((await run(["agent-config", "list"], { home: result.home })).code, 0);
+});
+
+test("agent-config list --json names environment variables without their values, and remove deletes one", async () => {
+  const created = await run(["agent-config", "create", "--command", "my-agent --stdio", "--name", "mine", "--env", "API_KEY=secret"]);
+  const home = created.home;
+  const listed = await run(["agent-config", "list", "--json"], { home });
+  assert.deepEqual(JSON.parse(listed.stdout), {
+    agents: [{ name: "mine", agentType: "custom", envNames: ["API_KEY"], command: ["my-agent", "--stdio"] }],
+  });
+  assert.equal(listed.stdout.includes("secret"), false);
+
+  const missing = await run(["agent-config", "remove", "--name", "other"], { home });
+  assert.equal(missing.code, 1);
+  assert.equal(missing.stderr, "No agent configuration is named \"other\".\n");
+  const removed = await run(["agent-config", "remove", "--name", "mine"], { home });
+  assert.equal(removed.stdout, "Removed agent configuration \"mine\".\n");
+  assert.deepEqual(JSON.parse((await run(["agent-config", "list", "--json"], { home })).stdout), { agents: [] });
+});
+
+test("a second daemon for a relay whose daemon is running exits with 4", async () => {
+  const home = await signedIn("https://exterior.example");
+  await writeDaemonState({ relayUrl: "https://exterior.example", pid: process.pid + 1_000_000, status: "connected", since: 1, agents: [] }, home);
+  // That pid is not running, so the state reads as stopped and does not block.
+  await mkdir(join(home, ".config", "exterior"), { recursive: true });
+  await writeFile(join(home, ".config", "exterior", "config.json"), "{");
+  assert.equal((await run(["daemon"], { home })).code, 1);
+
+  await writeDaemonState({ relayUrl: "https://exterior.example", pid: process.ppid, status: "connected", since: 1, agents: [] }, home);
+  const second = await run(["daemon"], { home });
+  assert.equal(second.code, 4);
+  assert.equal(second.stderr, `A daemon for https://exterior.example is already running (process ${process.ppid}).\n`);
 });
 
 test("a relay address may leave out the scheme", () => {

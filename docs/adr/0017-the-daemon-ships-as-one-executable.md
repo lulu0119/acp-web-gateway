@@ -4,6 +4,8 @@
 
 Measured on Windows on 2026-10-15: the file is 104 MB, 39 MB gzipped, and an idle connected daemon holds about 66 MB working set.
 
+The build needs Node 26: `--build-sea` arrived in 25.5, an ES module entry in 25.7, and 25 is past end of life. The Node that builds must be the exact version that is embedded. macOS ships for Apple silicon only: Node does not support single executables on Intel Macs, where `--build-sea` output crashes at start, and pnpm and t3code dropped that target for the same reason. See `docs/research/2026-10-15-node-sea-release.md`.
+
 ## Considered Options
 
 - **`bun build --compile`.** Rejected. The compiled daemon failed every relay handshake (`ws` reported "HTTP 101"), and it was larger (113 MB) and held more memory (142 MB working set).

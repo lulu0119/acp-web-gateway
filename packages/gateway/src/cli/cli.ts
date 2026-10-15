@@ -46,7 +46,11 @@ export async function executeCli(args: readonly string[], io: CliIo, runtime: { 
   }
 }
 
+declare const __EXTERIOR_VERSION__: string | undefined;
+
+// The build writes the version in, because a single executable has no package.json beside it.
 function packageVersion(): string {
+  if (typeof __EXTERIOR_VERSION__ === "string") return __EXTERIOR_VERSION__;
   const text = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
   return (JSON.parse(text) as { version: string }).version;
 }

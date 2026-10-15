@@ -44,7 +44,14 @@ export async function writeDaemonState(state: DaemonState, homeDirectory = homed
  * Keeps one daemon's state file current. Writes happen in order, so a slow write never
  * lands after a newer one, and a failed write is dropped: the file is a report, not a record.
  */
-export function daemonStateReporter(input: { relayUrl: string; agents: readonly string[]; homeDirectory?: string; now?: () => number }) {
+export function daemonStateReporter(input: {
+  relayUrl: string;
+  agents: readonly string[];
+  homeDirectory?: string;
+  now?: () => number;
+  /** Hears every state as it is written, such as `exterior daemon --json` printing it for the desktop app. */
+  onState?: (state: DaemonState) => void;
+}) {
   const now = input.now ?? Date.now;
   let state: DaemonState = { relayUrl: input.relayUrl, pid: process.pid, status: "connecting", since: now(), agents: [...input.agents] };
   let writes = Promise.resolve();
@@ -52,6 +59,7 @@ export function daemonStateReporter(input: { relayUrl: string; agents: readonly 
     const since = change.status && change.status !== state.status ? now() : state.since;
     state = { ...state, ...change, since };
     const snapshot = state;
+    input.onState?.(snapshot);
     writes = writes.then(() => writeDaemonState(snapshot, input.homeDirectory)).catch(() => undefined);
     return writes;
   };
