@@ -7,6 +7,13 @@ Current roadmap. Decisions: [adr/](./adr/). How agents maintain docs: [../AGENTS
 Code still missing.
 
 - `agent-config check` and `agent-config remove`: the CLI cannot undo a configuration, and a broken one is only found when a connection opens. Check with an ACP `initialize` before writing.
+- Release the daemon as one executable ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): build it with `node --build-sea` for macOS, Linux, and Windows on x64 and arm64, publish it on GitHub Releases, and add `install.sh`, a Homebrew tap formula, a Scoop bucket, and a winget manifest. Sign the macOS files ad hoc.
+- Start the daemon at login ([ADR 0018](adr/0018-the-desktop-app-is-a-tauri-tray.md)): daemon commands that install, remove, start, and stop a per-user login item for one sign-in (a launchd agent, a systemd user unit, a Windows logon task), restarted when it crashes. On Windows it must run without a console window; neither changing the executable's subsystem nor `conhost --headless` has been tried yet.
+- The daemon's `PATH` when the system starts it: launchd and systemd pass a minimal one, so `npx` and agent commands are not found. Read the person's login shell environment, or record `PATH` when the login item is installed.
+- Daemon state for the desktop app: write whether it is connected, and to which relay, to a file the app reads.
+- The daemon reads agent configurations once, at start. Watch the configuration file, re-read it after an edit, and send the new list to the relay without dropping open connections.
+- Desktop app ([ADR 0018](adr/0018-the-desktop-app-is-a-tauri-tray.md)): a Tauri tray that shows whether the daemon runs, signs in and out, and opens a settings window for agent configurations that is destroyed when closed. Reuse the relay's React UI in the window. When no tray is available, as on GNOME without AppIndicator, open the window.
+- Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
 - Consent identity: the relay fetches each app's icon itself (blocking private addresses, re-encoding to PNG) and serves it; apps not on the public internet send a data URI in the approval request. Until then the consent page and authorized apps show a monogram. See `docs/research/2026-10-13-oauth-consent.md`.
