@@ -12,6 +12,8 @@ export async function runDaemon(input: {
   relayUrl: string;
   getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
   inform: (line: string) => void;
+  /** Called as the connection moves between connecting, connected, and waiting to retry. */
+  onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
   deviceId?: string;
   workingDirectory: string;
@@ -47,6 +49,7 @@ async function connectUntilStopped(input: {
   relayUrl: string;
   getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
   inform: (line: string) => void;
+  onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
   deviceId?: string;
   workingDirectory: string;
@@ -62,6 +65,7 @@ async function connectUntilStopped(input: {
     const ms = retryMs;
     retryMs = Math.min(retryMs * 2, 30_000);
     input.inform(`Retrying in ${ms / 1_000}s.`);
+    input.onStatus?.("waiting");
     await delay(ms, input.signal);
   };
   while (!input.signal?.aborted) {
@@ -80,6 +84,7 @@ async function connectUntilStopped(input: {
     previousToken = accessToken;
     if (authentication === "refresh") authentication = "refreshed";
     input.inform("Connecting to relay.");
+    input.onStatus?.("connecting");
     const result = await connectOnce({ ...input, accessToken, agents: input.currentAgents() });
     if (input.signal?.aborted) return;
     if (result === "forbidden") {
@@ -103,6 +108,7 @@ function connectOnce(input: {
   relayUrl: string;
   accessToken: string;
   inform: (line: string) => void;
+  onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
   deviceId?: string;
   workingDirectory: string;
@@ -143,6 +149,7 @@ function connectOnce(input: {
     socket.on("open", () => {
       connected = true;
       input.inform("Connected to relay.");
+      input.onStatus?.("connected");
       host.hello();
     });
     socket.on("message", (data, isBinary) => {

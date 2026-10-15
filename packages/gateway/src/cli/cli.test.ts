@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
+import { writeDaemonState } from "../daemon-state.js";
 import { writeSignIn } from "../sign-ins.js";
 import { executeCli } from "./cli.js";
 import { parseRelayUrl } from "./relay.js";
@@ -100,6 +101,24 @@ test("without --relay, one sign-in is the default and several are listed", async
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stdout, "Signed out of http://127.0.0.1:8787.\n");
   assert.equal((await run(["status"], { home: two })).stdout, "Signed in to https://exterior.example\n");
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stderr, "This device is not signed in to http://127.0.0.1:8787.\n");
+});
+
+test("status says what each relay's daemon last reported, in text and JSON", async () => {
+  const home = await signedIn("https://exterior.example", "https://other.example");
+  await writeDaemonState({ relayUrl: "https://exterior.example", pid: process.pid, status: "connected", since: 1, agents: ["work"] }, home);
+  const text = await run(["status"], { home });
+  assert.equal(text.stdout, [
+    "Signed in to https://exterior.example. Daemon connected, offering work.",
+    "Signed in to https://other.example",
+    "",
+  ].join("\n"));
+  const json = await run(["status", "--json"], { home });
+  assert.deepEqual(JSON.parse(json.stdout), {
+    relays: [
+      { relayUrl: "https://exterior.example", daemon: { relayUrl: "https://exterior.example", pid: process.pid, status: "connected", since: 1, agents: ["work"] } },
+      { relayUrl: "https://other.example", daemon: null },
+    ],
+  });
 });
 
 test("login names the relay when nothing answers", async () => {

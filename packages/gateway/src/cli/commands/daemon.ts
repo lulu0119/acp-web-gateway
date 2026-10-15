@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath } from "../../config.js";
+import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath, type StoredAgent } from "../../config.js";
+import { daemonStateReporter } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
 import { signedInDeviceId, usableSignIn } from "../../login.js";
 import { defineCommand } from "../command.js";
@@ -36,12 +37,15 @@ export const daemon = defineCommand({
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });
     if (!registry.ok) io.stderr.write(`${registry.message}\n`);
+    const names = (agents: readonly StoredAgent[]) => agents.map((agent) => agent.name);
+    const state = daemonStateReporter({ relayUrl, agents: names(config.agents), homeDirectory: io.homeDirectory });
     try {
       await runDaemon({
         relayUrl,
         getAccessToken: async (forceRefresh, signal) =>
           (await usableSignIn({ relayUrl, homeDirectory: io.homeDirectory, forceRefresh, signal })).accessToken,
         inform,
+        onStatus: state.status,
         hostname: hostname(),
         deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
         workingDirectory: workingDirectoryPath(io.homeDirectory),
@@ -51,7 +55,8 @@ export const daemon = defineCommand({
             homeDirectory: io.homeDirectory,
             agents: config.agents,
             onChange(agents) {
-              inform(`Agent configurations changed: ${agents.map((agent) => agent.name).join(", ") || "none"}.`);
+              inform(`Agent configurations changed: ${names(agents).join(", ") || "none"}.`);
+              state.agents(names(agents));
               listener(agents);
             },
             onWarning: inform,
@@ -59,9 +64,12 @@ export const daemon = defineCommand({
         signal: context.signal,
         catalog: registry.ok ? registry.agents : [],
       });
+      await state.stopped("The daemon was stopped.");
       return 0;
     } catch (error) {
-      inform(error instanceof Error ? error.message : "The daemon stopped.");
+      const message = error instanceof Error ? error.message : "The daemon stopped.";
+      inform(message);
+      await state.stopped(message);
       return 1;
     }
   },
