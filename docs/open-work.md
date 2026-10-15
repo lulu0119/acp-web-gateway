@@ -8,6 +8,7 @@ Code still missing.
 
 - `agent-config check`: a broken configuration is only found when a connection opens. Check with an ACP `initialize` before writing.
 - Release workflow for the daemon executable and the desktop app ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): Node 26 on native runners for macOS arm64, Linux x64 and arm64, and Windows x64 and arm64; strip the Linux Node before injecting; sign macOS ad hoc; GitHub Releases, `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget.
+- The relay's device pages assume a terminal: they name `exterior login`, `logout`, `daemon`, and `agent-config create` where the desktop app shows the code, signs out, runs the daemon, and adds agents. Word them for both. Once the release workflow publishes downloads, "Add device" offers the desktop app first, and the setup guide installs the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
