@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -90,8 +90,12 @@ test("without --relay, one sign-in is the default and several are listed", async
   assert.match((await run(["login"], { home: two })).stderr, /Pick one:\n {2}exterior login --relay/);
   assert.equal((await run(["status"], { home: two })).stdout, "Signed in to http://127.0.0.1:8787\nSigned in to https://exterior.example\n");
 
+  // An unreadable configuration stops the daemon after it picked a relay, before it connects.
+  await mkdir(join(two, ".config", "exterior"), { recursive: true });
+  await writeFile(join(two, ".config", "exterior", "config.json"), "{");
   const picked = await run(["daemon"], { home: two, env: { EXTERIOR_RELAY: "exterior.example" } });
-  assert.equal(picked.stderr, "No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n");
+  assert.equal(picked.code, 1);
+  assert.equal(picked.stderr, `Cannot read ${join(two, ".config", "exterior", "config.json")} as JSON.\n`);
 
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stdout, "Signed out of http://127.0.0.1:8787.\n");
   assert.equal((await run(["status"], { home: two })).stdout, "Signed in to https://exterior.example\n");

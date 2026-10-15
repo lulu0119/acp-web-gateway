@@ -110,6 +110,33 @@ test("hello omits an agent the registry cannot launch", () => {
   ]);
 });
 
+test("a new agent list says hello again, and an open session keeps its agent", () => {
+  const sent: DaemonMessage[] = [];
+  const stopped: string[] = [];
+  const host = createDaemonHost({
+    hostname: "studio",
+    workingDirectory,
+    agents: [agent],
+    send: (message) => sent.push(message),
+    resolveLaunch: readyLaunch,
+    spawnAgent: (launch, next) => {
+      next.onReady();
+      return { write() {}, stop: () => stopped.push(launch.args.join(" ")) };
+    },
+  });
+  host.receive({ type: "open", sessionId, agentName: "work" });
+  host.setAgents([{ name: "other", agentType: "opencode", env: {} }]);
+  host.receive({ type: "open", sessionId: "session-2", agentName: "work" });
+  host.receive({ type: "open", sessionId: "session-3", agentName: "other" });
+  assert.deepEqual(sent, [
+    { type: "opened", sessionId },
+    { type: "hello", hostname: "studio", workingDirectory, agents: [{ name: "other", agentType: "opencode" }] },
+    { type: "open-failed", sessionId: "session-2", message: "That agent is not configured." },
+    { type: "opened", sessionId: "session-3" },
+  ]);
+  assert.deepEqual(stopped, []);
+});
+
 test("an argument a batch script cannot take fails the open instead of reaching cmd.exe", async () => {
   const directory = await mkdtemp(join(tmpdir(), "exterior-batch-"));
   const script = join(directory, "agent.cmd");

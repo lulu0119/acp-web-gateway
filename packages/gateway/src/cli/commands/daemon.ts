@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { readGatewayConfig, workingDirectoryPath } from "../../config.js";
+import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath } from "../../config.js";
 import { runDaemon } from "../../daemon.js";
 import { signedInDeviceId, usableSignIn } from "../../login.js";
 import { defineCommand } from "../command.js";
@@ -12,6 +12,7 @@ export const daemon = defineCommand({
   help: [
     "Keep an outbound connection to one relay and start an agent for each connection a web app opens. Connection, refresh, and retry messages go to stderr.",
     "One daemon serves one relay. Run a second daemon to serve a second relay.",
+    "A change to the agent configurations reaches the relay while the daemon runs. Sessions already open keep their agent.",
   ].join("\n\n"),
   options: [relayOption],
   examples: ["exterior daemon", "exterior daemon --relay relay.example.com"],
@@ -29,9 +30,9 @@ export const daemon = defineCommand({
       io.stderr.write(`${config.warning}\n`);
       return 1;
     }
+    // The daemon stays up without agents: one added later reaches the relay without a restart.
     if (config.agents.length === 0) {
-      io.stderr.write("No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n");
-      return 1;
+      io.stderr.write("No agent configurations yet.\nNext: exterior agent-config create --agent-type opencode\n");
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });
     if (!registry.ok) io.stderr.write(`${registry.message}\n`);
@@ -45,6 +46,16 @@ export const daemon = defineCommand({
         deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
         workingDirectory: workingDirectoryPath(io.homeDirectory),
         agents: config.agents,
+        agentUpdates: (listener) =>
+          watchGatewayConfig({
+            homeDirectory: io.homeDirectory,
+            agents: config.agents,
+            onChange(agents) {
+              inform(`Agent configurations changed: ${agents.map((agent) => agent.name).join(", ") || "none"}.`);
+              listener(agents);
+            },
+            onWarning: inform,
+          }),
         signal: context.signal,
         catalog: registry.ok ? registry.agents : [],
       });

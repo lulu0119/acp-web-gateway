@@ -6,6 +6,8 @@ import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
 import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
+type DaemonHost = ReturnType<typeof createDaemonHost>;
+
 export async function runDaemon(input: {
   relayUrl: string;
   getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
@@ -14,6 +16,8 @@ export async function runDaemon(input: {
   deviceId?: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
+  /** Delivers later agent lists. Each one reaches the relay without ending open sessions. Returns a function that unsubscribes. */
+  agentUpdates?: (listener: (agents: readonly StoredAgent[]) => void) => () => void;
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
 }): Promise<void> {
@@ -21,6 +25,36 @@ export async function runDaemon(input: {
   await mkdir(input.workingDirectory, { recursive: true });
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
   const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);
+  let agents = input.agents;
+  let host: DaemonHost | undefined;
+  const unsubscribe = input.agentUpdates?.((next) => {
+    agents = next;
+    host?.setAgents(next);
+  });
+  try {
+    await connectUntilStopped({
+      ...input,
+      catalog,
+      currentAgents: () => agents,
+      onHost: (created) => (host = created),
+    });
+  } finally {
+    unsubscribe?.();
+  }
+}
+
+async function connectUntilStopped(input: {
+  relayUrl: string;
+  getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
+  inform: (line: string) => void;
+  hostname: string;
+  deviceId?: string;
+  workingDirectory: string;
+  currentAgents: () => readonly StoredAgent[];
+  onHost: (host: DaemonHost) => void;
+  signal?: AbortSignal;
+  catalog: readonly RegistryAgent[];
+}): Promise<void> {
   let authentication: "ready" | "refresh" | "refreshed" = "ready";
   let previousToken: string | undefined;
   let retryMs = 1_000;
@@ -46,7 +80,7 @@ export async function runDaemon(input: {
     previousToken = accessToken;
     if (authentication === "refresh") authentication = "refreshed";
     input.inform("Connecting to relay.");
-    const result = await connectOnce({ ...input, accessToken, catalog });
+    const result = await connectOnce({ ...input, accessToken, agents: input.currentAgents() });
     if (input.signal?.aborted) return;
     if (result === "forbidden") {
       throw new DaemonLoginRequiredError(`Relay rejected this device (HTTP 403). ${loginAgain(input.relayUrl)}`);
@@ -73,6 +107,7 @@ function connectOnce(input: {
   deviceId?: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
+  onHost: (host: DaemonHost) => void;
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
 }): Promise<"failed" | "disconnected" | "unauthorized" | "forbidden"> {
@@ -99,6 +134,7 @@ function connectOnce(input: {
       });
     },
   });
+  input.onHost(host);
   const stop = () => {
     host.close();
     socket.terminate();

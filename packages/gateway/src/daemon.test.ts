@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
 import { WebSocketServer } from "ws";
+import type { StoredAgent } from "./config.js";
 import { runDaemon } from "./daemon.js";
 import { usableSignIn } from "./login.js";
 import { readSignIn, writeSignIn } from "./sign-ins.js";
@@ -47,6 +48,54 @@ test("the daemon connects with its access token and says hello", async () => {
     server.close();
     await running;
   }
+});
+
+test("a changed agent list says hello again on the open connection and on the next one", async () => {
+  const relay = await daemonRelay();
+  const controller = new AbortController();
+  const hellos: { agents: { name: string }[] }[] = [];
+  let push: ((agents: StoredAgent[]) => void) | undefined;
+  let unsubscribed = false;
+  const said = (count: number) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Saw ${hellos.length} hellos.`)), 3_000);
+      const check = setInterval(() => {
+        if (hellos.length < count) return;
+        clearTimeout(timer);
+        clearInterval(check);
+        resolve();
+      }, 10);
+    });
+  relay.sockets.on("connection", (socket) => {
+    socket.on("message", (data) => hellos.push(JSON.parse(data.toString())));
+  });
+  const running = runDaemon({
+    relayUrl: relay.origin,
+    getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
+    inform: () => undefined,
+    hostname: "studio", workingDirectory,
+    agents: [],
+    agentUpdates(listener) {
+      push = listener;
+      return () => (unsubscribed = true);
+    },
+    catalog: [],
+    signal: controller.signal,
+  });
+  try {
+    await said(1);
+    // A custom command that exists everywhere the tests run, so hello lists it.
+    push?.([{ name: "work", agentType: "custom", env: {}, command: process.execPath }]);
+    await said(2);
+    for (const socket of relay.sockets.clients) socket.terminate();
+    await said(3);
+    assert.deepEqual(hellos.map((hello) => hello.agents.map((agent) => agent.name)), [[], ["work"], ["work"]]);
+  } finally {
+    controller.abort();
+    await running;
+    await relay.close();
+  }
+  assert.equal(unsubscribed, true);
 });
 
 test("the daemon obtains a fresh token when reconnecting after an hour", async () => {
@@ -233,7 +282,7 @@ test("HTTP 403 on the daemon socket requires a new sign-in instead of a refresh"
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", agents: [], catalog: [],
+      hostname: "studio", workingDirectory, agents: [], catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Relay rejected this device \(HTTP 403\)\. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.refreshes, []);

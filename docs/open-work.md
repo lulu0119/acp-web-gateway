@@ -11,7 +11,6 @@ Code still missing.
 - Start the daemon at login ([ADR 0018](adr/0018-the-desktop-app-is-a-tauri-tray.md)): daemon commands that install, remove, start, and stop a per-user login item for one sign-in (a launchd agent, a systemd user unit, a Windows logon task), restarted when it crashes. On Windows it must run without a console window; neither changing the executable's subsystem nor `conhost --headless` has been tried yet.
 - The daemon's `PATH` when the system starts it: launchd and systemd pass a minimal one, so `npx` and agent commands are not found. Read the person's login shell environment, or record `PATH` when the login item is installed.
 - Daemon state for the desktop app: write whether it is connected, and to which relay, to a file the app reads.
-- The daemon reads agent configurations once, at start. Watch the configuration file, re-read it after an edit, and send the new list to the relay without dropping open connections.
 - Desktop app ([ADR 0018](adr/0018-the-desktop-app-is-a-tauri-tray.md)): a Tauri tray that shows whether the daemon runs, signs in and out, and opens a settings window for agent configurations that is destroyed when closed. Reuse the relay's React UI in the window. When no tray is available, as on GNOME without AppIndicator, open the window.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
@@ -29,6 +28,7 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
+- An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.
