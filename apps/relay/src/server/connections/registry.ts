@@ -24,6 +24,7 @@ type LiveMachine = {
   userId: string;
   deviceId?: string;
   hostname: string;
+  workingDirectory: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
 };
@@ -142,6 +143,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
                 userId: link.userId,
                 deviceId: message.deviceId,
                 hostname: message.hostname,
+                workingDirectory: message.workingDirectory,
                 agents,
                 send: link.send,
               });
@@ -151,6 +153,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
             if (!machine) return;
             machine.deviceId = message.deviceId;
             machine.hostname = message.hostname;
+            machine.workingDirectory = message.workingDirectory;
             machine.agents = agents;
             return;
           }
@@ -207,6 +210,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           id: machine.id,
           hostname: machine.hostname,
           agents: machine.agents,
+          workingDirectory: machine.workingDirectory,
           ...(machine.deviceId ? { deviceId: machine.deviceId } : {}),
         }));
     },

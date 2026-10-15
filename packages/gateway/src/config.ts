@@ -19,6 +19,16 @@ export function configFilePath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".config", "exterior", "config.json");
 }
 
+/**
+ * The directory the daemon runs agents in when a web app names none.
+ *
+ * Sign-ins live in `~/.config/exterior`. This path is the data directory, the
+ * same relative path on every system. The daemon creates it when it starts.
+ */
+export function workingDirectoryPath(homeDirectory = homedir()): string {
+  return join(homeDirectory, ".local", "share", "exterior", "workspace");
+}
+
 export function parseGatewayConfig(value: unknown): GatewayConfig {
   const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   const items = Array.isArray(record.agents) ? record.agents : [];

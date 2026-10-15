@@ -6,20 +6,32 @@ import { createRegistry, type BrowserSocket } from "./registry.js";
 test("a machine appears only for the account that connected it", () => {
   const registry = createRegistry();
   const ada = registry.connectDaemon({ userId: "ada", send: () => undefined });
-  ada.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  ada.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   assert.deepEqual(registry.listMachines("ada"), [
-    { id: registry.listMachines("ada")[0]?.id, hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] },
+    {
+      id: registry.listMachines("ada")[0]?.id,
+      hostname: "studio",
+      agents: [{ name: "work", agentType: "opencode" }],
+      workingDirectory: "/home/ada/work",
+    },
   ]);
   assert.deepEqual(registry.listMachines("bea"), []);
   ada.close();
   assert.deepEqual(registry.listMachines("ada"), []);
 });
 
+test("a machine lists the working directory its daemon reported", () => {
+  const registry = createRegistry();
+  const daemon = registry.connectDaemon({ userId: "ada", send: () => undefined });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/.local/share/exterior/workspace", agents: [] });
+  assert.equal(registry.listMachines("ada")[0]?.workingDirectory, "/home/ada/.local/share/exterior/workspace");
+});
+
 test("opening a session waits until the machine starts the agent, then the ticket works once", async () => {
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const machineId = registry.listMachines("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });
@@ -52,7 +64,7 @@ test("a ticket that nobody claims ends the session", async () => {
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ now: () => clock, openTimeoutMs: 50, ticketTtlMs: 10 });
   const daemon = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const machineId = registry.listMachines("ada")[0]?.id ?? "";
   const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });
   const open = sent[0];
@@ -70,7 +82,7 @@ test("a socket that dies before any frame does not burn the ticket", async () =>
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const machineId = registry.listMachines("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });
@@ -107,7 +119,7 @@ test("a second infant take supersedes the first, keeping one live socket", async
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const machineId = registry.listMachines("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });
@@ -141,9 +153,9 @@ test("live sessions are listed per account without reading ACP payloads", async 
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const ada = registry.connectDaemon({ userId: "ada", send: (message) => sent.push(message) });
-  ada.receive({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] });
+  ada.receive({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const bea = registry.connectDaemon({ userId: "bea", send: () => undefined });
-  bea.receive({ type: "hello", hostname: "field", agents: [{ name: "work", agentType: "opencode" }] });
+  bea.receive({ type: "hello", hostname: "field", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   assert.deepEqual(registry.listSessions("ada"), []);
   const machineId = registry.listMachines("ada")[0]?.id ?? "";
   const pending = registry.openSession({ userId: "ada", machineId, agentName: "work" });

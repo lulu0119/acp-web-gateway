@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { readGatewayConfig } from "../../config.js";
+import { readGatewayConfig, workingDirectoryPath } from "../../config.js";
 import { runDaemon } from "../../daemon.js";
 import { signedInDeviceId, usableSignIn } from "../../login.js";
 import { defineCommand } from "../command.js";
@@ -43,6 +43,7 @@ export const daemon = defineCommand({
         inform,
         hostname: hostname(),
         deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
+        workingDirectory: workingDirectoryPath(io.homeDirectory),
         agents: config.agents,
         signal: context.signal,
         catalog: registry.ok ? registry.agents : [],

@@ -30,6 +30,7 @@ const IdSchema = v.pipe(v.string(), v.regex(idPattern));
 const NameSchema = v.pipe(v.string(), v.regex(namePattern));
 const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
 const HostnameSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(256));
+const PathSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(4096));
 const PayloadSchema = v.pipe(v.string(), v.maxLength(maxPayloadLength));
 const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureLength));
 
@@ -37,6 +38,14 @@ const HelloSchema = v.object({
   type: v.literal("hello"),
   hostname: HostnameSchema,
   deviceId: v.optional(IdSchema),
+  /**
+   * The directory this device works in when a web app names none.
+   *
+   * A web app runs on another computer, so it cannot name a directory here.
+   * It sends this one rather than `/`, which on the device is the root of a
+   * drive or of the whole filesystem.
+   */
+  workingDirectory: PathSchema,
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
 });
 const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
@@ -55,6 +64,7 @@ export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
 export type Machine = {
   id: string;
   hostname: string;
+  workingDirectory: string;
   agents: readonly AgentSlot[];
 };
 

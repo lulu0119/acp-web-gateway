@@ -28,6 +28,10 @@ _Avoid_: Example (Example is one web app in this repo, not the product)
 One live ACP session with one agent on one device.
 _Avoid_: port, nonce, gateway process
 
+**Working directory**:
+The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, `~/.local/share/exterior/workspace`, which the device reports when it connects.
+_Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
+
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. An infant socket that dies before any ACP frame flows does not consume it.
 _Avoid_: token, code, reusable URL

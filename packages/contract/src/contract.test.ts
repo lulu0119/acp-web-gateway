@@ -2,17 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
 
-test("a daemon hello names the machine and its agent configurations", () => {
-  assert.deepEqual(
-    parseDaemonMessage({
-      type: "hello",
-      hostname: "studio",
-      agents: [{ name: "work", agentType: "opencode" }],
-    }),
-    { type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] },
-  );
-  assert.equal(parseDaemonMessage({ type: "hello", hostname: "", agents: [] }), undefined);
-  assert.equal(parseDaemonMessage({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "OpenCode" }] }), undefined);
+test("a daemon hello names the machine, its working directory, and its agent configurations", () => {
+  const hello = {
+    type: "hello",
+    hostname: "studio",
+    workingDirectory: "C:\\Users\\person\\.local\\share\\exterior\\workspace",
+    agents: [{ name: "work", agentType: "opencode" }],
+  };
+  assert.deepEqual(parseDaemonMessage(hello), hello);
+  assert.equal(parseDaemonMessage({ ...hello, hostname: "" }), undefined);
+  assert.equal(parseDaemonMessage({ ...hello, agents: [{ name: "work", agentType: "OpenCode" }] }), undefined);
+  assert.equal(parseDaemonMessage({ ...hello, workingDirectory: "" }), undefined);
+  assert.equal(parseDaemonMessage({ type: "hello", hostname: "studio", agents: [] }), undefined);
 });
 
 test("frames and session ids cross the relay unchanged", () => {

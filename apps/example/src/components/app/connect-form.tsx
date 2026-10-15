@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type ConnectedAgent = { agentType: string; url: string; label: string };
+export type ConnectedAgent = { agentType: string; url: string; label: string; workingDirectory: string };
 
 export function ConnectForm({ session, onConnected }: { session: AccountSession; onConnected: (agent: ConnectedAgent) => void }) {
   const relayUrl = exteriorRelayUrl();
@@ -47,6 +47,7 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
     machine.agents.map((agent) => ({
       value: selectionOf(machine.id, agent.name),
       label: `${machine.hostname} / ${agent.name}`,
+      workingDirectory: machine.workingDirectory,
     })),
   );
   const selected = items.find((item) => item.value === selection);
@@ -92,7 +93,12 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
               setBusy(true);
               void openConnection(relayUrl, accessToken, parsed)
                 .then((opened) => {
-                  onConnected({ agentType: opened.agentType, url: opened.url, label: selected.label });
+                  onConnected({
+                    agentType: opened.agentType,
+                    url: opened.url,
+                    label: selected.label,
+                    workingDirectory: selected.workingDirectory,
+                  });
                 })
                 .catch((error: unknown) => {
                   setStatus(error instanceof Error ? error.message : "Exterior did not open the agent.");

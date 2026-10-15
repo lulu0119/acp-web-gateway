@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import {
-  commandOnPath,
   formatRegistryAgents,
   launchForEntry,
   loadAcpRegistry,
@@ -12,6 +11,7 @@ import {
   platformTarget,
   resolveStoredAgent,
 } from "./acp-registry.js";
+import { resolveCommand, type Executable } from "./launch.js";
 
 const registryText = JSON.stringify({
   version: "1.0.0",
@@ -59,27 +59,32 @@ test("registry entries prefer npx, then uvx, then a binary command already on PA
   const cursor = agents.find((agent) => agent.id === "cursor");
   assert.ok(claude && fast && opencode && cursor);
 
-  assert.deepEqual(launchForEntry({ entry: claude, platform: "darwin-aarch64", commandExists: () => false, userEnv: { KEY: "person" } }), {
+  assert.deepEqual(launchForEntry({ entry: claude, platform: "darwin-aarch64", resolve: installs("npx"), userEnv: { KEY: "person" } }), {
     ok: true,
-    launch: { command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"], env: { KEY: "person" } },
+    launch: { executable: image("npx"), args: ["-y", "@agentclientprotocol/claude-agent-acp@0.89.1"], env: { KEY: "person" } },
   });
   assert.deepEqual(
-    launchForEntry({ entry: fast, platform: "darwin-aarch64", commandExists: () => false, userEnv: { FAST_AGENT_MODEL: "other" } }),
-    { ok: true, launch: { command: "uvx", args: ["fast-agent-acp==0.10.1", "-x"], env: { FAST_AGENT_MODEL: "other" } } },
+    launchForEntry({ entry: fast, platform: "darwin-aarch64", resolve: installs("uvx"), userEnv: { FAST_AGENT_MODEL: "other" } }),
+    { ok: true, launch: { executable: image("uvx"), args: ["fast-agent-acp==0.10.1", "-x"], env: { FAST_AGENT_MODEL: "other" } } },
   );
-  assert.deepEqual(launchForEntry({ entry: opencode, platform: "darwin-aarch64", commandExists: (command) => command === "opencode" }), {
+  assert.deepEqual(launchForEntry({ entry: opencode, platform: "darwin-aarch64", resolve: installs("opencode") }), {
     ok: true,
-    launch: { command: "opencode", args: ["acp"], env: { OPENCODE_CONFIG: "registry" } },
+    launch: { executable: image("opencode"), args: ["acp"], env: { OPENCODE_CONFIG: "registry" } },
   });
-  assert.deepEqual(launchForEntry({ entry: opencode, platform: "windows-x86_64", commandExists: (command) => command === "opencode.exe" }), {
+  // The archive holds opencode.exe; the npm install answers to opencode with a .cmd shim.
+  assert.deepEqual(launchForEntry({ entry: opencode, platform: "windows-x86_64", resolve: installs("opencode") }), {
     ok: true,
-    launch: { command: "opencode.exe", args: ["acp"], env: {} },
+    launch: { executable: image("opencode"), args: ["acp"], env: {} },
   });
-  assert.deepEqual(launchForEntry({ entry: opencode, platform: "darwin-aarch64", commandExists: () => false }), {
+  assert.deepEqual(launchForEntry({ entry: opencode, platform: "darwin-aarch64", resolve: () => undefined }), {
     ok: false,
     message: '"opencode" is not installed.',
   });
-  assert.deepEqual(launchForEntry({ entry: cursor, platform: "darwin-aarch64", commandExists: () => true }), {
+  assert.deepEqual(launchForEntry({ entry: claude, platform: "darwin-aarch64", resolve: () => undefined }), {
+    ok: false,
+    message: '"npx" is not installed.',
+  });
+  assert.deepEqual(launchForEntry({ entry: cursor, platform: "darwin-aarch64", resolve: installs("cursor") }), {
     ok: false,
     message: 'Agent type "cursor" has no build for this platform.',
   });
@@ -94,31 +99,52 @@ test("a stored configuration uses its command, or the registry entry", () => {
       agent: { name: "mine", agentType: "custom", env: { A: "1" }, command: "my-agent", args: ["--stdio"] },
       agents,
       platform: "darwin-aarch64",
-      commandExists: () => false,
+      resolve: installs("my-agent"),
     }),
-    { command: "my-agent", args: ["--stdio"], env: { A: "1" } },
+    { executable: image("my-agent"), args: ["--stdio"], env: { A: "1" } },
+  );
+  // A custom command the person uninstalled is left out of hello.
+  assert.equal(
+    resolveStoredAgent({
+      agent: { name: "mine", agentType: "custom", env: {}, command: "my-agent" },
+      agents,
+      platform: "darwin-aarch64",
+      resolve: () => undefined,
+    }),
+    undefined,
   );
   assert.equal(
     resolveStoredAgent({
       agent: { name: "work", agentType: "opencode", env: {} },
       agents,
       platform: "darwin-aarch64",
-      commandExists: () => false,
+      resolve: () => undefined,
     }),
     undefined,
   );
 });
 
-test("PATH lookup uses the file name and Windows extensions", async () => {
+function image(name: string): Executable {
+  return { kind: "image", path: join("/installed", name) };
+}
+
+function installs(...commands: string[]): (command: string) => Executable | undefined {
+  return (command) => (commands.includes(command) ? image(command) : undefined);
+}
+
+test("PATH lookup answers with the file this machine would start", async () => {
   const directory = await mkdtemp(join(tmpdir(), "exterior-path-"));
   const command = join(directory, "opencode");
   await writeFile(command, "", "utf8");
   await chmod(command, 0o755);
   await writeFile(join(directory, "kimi.CMD"), "", "utf8");
-  assert.equal(commandOnPath("opencode", directory, { windows: false }), true);
-  assert.equal(commandOnPath("missing", directory, { windows: false }), false);
-  assert.equal(commandOnPath("kimi", directory, { windows: true, pathExt: ".CMD" }), true);
-  assert.equal(commandOnPath("kimi", directory, { windows: false }), false);
+  assert.deepEqual(resolveCommand("opencode", { windows: false, pathValue: directory }), { kind: "image", path: command });
+  assert.equal(resolveCommand("missing", { windows: false, pathValue: directory }), undefined);
+  assert.deepEqual(resolveCommand("kimi", { windows: true, pathExt: ".CMD", pathValue: directory }), {
+    kind: "batch",
+    path: join(directory, "kimi.CMD"),
+  });
+  assert.equal(resolveCommand("kimi", { windows: false, pathValue: directory }), undefined);
   assert.equal(platformTarget("darwin", "arm64"), "darwin-aarch64");
   assert.equal(platformTarget("freebsd", "x64"), undefined);
 });

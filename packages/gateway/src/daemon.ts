@@ -1,6 +1,7 @@
 import { daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
+import { mkdir } from "node:fs/promises";
 import WebSocket from "ws";
-import { commandOnPath, loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
+import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
 import { DaemonLoginRequiredError, loginAgain } from "./login.js";
@@ -11,10 +12,13 @@ export async function runDaemon(input: {
   inform: (line: string) => void;
   hostname: string;
   deviceId?: string;
+  workingDirectory: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
 }): Promise<void> {
+  // Agents start here, and web apps are told it is where this device works.
+  await mkdir(input.workingDirectory, { recursive: true });
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
   const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);
   let authentication: "ready" | "refresh" | "refreshed" = "ready";
@@ -67,6 +71,7 @@ function connectOnce(input: {
   inform: (line: string) => void;
   hostname: string;
   deviceId?: string;
+  workingDirectory: string;
   agents: readonly StoredAgent[];
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
@@ -81,6 +86,7 @@ function connectOnce(input: {
   const host = createDaemonHost({
     hostname: input.hostname,
     deviceId: input.deviceId,
+    workingDirectory: input.workingDirectory,
     agents: input.agents,
     send(message: DaemonMessage) {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
@@ -90,7 +96,6 @@ function connectOnce(input: {
         agent,
         agents: input.catalog,
         platform: platformTarget(),
-        commandExists: (command) => commandOnPath(command),
       });
     },
   });

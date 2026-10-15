@@ -25,7 +25,7 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
     await once(daemon, "open");
     const denied = await fetch(`${base}/api/machines`);
     assert.equal(denied.status, 401);
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const machineId = await waitForMachine(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
@@ -75,7 +75,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const machineId = await waitForMachine(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
@@ -124,7 +124,7 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const machineId = await waitForMachine(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
