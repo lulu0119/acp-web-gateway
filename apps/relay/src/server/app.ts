@@ -8,7 +8,7 @@ import type { Registry } from "./connections/registry.js";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
-import { askConsentForLoopback } from "./identity/clients.js";
+import { guardAuthRequest } from "./identity/clients.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
 import { createPageRenderer } from "./rendering/render-page.js";
@@ -90,7 +90,10 @@ export function createRelayApp(input: {
     heartbeatMs: input.heartbeatMs,
   });
   app.use("/assets/*", serveStatic({ root: publicDir }));
-  app.all("/api/auth/*", (c) => input.exterior.auth.handler(askConsentForLoopback(c.req.raw)));
+  app.all("/api/auth/*", async (c) => {
+    const guarded = await guardAuthRequest(input.exterior, c.req.raw);
+    return guarded instanceof Response ? guarded : input.exterior.auth.handler(guarded);
+  });
 
   return { app, injectWebSocket: sockets.injectWebSocket };
 }

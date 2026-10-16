@@ -45,7 +45,7 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
    Then `systemctl --user enable --now exterior`. A user unit runs while you are logged in; `loginctl enable-linger` keeps it running without a login.
 
-3. The web app redirects the person to Exterior. Exterior asks for consent, then sends them back. Example does this from **Sign in with Exterior**: there is nothing to configure, and the app receives its client id with the approval address. The relay keeps one client per redirect address, so an app on https that is already approved comes straight back; an app on `localhost` is asked every time. An app can send a name and an icon (a small PNG, JPEG, GIF, or WebP `data:` URI) to `useAccount`; the consent page and the dashboard show them beside the app's address. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/exterior/@exterior/client@main`.
+3. The web app redirects the person to Exterior. Exterior asks for consent, then sends them back. Example does this from **Sign in with Exterior**: there is nothing to configure, and the app receives its client id with the approval address. A web app registers itself with the relay (RFC 7591), or, served over https, names itself by the address of a metadata document the relay reads (Client ID Metadata Documents). Either way it is one client and one row in Authorized apps, and an app that is already approved comes straight back, unless it returns to `localhost`: a redirect to this computer proves nothing about which program asks, so that app is asked every time. An app passes `clientId` to `useAccount` when it has one, or a `clientName` and `logoUri` for the relay to show while it registers itself. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/exterior/@exterior/client@main`.
 
 4. The web app lists the account's online devices and asks Exterior to open one agent. Exterior returns a one-time WebSocket address. The page uses that address as the ACP connection.
 
@@ -56,7 +56,7 @@ The daemon checks its saved credentials before each connection attempt and refre
 ## Decisions
 
 - [Removing a device deletes the daemon tokens stamped with its id](docs/adr/0020-removing-a-device-deletes-its-tokens.md)
-- [A web app that names itself is one client per redirect address](docs/adr/0021-a-web-app-is-one-client-per-redirect.md)
+- [A web app registers itself, or names itself by its own document](docs/adr/0021-a-web-app-registers-itself.md)
 - [A device keeps its id through signing out, and is online once](docs/adr/0019-a-device-keeps-its-id-and-one-connection.md)
 - [The desktop app is a Tauri tray](docs/adr/0018-the-desktop-app-is-a-tauri-tray.md)
 - [The daemon ships as one executable](docs/adr/0017-the-daemon-ships-as-one-executable.md)

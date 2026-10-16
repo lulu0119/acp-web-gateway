@@ -10,8 +10,8 @@ import type { AccountSession } from "@exterior/client/react";
 import { useAccount } from "@exterior/client/react";
 import { Button } from "@/components/ui/button";
 import { accountPaths } from "@/lib/account-paths";
+import { exampleClientId, exampleLogoUri } from "@/lib/client-id";
 import { exteriorRelayUrl } from "@/lib/relay-url";
-import mark from "@/assets/exterior-mark.png?inline";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
@@ -56,7 +56,14 @@ export function App() {
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
   }
 
-  const session = useAccount(exteriorRelayUrl(), { ...accountPaths(window.location.origin, import.meta.env.BASE_URL), logo: mark });
+  const pageOrigin = window.location.origin;
+  const base = import.meta.env.BASE_URL;
+  const session = useAccount(exteriorRelayUrl(), {
+    ...accountPaths(pageOrigin, base),
+    clientId: exampleClientId(pageOrigin, base),
+    clientName: "Example",
+    logoUri: exampleLogoUri(pageOrigin, base),
+  });
 
   const handleSignOut = useCallback(() => {
     session.signOut();

@@ -1,4 +1,4 @@
-import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, storedAccessToken } from "./oauth.js";
+import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, storedAccessToken, type BrowserStore } from "./oauth.js";
 import { useCallback, useEffect, useState } from "react";
 
 export type Account = { phase: "checking" } | { phase: "signed-out" } | { phase: "signed-in"; accessToken: string };
@@ -13,7 +13,15 @@ export type AccountSession = {
 
 export function useAccount(
   relayUrl: string,
-  init?: { redirectUri?: string; returnTo?: string; clientName?: string; logo?: string },
+  init?: {
+    redirectUri?: string;
+    returnTo?: string;
+    /** A client an account registered, or the https address of the app's Client ID Metadata Document. */
+    clientId?: string;
+    /** For an app that registers itself: the name and logo the relay shows for it. */
+    clientName?: string;
+    logoUri?: string;
+  },
 ): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
@@ -25,7 +33,7 @@ export function useAccount(
     const store = window.sessionStorage;
     const returning = window.location.pathname === new URL(redirectUri).pathname;
     const token = returning
-      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store }).then((tokens) => {
+      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store, registrations: browserRegistrations() }).then((tokens) => {
           window.history.replaceState({}, "", returnTo);
           return tokens.accessToken;
         })
@@ -49,7 +57,15 @@ export function useAccount(
   const signIn = useCallback(() => {
     setBusy(true);
     setError("");
-    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage, clientName: init?.clientName, logo: init?.logo })
+    void beginBrowserSignIn({
+      relayUrl,
+      redirectUri,
+      store: window.sessionStorage,
+      registrations: browserRegistrations(),
+      clientId: init?.clientId,
+      clientName: init?.clientName,
+      logoUri: init?.logoUri,
+    })
       .then((url) => {
         window.location.assign(url);
       })
@@ -57,7 +73,7 @@ export function useAccount(
         setError(error instanceof Error ? error.message : "Exterior did not answer.");
         setBusy(false);
       });
-  }, [relayUrl, redirectUri, init?.clientName, init?.logo]);
+  }, [relayUrl, redirectUri, init?.clientId, init?.clientName, init?.logoUri]);
 
   const signOut = useCallback(() => {
     clearBrowserSignIn(window.sessionStorage);
@@ -66,4 +82,13 @@ export function useAccount(
   }, []);
 
   return { account, busy, error, signIn, signOut };
+}
+
+/** `localStorage`, when the browser allows it: a private window or blocked storage registers on every sign-in. */
+function browserRegistrations(): BrowserStore | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }

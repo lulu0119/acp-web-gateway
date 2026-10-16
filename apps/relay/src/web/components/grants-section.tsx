@@ -81,7 +81,7 @@ export function GrantsSection() {
               className="items-start gap-3 rounded-none border-x-0 border-t-0 border-border px-0 py-4 last:border-b-0"
             >
               <ItemMedia>
-                <AppIcon label={app.clientName} iconUrl={app.iconUrl} className="size-8 rounded-lg" />
+                <AppIcon label={app.clientName} logoUri={app.logoUri} className="size-8 rounded-lg" />
               </ItemMedia>
               <ItemContent className="min-w-0">
                 <ItemTitle className="w-full min-w-0 line-clamp-none text-base leading-6 font-semibold wrap-anywhere">{app.clientName}</ItemTitle>

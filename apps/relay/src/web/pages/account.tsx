@@ -253,7 +253,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
       header={(
         <>
           <div className="flex items-center gap-3" aria-hidden>
-            <AppIcon label={name || site} iconUrl={page.iconUrl} className="size-14 rounded-2xl text-xl" />
+            <AppIcon label={name || site} logoUri={page.logoUri} className="size-14 rounded-2xl text-xl" />
             <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
             <ExteriorMark className="size-14" />
           </div>

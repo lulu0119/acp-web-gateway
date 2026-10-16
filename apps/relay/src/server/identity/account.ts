@@ -51,8 +51,9 @@ export async function readConsent(request: Request, exterior: ExteriorAuth): Pro
       origin: originOf(redirectUri),
       redirectUri,
       clientUri: meta?.clientUri,
-      iconUrl: meta?.iconUrl,
-      unverified: !meta?.registered,
+      logoUri: meta?.logoUri,
+      // A metadata document proves its own origin, so an app returning there is that origin's.
+      unverified: !meta?.registered && !(meta?.metadataDocument && originOf(clientId) === originOf(redirectUri)),
       account: accountView(account),
       permissions: describeScopes(scopes),
     },
