@@ -40,8 +40,7 @@ export function configuredWorkingDirectory(config: GatewayConfig, homeDirectory 
 /**
  * The directory if it can be worked in, or undefined after saying why.
  *
- * Creating it is the whole check: `mkdir` knows this system's rules, and its reason is
- * the only accurate one.
+ * Creating it is the check.
  */
 export async function usableWorkingDirectory(directory: string, inform: (line: string) => void): Promise<string | undefined> {
   try {

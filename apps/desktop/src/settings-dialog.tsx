@@ -4,19 +4,13 @@ import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText, type WorkingDirectory } from "./api";
 
-type Load = { kind: "loading" } | { kind: "ready"; value: WorkingDirectory } | { kind: "error"; message: string };
+type Load<T> = { kind: "loading" } | { kind: "ready"; value: T } | { kind: "error"; message: string };
 
-/**
- * This device's own preferences.
- *
- * The directory is chosen, never typed: the system's own picker hands back one that
- * exists and is absolute, so there is no path here to get wrong.
- */
 export function SettingsDialog({ open, onOpenChange }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [load, setLoad] = useState<Load>({ kind: "loading" });
+  const [load, setLoad] = useState<Load<WorkingDirectory>>({ kind: "loading" });
   const [choosing, setChoosing] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -37,7 +31,6 @@ export function SettingsDialog({ open, onOpenChange }: {
       const current = load.kind === "ready" ? load.value.workingDirectory : undefined;
       const picked = await openFolderPicker({ directory: true, multiple: false, defaultPath: current });
       const directory = Array.isArray(picked) ? picked[0] : picked;
-      // Nothing to write when the person closed the dialog.
       if (!directory) return;
       await api.setWorkingDirectory(directory);
       reload();

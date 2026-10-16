@@ -56,7 +56,6 @@ const set = defineCommand({
       return 0;
     }
     const directory = resolve(expandHome(path ?? ""));
-    // Creating it is the check: a path this device cannot work in is refused here.
     const usable = await usableWorkingDirectory(directory, (line: string) => io.stderr.write(`${line}\n`));
     if (!usable) return 1;
     await writeGatewayConfig({ ...config, workingDirectory: usable }, io.homeDirectory);
@@ -76,7 +75,7 @@ export const config = defineCommand({
   children: [show, set],
 });
 
-/** A leading `~` is this person's home. The home is not a path to guess at from the cwd. */
+/** A leading `~` is this person's home. */
 function expandHome(path: string): string {
   if (path === "~") return homedir();
   if (path.startsWith("~/") || path.startsWith("~\\")) return resolve(homedir(), path.slice(2));

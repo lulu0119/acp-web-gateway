@@ -96,8 +96,6 @@ async fn working_directory() -> Result<serde_json::Value, String> {
 }
 
 /// Writes the directory the person picked in the window's folder dialog.
-/// The dialog hands back one that exists and is absolute; `set` still creates
-/// it, so a directory deleted since is back before a session needs it.
 #[tauri::command]
 async fn set_working_directory(directory: String) -> Result<(), String> {
     cli::run(&["config", "set", "--working-directory", &directory]).map(|_| ())

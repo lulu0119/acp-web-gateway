@@ -2,7 +2,7 @@ import { DeviceRegistrationError } from "@exterior/client";
 import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
 import WebSocket from "ws";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
-import { configuredWorkingDirectory, usableWorkingDirectory, type GatewayConfig } from "./config.js";
+import { usableWorkingDirectory, type GatewayConfig } from "./config.js";
 import { createDaemonHost } from "./host.js";
 import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
@@ -33,17 +33,17 @@ export async function runDaemon(input: {
   /** How often the daemon pings the relay. A ping still unanswered at the next one ends the connection, which then reconnects. */
   heartbeatMs?: number;
 }): Promise<void> {
-  // Made once here as well as when it is set, so a directory deleted since is back before a session needs it.
+  // A directory deleted since it was set is made again before a session needs it.
   await usableWorkingDirectory(input.config.workingDirectory, input.inform);
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
   const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);
   let config = input.config;
   let host: DaemonHost | undefined;
-  // Configuration changes queue: a directory is made before the hello that carries it.
+  // Changes queue so a directory is made before the hello that carries it.
   let applied = Promise.resolve();
   const unsubscribe = input.configUpdates?.((next) => {
     applied = applied.then(async () => {
-      // A directory that cannot be made is not one a session can work in, so the last good one stays.
+      // A directory that cannot be made keeps the last good one.
       if (next.workingDirectory !== config.workingDirectory) {
         const usable = await usableWorkingDirectory(next.workingDirectory, input.inform);
         if (!usable) return;

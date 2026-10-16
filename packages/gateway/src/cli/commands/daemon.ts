@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { configuredWorkingDirectory, readGatewayConfig, watchGatewayConfig, type GatewayConfig, type StoredAgent } from "../../config.js";
+import { configuredWorkingDirectory, readGatewayConfig, watchGatewayConfig, type StoredAgent } from "../../config.js";
 import { daemonStateReporter, readDaemonState } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
 import { DaemonLoginRequiredError, deviceIdFor, registerSignedInDevice, usableSignIn } from "../../login.js";
