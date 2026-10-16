@@ -34,7 +34,7 @@ A running daemon picks the change up and opens later sessions there; sessions al
 
 ## Desktop app
 
-On a desktop, the Exterior app does the same without a terminal. It sits in the tray, starts at login, and runs one daemon for each relay the device is signed in to, starting it again if it stops. Its window signs in to relays, chooses the directory sessions work in with the system's folder picker, and adds or removes agents. Quitting the app stops the daemons, so the device goes offline. Download it from the [latest release](https://github.com/lulu0119/exterior/releases/latest); the relay's Add device offers the file for the computer it is opened on. The app is not signed yet, so macOS and Windows ask once before opening it.
+On a desktop, the Exterior app does the same without a terminal. It sits in the tray, starts at login, and runs one daemon for each relay the device is signed in to, starting it again if it stops. Its window signs in to relays and adds or removes agents, and Settings chooses the directory sessions work in with the system's folder picker. Quitting the app stops the daemons, so the device goes offline. Download it from the [latest release](https://github.com/lulu0119/exterior/releases/latest); the relay's Add device offers the file for the computer it is opened on. The app is not signed yet, so macOS and Windows ask once before opening it.
 
 ## Linux server without a desktop
 
