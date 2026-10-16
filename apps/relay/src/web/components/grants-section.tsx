@@ -1,6 +1,7 @@
 import { AppWindowIcon, CircleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { GrantedApp } from "../../shared/account-web.js";
+import { AppIcon } from "./app-icon.js";
 import { Button } from "@exterior/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
 import { EmptyState } from "@exterior/ui/empty-state";
@@ -79,12 +80,12 @@ export function GrantsSection() {
               role="listitem"
               className="items-start gap-3 rounded-none border-x-0 border-t-0 border-border px-0 py-4 last:border-b-0"
             >
-              <ItemMedia variant="icon" className="size-8 rounded-lg bg-muted font-semibold text-muted-foreground">
-                {(app.clientName.trim().charAt(0) || "?").toUpperCase()}
+              <ItemMedia>
+                <AppIcon label={app.clientName} iconUrl={app.iconUrl} className="size-8 rounded-lg" />
               </ItemMedia>
               <ItemContent className="min-w-0">
                 <ItemTitle className="w-full min-w-0 line-clamp-none text-base leading-6 font-semibold wrap-anywhere">{app.clientName}</ItemTitle>
-                {app.clientUri ? <ItemDescription className="line-clamp-none leading-6 font-medium text-foreground wrap-anywhere">{hostOf(app.clientUri)}</ItemDescription> : null}
+                {app.origin ? <ItemDescription className="line-clamp-none leading-6 font-medium text-foreground wrap-anywhere">{hostOf(app.origin)}</ItemDescription> : null}
                 <p className="text-xs leading-5 text-muted-foreground">Authorized {formatDate(app.grantedAt)}</p>
               </ItemContent>
               <ItemActions className="shrink-0">

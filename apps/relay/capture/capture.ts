@@ -13,7 +13,7 @@
 
 import { spawn } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
-import { mkdir, rm, symlink, unlink } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +67,26 @@ const surfaces: Surface[] = [
       await page.waitForSelector("[role=dialog] >> text=Remove device");
     },
   },
+  {
+    name: "authorized-apps",
+    path: "/",
+    // The dashboard's second section, below the devices.
+    ready: async (page) => {
+      await page.waitForFunction(() => document.querySelectorAll("[aria-labelledby=apps-heading] [role=listitem]").length > 0);
+      await page.evaluate(() => document.querySelector("#apps-heading")?.scrollIntoView({ block: "start" }));
+    },
+  },
+  {
+    name: "consent",
+    path: "/",
+    // A web app on this computer asking for the first time.
+    ready: async (page) => {
+      const origin = new URL(page.url()).origin;
+      const url = await startApproval(origin, { clientName: "Example", logo: await fixtureLogo(), redirectUri: "http://localhost:5173/oauth/callback" });
+      await page.goto(url);
+      await page.waitForSelector("text=wants to use agents on your devices");
+    },
+  },
   { name: "sign-in", path: "/sign-in", ready: async (page) => await page.waitForSelector("form") },
   { name: "device-code", path: "/device", ready: async (page) => await page.waitForSelector("form") },
 ];
@@ -78,6 +98,58 @@ const fixtureDevices: { id: string; hostname: string; agents: string[]; lastSeen
   { id: "device-server", hostname: "build-server", agents: [], lastSeenMinutesAgo: 43 },
   { id: "device-old", hostname: "old-laptop", agents: [], lastSeenMinutesAgo: 60 * 24 * 9 },
 ];
+
+/** The apps the account has authorized: one that sent an icon, one that did not. */
+const fixtureApps: { clientName: string; redirectUri: string; withLogo: boolean }[] = [
+  { clientName: "Example", redirectUri: "https://lulu0119.github.io/exterior/oauth/callback", withLogo: true },
+  { clientName: "Notes", redirectUri: "https://notes.example.test/callback", withLogo: false },
+];
+
+/** Example's own icon. A run from a base worktree needs the file copied there. */
+async function fixtureLogo(): Promise<string> {
+  const bytes = await readFile(join(repositoryRoot, "apps/example/src/assets/exterior-mark.png"));
+  return `data:image/png;base64,${bytes.toString("base64")}`;
+}
+
+/** Asks the relay to approve a web app, as `@exterior/client` does, and returns the address to open. */
+async function startApproval(publicUrl: string, input: { clientName: string; logo?: string; redirectUri: string }): Promise<string> {
+  const response = await fetch(`${publicUrl}/api/authorize-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      ...input,
+      scopes: ["devices", "offline_access"],
+      state: randomUUID(),
+      codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    }),
+  });
+  if (!response.ok) throw new Error(`Starting the approval of ${input.clientName} failed (HTTP ${response.status}).`);
+  return ((await response.json()) as { url: string }).url;
+}
+
+/** Approves each fixture app through the consent page, so Authorized apps lists them. */
+async function authorizeApps(input: { publicUrl: string; sessionCookie: string }): Promise<void> {
+  const headers = { cookie: input.sessionCookie };
+  for (const fixture of fixtureApps) {
+    const url = await startApproval(input.publicUrl, {
+      clientName: fixture.clientName,
+      logo: fixture.withLogo ? await fixtureLogo() : undefined,
+      redirectUri: fixture.redirectUri,
+    });
+    // A request that is not a browser navigation gets the redirect as JSON.
+    const prompted = await fetch(url, { headers });
+    const redirect = ((await prompted.json().catch(() => ({}))) as { url?: string }).url ?? "";
+    const consent = new URL(redirect, input.publicUrl);
+    if (consent.pathname !== "/consent") throw new Error(`Authorizing ${fixture.clientName} did not reach the consent page (HTTP ${prompted.status}).`);
+    const approved = await fetch(`${input.publicUrl}/consent`, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ accept: "yes", query: consent.search.slice(1) }),
+      redirect: "manual",
+    });
+    if (approved.status !== 302) throw new Error(`Authorizing ${fixture.clientName} failed (HTTP ${approved.status}).`);
+  }
+}
 
 type Options = {
   label: string;
@@ -370,6 +442,7 @@ async function main(): Promise<void> {
   const daemons: { close: () => void }[] = [];
   const browser = await chromium.launch();
   try {
+    await authorizeApps({ publicUrl, sessionCookie: session.cookie });
     const accessToken = await mintDaemonToken({ publicUrl, sessionCookie: session.cookie });
     for (const fixture of fixtureDevices) {
       // Only the devices the pair should show as online hold a connection.

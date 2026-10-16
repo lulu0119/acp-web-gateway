@@ -290,7 +290,8 @@ export async function requestApprovalUrl(input: {
   relayUrl: string;
   redirectUri: string;
   clientName?: string;
-  logoUri?: string;
+  /** The app's icon as a PNG, JPEG, GIF, or WebP `data:` URI of at most 64 KB. The relay serves its own copy. */
+  logo?: string;
   scope?: string;
   state: string;
   codeChallenge: string;
@@ -300,7 +301,7 @@ export async function requestApprovalUrl(input: {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       clientName: input.clientName ?? `Web app at ${new URL(input.redirectUri).origin}`,
-      logoUri: input.logoUri,
+      logo: input.logo,
       redirectUri: input.redirectUri,
       scopes: (input.scope ?? devicesScope).split(" ").filter((scope) => scope.length > 0),
       state: input.state,
@@ -332,6 +333,7 @@ export async function beginBrowserSignIn(input: {
   redirectUri: string;
   store: BrowserStore;
   clientName?: string;
+  logo?: string;
 }): Promise<string> {
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const state = oauth.generateRandomState();
@@ -339,6 +341,7 @@ export async function beginBrowserSignIn(input: {
     relayUrl: input.relayUrl,
     redirectUri: input.redirectUri,
     clientName: input.clientName,
+    logo: input.logo,
     state,
     codeChallenge: await oauth.calculatePKCECodeChallenge(codeVerifier),
   });

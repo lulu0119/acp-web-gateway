@@ -11,7 +11,10 @@ export type AccountSession = {
   signOut: () => void;
 };
 
-export function useAccount(relayUrl: string, init?: { redirectUri?: string; returnTo?: string }): AccountSession {
+export function useAccount(
+  relayUrl: string,
+  init?: { redirectUri?: string; returnTo?: string; clientName?: string; logo?: string },
+): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,7 +49,7 @@ export function useAccount(relayUrl: string, init?: { redirectUri?: string; retu
   const signIn = useCallback(() => {
     setBusy(true);
     setError("");
-    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage })
+    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage, clientName: init?.clientName, logo: init?.logo })
       .then((url) => {
         window.location.assign(url);
       })
@@ -54,7 +57,7 @@ export function useAccount(relayUrl: string, init?: { redirectUri?: string; retu
         setError(error instanceof Error ? error.message : "Exterior did not answer.");
         setBusy(false);
       });
-  }, [relayUrl, redirectUri]);
+  }, [relayUrl, redirectUri, init?.clientName, init?.logo]);
 
   const signOut = useCallback(() => {
     clearBrowserSignIn(window.sessionStorage);

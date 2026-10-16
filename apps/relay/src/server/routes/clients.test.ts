@@ -95,7 +95,7 @@ test("the birth certificate is issued at approval, not before", async () => {
   );
 });
 
-test("an app signing in again reuses its client and skips the consent it already has", async () => {
+test("an app signing in again reuses its client, skips the consent it has, and takes its latest name and logo", async () => {
   const { app, cookie } = await openRegistry();
   const studio = { clientName: "Studio", redirectUri: "https://app.example.test/callback", scopes: ["devices"] };
   const first = await startApproval(app, studio);
@@ -119,11 +119,47 @@ test("an app signing in again reuses its client and skips the consent it already
   const wider = await startApproval(app, { ...studio, scopes: ["devices", "offline_access"] });
   assert.equal(new URL(wider).searchParams.get("client_id"), firstClient);
 
-  const renamed = await startApproval(app, { ...studio, clientName: "Studio Next" });
-  assert.notEqual(new URL(renamed).searchParams.get("client_id"), firstClient);
+  const renamed = await startApproval(app, { ...studio, clientName: "Studio Next", logo: `data:image/png;base64,${onePixelPng}` });
+  assert.equal(new URL(renamed).searchParams.get("client_id"), firstClient);
 
-  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: { clientId: string }[] };
-  assert.deepEqual(listed.apps.map((item) => item.clientId), [firstClient]);
+  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as {
+    apps: { clientId: string; clientName: string; origin?: string; iconUrl?: string }[];
+  };
+  assert.deepEqual(
+    listed.apps.map((item) => ({ clientId: item.clientId, clientName: item.clientName, origin: item.origin })),
+    [{ clientId: firstClient, clientName: "Studio Next", origin: "https://app.example.test" }],
+  );
+  const icon = await app.request(`${publicUrl}${listed.apps[0]?.iconUrl ?? "/missing"}`);
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get("content-type"), "image/png");
+  assert.equal(icon.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(icon.headers.get("content-security-policy"), "default-src 'none'; sandbox");
+  assert.deepEqual(Buffer.from(await icon.arrayBuffer()), Buffer.from(onePixelPng, "base64"));
+});
+
+test("an app's logo must be a small raster image that is what it says", async () => {
+  const { app } = await openRegistry();
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString("base64");
+  for (const logo of [
+    `data:image/svg+xml;base64,${svg}`,
+    `data:image/jpeg;base64,${onePixelPng}`,
+    `data:image/png;base64,${Buffer.alloc(64 * 1024 + 1, 0x89).toString("base64")}`,
+    "https://app.example.test/logo.png",
+  ]) {
+    const started = await app.request(`${publicUrl}/api/authorize-request`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientName: "Studio",
+        logo,
+        redirectUri: "https://app.example.test/callback",
+        scopes: ["devices"],
+        state: "browser-state",
+        codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      }),
+    });
+    assert.equal(started.status, 400, logo.slice(0, 30));
+  }
 });
 
 test("denied approvals leave no grant and abandoned ones are pruned", async () => {
@@ -220,7 +256,9 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   assert.equal(asked.status, 200);
 });
 
-async function startApproval(app: Hono<RelayEnv>, input: { clientName: string; redirectUri: string; scopes: string[] }): Promise<string> {
+const onePixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+async function startApproval(app: Hono<RelayEnv>, input: { clientName: string; redirectUri: string; scopes: string[]; logo?: string }): Promise<string> {
   const started = await app.request(`${publicUrl}/api/authorize-request`, {
     method: "POST",
     headers: { "content-type": "application/json" },

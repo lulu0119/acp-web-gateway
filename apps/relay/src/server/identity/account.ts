@@ -58,6 +58,7 @@ export async function readConsent(request: Request, exterior: ExteriorAuth): Pro
       origin: originOf(redirectUri),
       redirectUri,
       clientUri: meta?.clientUri,
+      iconUrl: meta?.iconUrl,
       unverified: !meta?.registered,
       account: accountView(account),
       permissions: describeScopes(scopes),

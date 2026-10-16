@@ -50,7 +50,10 @@ export type SetupGuideData = {
 export type GrantedApp = {
   clientId: string;
   clientName: string;
-  clientUri?: string;
+  /** The relay's own copy of the icon the app sent. */
+  iconUrl?: string;
+  /** The origin the app returns to: where it runs. */
+  origin?: string;
   scopes: string[];
   grantedAt: string;
 };
@@ -69,6 +72,8 @@ export type AccountPage =
     origin: string;
     redirectUri: string;
     clientUri?: string;
+    /** The relay's own copy of the icon the app sent. */
+    iconUrl?: string;
     /** True when the name came from the app itself rather than from an account that registered it. */
     unverified: boolean;
     account: AccountView;

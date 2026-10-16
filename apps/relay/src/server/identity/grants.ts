@@ -1,12 +1,14 @@
 import type { ExteriorAuth } from "./auth.js";
 import type { Account } from "./session.js";
 import type { GrantedApp } from "../../shared/account-web.js";
+import { appIconPath, parseAppIcon, type AppIcon } from "./app-icons.js";
 import { registeredSoftwarePrefix } from "./clients.js";
 
 export type ClientMeta = {
   clientId: string;
   clientName: string;
   clientUri?: string;
+  iconUrl?: string;
   /** Whether an account registered the client; otherwise its name is whatever the app sent. */
   registered: boolean;
 };
@@ -23,6 +25,8 @@ type StoredClient = {
   clientId?: string;
   name?: string | null;
   uri?: string | null;
+  icon?: string | null;
+  redirectUris?: string[] | string | null;
   softwareId?: string | null;
 };
 
@@ -43,7 +47,8 @@ export async function listGrantedApps(exterior: ExteriorAuth, account: Account):
     apps.push({
       clientId: consent.clientId,
       clientName: client?.name ?? consent.clientId,
-      clientUri: client?.uri ?? undefined,
+      iconUrl: appIconPath(consent.clientId, client?.icon),
+      origin: firstRedirectOrigin(client?.redirectUris),
       scopes: Array.isArray(consent.scopes) ? consent.scopes : [],
       grantedAt: new Date(consent.createdAt).toISOString(),
     });
@@ -63,8 +68,29 @@ export async function findClientMeta(exterior: ExteriorAuth, clientId: string): 
     clientId,
     clientName: row.name ?? clientId,
     clientUri: row.uri ?? undefined,
+    iconUrl: appIconPath(clientId, row.icon),
     registered: row.softwareId?.startsWith(registeredSoftwarePrefix) ?? false,
   };
+}
+
+/** Where the app's approvals return, which is the part of an app the relay can vouch for. */
+function firstRedirectOrigin(redirectUris: string[] | string | null | undefined): string | undefined {
+  try {
+    const list: unknown = typeof redirectUris === "string" ? JSON.parse(redirectUris) : redirectUris;
+    return Array.isArray(list) && typeof list[0] === "string" ? new URL(list[0]).origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function findClientIcon(exterior: ExteriorAuth, clientId: string): Promise<AppIcon | undefined> {
+  const context = await exterior.auth.$context;
+  const rows = await context.adapter.findMany<StoredClient>({
+    model: "oauthClient",
+    where: [{ field: "clientId", value: clientId }],
+  });
+  const icon = rows.find((row) => row.clientId === clientId)?.icon;
+  return icon ? parseAppIcon(icon) : undefined;
 }
 
 export async function hasRememberedGrant(exterior: ExteriorAuth, account: Account, clientId: string, scopes: string[]): Promise<boolean> {

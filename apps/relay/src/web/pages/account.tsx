@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
+import { AppIcon } from "../components/app-icon.js";
 import { CodeBlock } from "../components/code-block.js";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
@@ -252,7 +253,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
       header={(
         <>
           <div className="flex items-center gap-3" aria-hidden>
-            <AppMonogram label={name || site} />
+            <AppIcon label={name || site} iconUrl={page.iconUrl} className="size-14 rounded-2xl text-xl" />
             <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
             <ExteriorMark className="size-14" />
           </div>
@@ -402,14 +403,6 @@ function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
 
 function IconBadge({ children }: { children: ReactNode }) {
   return <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-foreground/80 [&_svg]:size-6">{children}</span>;
-}
-
-function AppMonogram({ label }: { label: string }) {
-  return (
-    <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-xl font-semibold text-muted-foreground">
-      {(label.trim().charAt(0) || "?").toUpperCase()}
-    </span>
-  );
 }
 
 function GitHubIcon() {

@@ -1,6 +1,7 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
 import { createHash, randomBytes } from "node:crypto";
 import { devicesScope } from "@exterior/contract";
+import { iconRule, parseAppIcon } from "./app-icons.js";
 import type { ExteriorAuth } from "./auth.js";
 
 const daemonSoftwareId = "exterior-daemon";
@@ -14,7 +15,8 @@ const pendingTtlMs = 3_600_000;
 export type ClientRegistration = {
   clientName: string;
   redirectUris: string[];
-  logoUri?: string;
+  /** A `data:` URI the relay serves itself; see app-icons.ts. */
+  logo?: string;
   clientUri?: string;
   confidential: boolean;
 };
@@ -33,7 +35,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
   const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
   const clientName = typeof record.clientName === "string" ? record.clientName.trim() : "";
   const redirectUris = Array.isArray(record.redirectUris) ? record.redirectUris.filter((uri): uri is string => typeof uri === "string") : [];
-  const logoUri = record.logoUri === undefined ? undefined : typeof record.logoUri === "string" ? record.logoUri.trim() : "";
+  const logo = optionalText(record.logo);
   const clientUri = record.clientUri === undefined ? undefined : typeof record.clientUri === "string" ? record.clientUri.trim() : "";
   const confidential = record.confidential;
 
@@ -45,7 +47,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
     const problem = redirectProblem(uri);
     if (problem) errors.push(problem);
   }
-  if (logoUri !== undefined && logoUri.length > 0 && !isHttpsUrl(logoUri)) errors.push("The logo must be an https address.");
+  if (logo && !parseAppIcon(logo)) errors.push(iconRule);
   if (clientUri !== undefined && clientUri.length > 0 && !isHttpsUrl(clientUri)) errors.push("The homepage must be an https address.");
   if (typeof confidential !== "boolean") errors.push("Say whether the client keeps a secret.");
   if (errors.length > 0) return { ok: false, errors };
@@ -54,7 +56,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
     value: {
       clientName,
       redirectUris,
-      logoUri: logoUri && logoUri.length > 0 ? logoUri : undefined,
+      logo,
       clientUri: clientUri && clientUri.length > 0 ? clientUri : undefined,
       confidential: confidential as boolean,
     },
@@ -79,6 +81,11 @@ function isLoopback(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
+function optionalText(value: unknown): string | undefined {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.length > 0 ? text : undefined;
+}
+
 function isHttpsUrl(uri: string): boolean {
   try {
     return new URL(uri).protocol === "https:";
@@ -89,7 +96,8 @@ function isHttpsUrl(uri: string): boolean {
 
 export type PendingClientRequest = {
   clientName: string;
-  logoUri?: string;
+  /** A `data:` URI the relay serves itself; see app-icons.ts. */
+  logo?: string;
   redirectUri: string;
   scopes: string[];
   state: string;
@@ -104,7 +112,7 @@ export function parsePendingClient(body: unknown): PendingParse {
   const errors: string[] = [];
   const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
   const clientName = typeof record.clientName === "string" ? record.clientName.trim() : "";
-  const logoUri = record.logoUri === undefined ? undefined : typeof record.logoUri === "string" ? record.logoUri.trim() : "";
+  const logo = optionalText(record.logo);
   const redirectUri = typeof record.redirectUri === "string" ? record.redirectUri.trim() : "";
   const scopes = Array.isArray(record.scopes) ? record.scopes.filter((scope): scope is string => typeof scope === "string") : [];
   const state = typeof record.state === "string" ? record.state : "";
@@ -115,7 +123,7 @@ export function parsePendingClient(body: unknown): PendingParse {
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) errors.push("The approval needs a PKCE challenge.");
   const redirect = redirectProblem(redirectUri);
   if (redirect) errors.push(redirect);
-  if (logoUri !== undefined && logoUri.length > 0 && !isHttpsUrl(logoUri)) errors.push("The logo must be an https address.");
+  if (logo && !parseAppIcon(logo)) errors.push(iconRule);
   if (scopes.length === 0) errors.push("Ask for at least one scope.");
   for (const scope of scopes) {
     if (!grantableScopes.includes(scope)) errors.push(`Exterior does not grant the ${scope} scope.`);
@@ -125,7 +133,7 @@ export function parsePendingClient(body: unknown): PendingParse {
     ok: true,
     value: {
       clientName,
-      logoUri: logoUri && logoUri.length > 0 ? logoUri : undefined,
+      logo,
       redirectUri,
       scopes: [...new Set(scopes)],
       state,
@@ -142,15 +150,12 @@ function validateClientName(clientName: string): string | undefined {
 }
 
 /**
- * Names an unregistered web app by what it shows and where its codes go, so each sign-in reuses one
- * client. A request that names itself differently gets a client of its own instead of renaming one
- * that people already approved.
+ * Names an unregistered web app by where its codes go, so each sign-in reuses one client. The name
+ * and logo are the app's own claim, so the latest request sets them; the address is what the
+ * consent page and the dashboard vouch for.
  */
-function appKey(input: PendingClientRequest): string {
-  return createHash("sha256")
-    .update(JSON.stringify([input.redirectUri, input.clientName, input.logoUri ?? ""]))
-    .digest("hex")
-    .slice(0, 32);
+function appKey(redirectUri: string): string {
+  return createHash("sha256").update(redirectUri).digest("hex").slice(0, 32);
 }
 
 async function createPendingClient(exterior: ExteriorAuth, key: string, input: PendingClientRequest): Promise<string> {
@@ -160,7 +165,7 @@ async function createPendingClient(exterior: ExteriorAuth, key: string, input: P
       body: {
         software_id: `${pendingSoftwarePrefix}${key}`,
         client_name: input.clientName,
-        logo_uri: input.logoUri,
+        logo_uri: input.logo,
         application_type: applicationTypeForRedirects([input.redirectUri]),
         redirect_uris: [input.redirectUri],
         grant_types: ["authorization_code", "refresh_token"],
@@ -259,7 +264,7 @@ export async function registerClient(
         software_id: softwareId,
         client_name: input.clientName,
         client_uri: input.clientUri,
-        logo_uri: input.logoUri,
+        logo_uri: input.logo,
         application_type: applicationTypeForRedirects(input.redirectUris),
         redirect_uris: input.redirectUris,
         grant_types: ["authorization_code", "refresh_token"],
@@ -334,11 +339,19 @@ async function linkResource(exterior: ExteriorAuth, clientId: string): Promise<v
 
 export async function requestClientApproval(exterior: ExteriorAuth, input: PendingClientRequest): Promise<string> {
   await prunePendingClients(exterior);
-  const key = appKey(input);
-  const clientId =
+  const key = appKey(input.redirectUri);
+  const existing =
     (await findClientId(exterior, `${openSoftwarePrefix}${key}`)) ??
-    (await findClientId(exterior, `${pendingSoftwarePrefix}${key}`)) ??
-    (await createPendingClient(exterior, key, input));
+    (await findClientId(exterior, `${pendingSoftwarePrefix}${key}`));
+  if (existing) {
+    const context = await exterior.auth.$context;
+    await context.adapter.update({
+      model: "oauthClient",
+      where: [{ field: "clientId", value: existing }],
+      update: { name: input.clientName, icon: input.logo ?? null },
+    });
+  }
+  const clientId = existing ?? (await createPendingClient(exterior, key, input));
   const url = new URL("/api/auth/oauth2/authorize", exterior.publicUrl);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
