@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { test } from "vitest";
-import { machinesScope } from "@exterior/contract";
+import { devicesScope } from "@exterior/contract";
 import {
   beginBrowserSignIn,
   beginDeviceAuthorization,
@@ -10,8 +10,9 @@ import {
   createAuthorizationRequest,
   fetchExteriorUser,
   finishBrowserSignIn,
-  listMachines,
+  listDevices,
   openConnection,
+  revokeRefreshToken,
   pollDeviceAuthorization,
   type BrowserStore,
 } from "./oauth.js";
@@ -30,7 +31,7 @@ test("a known client builds an authorization url and exchanges the callback", as
     const url = new URL(request.url);
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
-    assert.equal(url.searchParams.get("scope"), machinesScope);
+    assert.equal(url.searchParams.get("scope"), devicesScope);
     assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
     assert.ok(url.searchParams.get("code_challenge"));
@@ -66,15 +67,25 @@ test("device sign-in waits until the code is approved", async () => {
   }
 });
 
-test("machine list and session open use the access token", async () => {
+test("device list and session open use the access token", async () => {
   const relay = await fakeRelay();
   try {
-    assert.deepEqual(await listMachines(relay.origin, "access-1"), [
-      { id: "machine-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] },
+    assert.deepEqual(await listDevices(relay.origin, "access-1"), [
+      { id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] },
     ]);
-    const opened = await openConnection(relay.origin, "access-1", { machineId: "machine-1", agentName: "work" });
+    const opened = await openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "work" });
     assert.equal(opened.agentName, "work");
     assert.match(opened.url, /ticket=once/);
+  } finally {
+    relay.close();
+  }
+});
+
+test("revoking a refresh token names it as one", async () => {
+  const relay = await fakeRelay();
+  try {
+    await revokeRefreshToken({ relayUrl: relay.origin, clientId: "daemon-client", refreshToken: "refresh-1" });
+    assert.deepEqual(relay.revoked, [{ token: "refresh-1", hint: "refresh_token", clientId: "daemon-client" }]);
   } finally {
     relay.close();
   }
@@ -166,9 +177,15 @@ function memoryStore(): BrowserStore {
   };
 }
 
-async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close: () => void }> {
+async function fakeRelay(): Promise<{
+  origin: string;
+  tokenPosts: number;
+  revoked: { token: string | null; hint: string | null; clientId: string | null }[];
+  close: () => void;
+}> {
   let devicePolls = 0;
   let tokenPosts = 0;
+  const revoked: { token: string | null; hint: string | null; clientId: string | null }[] = [];
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
@@ -188,6 +205,7 @@ async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close:
         issuer,
         authorization_endpoint: `${issuer}/oauth2/authorize`,
         token_endpoint: `${issuer}/oauth2/token`,
+        revocation_endpoint: `${issuer}/oauth2/revoke`,
         device_authorization_endpoint: `${issuer}/device/code`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
@@ -218,8 +236,14 @@ async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close:
       }
       return json(response, { access_token: "access-1", token_type: "bearer", expires_in: 3600, refresh_token: "refresh-1" });
     }
-    if (url.pathname === "/api/machines") {
-      return json(response, { machines: [{ id: "machine-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }] });
+    if (url.pathname === "/api/auth/oauth2/revoke") {
+      revoked.push({ token: params.get("token"), hint: params.get("token_type_hint"), clientId: params.get("client_id") });
+      response.writeHead(200);
+      response.end();
+      return;
+    }
+    if (url.pathname === "/api/devices") {
+      return json(response, { devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }] });
     }
     if (url.pathname === "/api/sessions") {
       return json(response, { url: `${origin.replace("http", "ws")}/api/acp?ticket=once`, agentType: "opencode", agentName: "work" });
@@ -236,6 +260,7 @@ async function fakeRelay(): Promise<{ origin: string; tokenPosts: number; close:
     get tokenPosts() {
       return tokenPosts;
     },
+    revoked,
     close: () => server.close(),
   };
 }

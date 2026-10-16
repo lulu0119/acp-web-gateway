@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import { writeDaemonState } from "../daemon-state.js";
+import { readDeviceId, writeDeviceId } from "../device-ids.js";
 import { writeSignIn } from "../sign-ins.js";
 import { executeCli } from "./cli.js";
 import { parseRelayUrl } from "./relay.js";
@@ -102,6 +106,42 @@ test("without --relay, one sign-in is the default and several are listed", async
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stdout, "Signed out of http://127.0.0.1:8787.\n");
   assert.equal((await run(["status"], { home: two })).stdout, "Signed in to https://exterior.example\n");
   assert.equal((await run(["logout", "--relay", "127.0.0.1:8787"], { home: two })).stderr, "This device is not signed in to http://127.0.0.1:8787.\n");
+});
+
+test("logout revokes the sign-in on the relay and keeps the device id", async () => {
+  const revoked: string[] = [];
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      const json = (body: unknown) => response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
+      if (request.url === "/api/clients") return json({ daemonClientId: "daemon-client" });
+      if (request.url === "/api/auth/.well-known/openid-configuration") {
+        return json({ issuer: `${origin}/api/auth`, revocation_endpoint: `${origin}/api/auth/oauth2/revoke` });
+      }
+      if (request.url === "/api/auth/oauth2/revoke") {
+        const params = new URLSearchParams(Buffer.concat(chunks).toString());
+        revoked.push(`${params.get("client_id")} ${params.get("token_type_hint")} ${params.get("token")}`);
+        return response.writeHead(200).end();
+      }
+      response.writeHead(404).end();
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    const home = await signedIn(origin);
+    await writeDeviceId(origin, "device-studio-1", home);
+    const result = await run(["logout"], { home });
+    assert.equal(result.stderr, "");
+    assert.equal(result.stdout, `Signed out of ${origin}.\n`);
+    assert.deepEqual(revoked, ["daemon-client refresh_token r"]);
+    assert.equal((await run(["status"], { home })).stdout, "This device is not signed in. Run exterior login --relay <url>.\n");
+    assert.equal(await readDeviceId(origin, home), "device-studio-1");
+  } finally {
+    server.close();
+  }
 });
 
 test("status says what each relay's daemon last reported, in text and JSON", async () => {

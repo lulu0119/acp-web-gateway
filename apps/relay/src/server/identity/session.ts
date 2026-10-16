@@ -20,7 +20,7 @@ export async function readAccess(
     const payload = await verifyAccessTokenRequest(requestToResourceInput(request), {
       jwksUrl: input.jwksUrl,
       verifyOptions: { issuer: input.issuer, audience: input.audience },
-      requiredScopes: ["machines"],
+      requiredScopes: ["devices"],
     });
     if (typeof payload.sub !== "string" || typeof payload.azp !== "string") return undefined;
     return { userId: payload.sub, clientId: payload.azp };

@@ -1,19 +1,19 @@
 import type { AgentSlot } from "@exterior/contract";
 
 export type LiveSessionInfo = {
-  machineId: string;
+  deviceId: string;
   agentName: string;
   agentType: string;
 };
 
-/** A signed-in device as the dashboard shows it. `machineId` is set while its daemon is connected. */
+/** A signed-in device as the dashboard shows it. `online` while its daemon is connected; `agents` only then. */
 export type DeviceView = {
   id: string;
   hostname: string;
-  machineId?: string;
+  online: boolean;
   agents: readonly AgentSlot[];
-  /** Milliseconds since the epoch; absent for a daemon too old to announce a device id. */
-  lastSeenAt?: number;
+  /** Milliseconds since the epoch. */
+  lastSeenAt: number;
 };
 
 /** The signed-in person, as account pages show them. */

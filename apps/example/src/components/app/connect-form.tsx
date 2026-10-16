@@ -1,5 +1,5 @@
-import { listMachines, openConnection } from "@exterior/client";
-import type { Machine } from "@exterior/contract";
+import { listDevices, openConnection } from "@exterior/client";
+import type { Device } from "@exterior/contract";
 import { BotIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AccountSession } from "@exterior/client/react";
@@ -12,7 +12,7 @@ export type ConnectedAgent = { agentType: string; url: string; label: string; wo
 
 export function ConnectForm({ session, onConnected }: { session: AccountSession; onConnected: (agent: ConnectedAgent) => void }) {
   const relayUrl = exteriorRelayUrl();
-  const [machines, setMachines] = useState<Machine[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [selection, setSelection] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -21,18 +21,18 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
 
   useEffect(() => {
     if (!accessToken) {
-      setMachines([]);
+      setDevices([]);
       setSelection("");
       setStatus("");
       return;
     }
     setStatus("Checking the sign-in.");
     let cancelled = false;
-    void listMachines(relayUrl, accessToken)
+    void listDevices(relayUrl, accessToken)
       .then((listed) => {
         if (cancelled) return;
-        setMachines(listed);
-        const first = listed.find((machine) => machine.agents.length > 0);
+        setDevices(listed);
+        const first = listed.find((device) => device.agents.length > 0);
         const agent = first?.agents[0];
         if (first && agent) setSelection(selectionOf(first.id, agent.name));
         setStatus(agentListStatus(listed));
@@ -45,11 +45,11 @@ export function ConnectForm({ session, onConnected }: { session: AccountSession;
     };
   }, [relayUrl, accessToken]);
 
-  const items = machines.flatMap((machine) =>
-    machine.agents.map((agent) => ({
-      value: selectionOf(machine.id, agent.name),
-      label: `${machine.hostname} / ${agent.name}`,
-      workingDirectory: machine.workingDirectory,
+  const items = devices.flatMap((device) =>
+    device.agents.map((agent) => ({
+      value: selectionOf(device.id, agent.name),
+      label: `${device.hostname} / ${agent.name}`,
+      workingDirectory: device.workingDirectory,
     })),
   );
   const selected = items.find((item) => item.value === selection);
@@ -136,7 +136,7 @@ export function ManageAgentsLink({ className }: { className?: string }) {
 }
 
 function NoAgents({ status }: { status: string }) {
-  const noMachine = status === "No machine is online.";
+  const noDevice = status === "No device is online.";
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
       <div className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground/70">
@@ -145,9 +145,9 @@ function NoAgents({ status }: { status: string }) {
       <div className="flex max-w-sm flex-col gap-1">
         <p className="font-semibold">No agents online</p>
         <p className="text-sm leading-6 text-muted-foreground">
-          {noMachine
+          {noDevice
             ? "A session needs an agent on a device that is online. Set that up on Exterior."
-            : "The online machines have no agents. Configure one on Exterior, then connect it here."}
+            : "The online devices have no agents. Configure one on Exterior, then connect it here."}
         </p>
       </div>
       <a href={exteriorRelayUrl()} target="_blank" rel="noreferrer" className={cn(buttonVariants({ size: "lg" }), "mt-1")}>
@@ -158,21 +158,21 @@ function NoAgents({ status }: { status: string }) {
 }
 
 function emptyAgentList(status: string): boolean {
-  return status === "No machine is online." || status === "The online machines have no agents.";
+  return status === "No device is online." || status === "The online devices have no agents.";
 }
 
-function agentListStatus(machines: Machine[]): string {
-  if (machines.length === 0) return "No machine is online.";
-  if (machines.every((machine) => machine.agents.length === 0)) return "The online machines have no agents.";
+function agentListStatus(devices: Device[]): string {
+  if (devices.length === 0) return "No device is online.";
+  if (devices.every((device) => device.agents.length === 0)) return "The online devices have no agents.";
   return "";
 }
 
-function selectionOf(machineId: string, agentName: string): string {
-  return `${machineId}\t${agentName}`;
+function selectionOf(deviceId: string, agentName: string): string {
+  return `${deviceId}\t${agentName}`;
 }
 
-function parseSelection(value: string): { machineId: string; agentName: string } | undefined {
+function parseSelection(value: string): { deviceId: string; agentName: string } | undefined {
   const separator = value.indexOf("\t");
   if (separator < 1) return undefined;
-  return { machineId: value.slice(0, separator), agentName: value.slice(separator + 1) };
+  return { deviceId: value.slice(0, separator), agentName: value.slice(separator + 1) };
 }

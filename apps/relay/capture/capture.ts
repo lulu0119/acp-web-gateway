@@ -58,6 +58,15 @@ const surfaces: Surface[] = [
       await page.waitForSelector("[role=dialog] [role=tablist]");
     },
   },
+  {
+    name: "remove-device-dialog",
+    path: "/",
+    // Remove on the first online device.
+    ready: async (page) => {
+      await page.getByRole("button", { name: "Remove laptop" }).click();
+      await page.waitForSelector("[role=dialog] >> text=Remove device");
+    },
+  },
   { name: "sign-in", path: "/sign-in", ready: async (page) => await page.waitForSelector("form") },
   { name: "device-code", path: "/device", ready: async (page) => await page.waitForSelector("form") },
 ];

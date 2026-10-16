@@ -3,7 +3,7 @@ import * as v from "valibot";
 export const defaultRelayUrl = "http://127.0.0.1:8787";
 export const daemonPath = "/api/daemon";
 export const acpPath = "/api/acp";
-export const machinesPath = "/api/machines";
+/** Web apps list devices here; a daemon registers its device here. */
 export const devicesPath = "/api/devices";
 export const sessionsPath = "/api/sessions";
 export const exampleCallbackPath = "/oauth/callback";
@@ -12,7 +12,13 @@ export const publicClientsPath = "/api/clients";
 export const clientRegistryPath = "/api/clients/register";
 export const authorizeRequestPath = "/api/authorize-request";
 export const grantsPath = "/api/grants";
-export const machinesScope = "machines offline_access";
+export const devicesScope = "devices offline_access";
+
+/**
+ * Why the relay closed a daemon's socket. `replaced`: a newer connection announced the same device id.
+ * `removed`: the device is not registered to the account, because it was removed or never registered.
+ */
+export const daemonCloseCodes = { replaced: 4001, removed: 4003 } as const;
 
 export type PublicClients = {
   daemonClientId: string;
@@ -37,7 +43,7 @@ const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureL
 const HelloSchema = v.object({
   type: v.literal("hello"),
   hostname: HostnameSchema,
-  deviceId: v.optional(IdSchema),
+  deviceId: IdSchema,
   /**
    * The directory this device works in when a web app names none.
    *
@@ -54,21 +60,27 @@ const OpenedSchema = v.object({ type: v.literal("opened"), sessionId: IdSchema }
 const OpenFailedSchema = v.object({ type: v.literal("open-failed"), sessionId: IdSchema, message: FailureSchema });
 const OpenSchema = v.object({ type: v.literal("open"), sessionId: IdSchema, agentName: NameSchema });
 
-const DeviceRegistrationSchema = v.object({ deviceId: IdSchema, hostname: HostnameSchema });
+// The refresh token proves the sign-in the device id is bound to. Removing the device revokes it.
+const DeviceRegistrationSchema = v.object({
+  deviceId: IdSchema,
+  hostname: HostnameSchema,
+  refreshToken: v.pipe(v.string(), v.minLength(1), v.maxLength(1024)),
+});
 
 const DaemonMessageSchema = v.variant("type", [HelloSchema, FrameSchema, CloseSchema, OpenedSchema, OpenFailedSchema]);
 const RelayMessageSchema = v.variant("type", [OpenSchema, FrameSchema, CloseSchema]);
 
 export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
 
-export type Machine = {
+/** An online device as web apps see it. `id` is its device id. */
+export type Device = {
   id: string;
   hostname: string;
   workingDirectory: string;
   agents: readonly AgentSlot[];
 };
 
-/** What `exterior login` tells the relay about the device it just signed in. */
+/** What a signed-in device tells the relay before its daemon connects. */
 export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
 
 export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;

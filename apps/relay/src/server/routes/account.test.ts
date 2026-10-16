@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { devicesPath, machinesScope } from "@exterior/contract";
+import { devicesPath, devicesScope } from "@exterior/contract";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";
@@ -63,7 +63,7 @@ test("approving a web app redirects back with an authorization code", async () =
   authorize.searchParams.set("client_id", registered.clientId);
   authorize.searchParams.set("redirect_uri", redirectUri);
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", machinesScope);
+  authorize.searchParams.set("scope", devicesScope);
   authorize.searchParams.set("state", "browser-state");
   authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   authorize.searchParams.set("code_challenge_method", "S256");
@@ -111,7 +111,7 @@ test("an approved device appears on the dashboard once its sign-in records it", 
   const started = await app.request(`${publicUrl}/api/auth/device/code`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: daemonClientId, scope: machinesScope, resource: publicUrl }),
+    body: new URLSearchParams({ client_id: daemonClientId, scope: devicesScope, resource: publicUrl }),
   });
   assert.equal(started.status, 200);
   const pending = (await started.json()) as { user_code?: string; device_code?: string };
@@ -144,23 +144,46 @@ test("an approved device appears on the dashboard once its sign-in records it", 
   });
   const tokenText = await token.text();
   assert.equal(token.status, 200, tokenText);
-  const body = JSON.parse(tokenText) as { access_token?: string };
+  const body = JSON.parse(tokenText) as { access_token: string; refresh_token: string };
   assert.equal(typeof body.access_token, "string");
 
-  const recorded = await app.request(`${publicUrl}${devicesPath}`, {
+  const register = (refreshToken: string) => app.request(`${publicUrl}${devicesPath}`, {
     method: "POST",
     headers: { authorization: `Bearer ${body.access_token}`, "content-type": "application/json" },
-    body: JSON.stringify({ deviceId: "device-studio-1", hostname: "studio" }),
+    body: JSON.stringify({ deviceId: "device-studio-1", hostname: "studio", refreshToken }),
   });
+  assert.equal((await register("not-a-refresh-token")).status, 403);
+  const recorded = await register(body.refresh_token);
   assert.equal(recorded.status, 200, await recorded.clone().text());
   const dashboard = await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } });
-  const data = (await dashboard.json()) as { devices: { id: string; hostname: string; machineId?: string }[] };
-  assert.deepEqual(data.devices.map(({ id, hostname, machineId }) => ({ id, hostname, machineId })), [
-    { id: "device-studio-1", hostname: "studio", machineId: undefined },
+  const data = (await dashboard.json()) as { devices: { id: string; hostname: string; online: boolean }[] };
+  assert.deepEqual(data.devices.map(({ id, hostname, online }) => ({ id, hostname, online })), [
+    { id: "device-studio-1", hostname: "studio", online: false },
   ]);
 
-  const asWebApp = await app.request(`${publicUrl}/api/machines`, { headers: { authorization: `Bearer ${body.access_token}` } });
+  const asWebApp = await app.request(`${publicUrl}${devicesPath}`, { headers: { authorization: `Bearer ${body.access_token}` } });
   assert.equal(asWebApp.status, 403);
+
+  // A refresh carries the device id to the next token, so removing the device still finds it.
+  const refresh = (refreshToken: string) => app.request(metadata.token_endpoint ?? "", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: daemonClientId, resource: publicUrl }),
+  });
+  const refreshed = await refresh(body.refresh_token);
+  assert.equal(refreshed.status, 200, await refreshed.clone().text());
+  const rotated = ((await refreshed.json()) as { refresh_token: string }).refresh_token;
+  assert.notEqual(rotated, body.refresh_token);
+
+  const removed = await app.request(`${publicUrl}${devicesPath}/remove`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ deviceId: "device-studio-1" }),
+  });
+  assert.equal(removed.status, 200, await removed.clone().text());
+  assert.deepEqual(((await (await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } })).json()) as { devices: unknown[] }).devices, []);
+  assert.equal((await refresh(rotated)).status, 400);
+  assert.equal((await register(rotated)).status, 403);
 });
 
 test("an expired approval link offers to start again instead of failing", async () => {

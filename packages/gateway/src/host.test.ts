@@ -13,6 +13,7 @@ const workingDirectory = join("home", "person", "workspace");
 test("hello advertises configured agents and the device directory", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [{ name: "work", agentType: "opencode", env: {} }],
@@ -27,6 +28,7 @@ test("hello advertises configured agents and the device directory", () => {
     {
       type: "hello",
       hostname: "studio",
+      deviceId: "device-studio-1",
       workingDirectory,
       agents: [{ name: "work", agentType: "opencode" }],
     },
@@ -36,6 +38,7 @@ test("hello advertises configured agents and the device directory", () => {
 test("hello advertises a custom agent only while its command is installed", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [{ name: "mine", agentType: "custom", env: {}, command: "my-agent" }],
@@ -43,7 +46,7 @@ test("hello advertises a custom agent only while its command is installed", () =
     resolveLaunch: () => undefined,
   });
   host.hello();
-  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", workingDirectory, agents: [] }]);
+  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [] }]);
 });
 
 test("open pipes one agent and the agent exiting tells the relay to close", () => {
@@ -51,6 +54,7 @@ test("open pipes one agent and the agent exiting tells the relay to close", () =
   const writes: string[] = [];
   let hooks: AgentHooks | undefined;
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [agent],
@@ -77,6 +81,7 @@ test("open pipes one agent and the agent exiting tells the relay to close", () =
 test("an unknown agent fails without a process", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [],
@@ -93,6 +98,7 @@ test("an unknown agent fails without a process", () => {
 test("hello omits an agent the registry cannot launch", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [agent],
@@ -105,7 +111,7 @@ test("hello omits an agent the registry cannot launch", () => {
   host.hello();
   host.receive({ type: "open", sessionId, agentName: "work" });
   assert.deepEqual(sent, [
-    { type: "hello", hostname: "studio", workingDirectory, agents: [] },
+    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [] },
     { type: "open-failed", sessionId, message: "That agent is not configured." },
   ]);
 });
@@ -114,6 +120,7 @@ test("a new agent list says hello again, and an open session keeps its agent", (
   const sent: DaemonMessage[] = [];
   const stopped: string[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [agent],
@@ -130,7 +137,7 @@ test("a new agent list says hello again, and an open session keeps its agent", (
   host.receive({ type: "open", sessionId: "session-3", agentName: "other" });
   assert.deepEqual(sent, [
     { type: "opened", sessionId },
-    { type: "hello", hostname: "studio", workingDirectory, agents: [{ name: "other", agentType: "opencode" }] },
+    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [{ name: "other", agentType: "opencode" }] },
     { type: "open-failed", sessionId: "session-2", message: "That agent is not configured." },
     { type: "opened", sessionId: "session-3" },
   ]);
@@ -143,6 +150,7 @@ test("an argument a batch script cannot take fails the open instead of reaching 
   await writeFile(script, "@echo off\n", "utf8");
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
+    deviceId: "device-studio-1",
     hostname: "studio",
     workingDirectory,
     agents: [agent],

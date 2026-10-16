@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import { bearer, jwt } from "better-auth/plugins";
 import type Database from "better-sqlite3";
+import { createHash } from "node:crypto";
 
 export type ExteriorAuthConfig = {
   database: Database.Database;
@@ -38,8 +39,10 @@ function buildExteriorAuth(config: ExteriorAuthConfig) {
       oauthProvider({
         loginPage: "/sign-in",
         consentPage: "/consent",
-        scopes: ["openid", "profile", "email", "offline_access", "machines"],
-        resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: ["machines", "offline_access", "openid", "profile", "email"] }],
+        scopes: ["openid", "profile", "email", "offline_access", "devices"],
+        resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: ["devices", "offline_access", "openid", "profile", "email"] }],
+        // Named here so the relay can find a refresh token's row by the token itself.
+        storeTokens: { hash: hashToken },
       }),
       oauthDeviceAuthorization({
         verificationUri: "/device",
@@ -61,3 +64,8 @@ async function migrateAuth(options: Parameters<typeof getMigrations>[0]): Promis
 }
 
 export type ExteriorAuth = Awaited<ReturnType<typeof openExteriorAuth>>;
+
+/** How a token is stored: SHA-256, base64url without padding. */
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("base64url");
+}

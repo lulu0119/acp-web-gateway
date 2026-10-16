@@ -13,11 +13,11 @@ The person who signs in. One account can have many devices.
 _Avoid_: user, workspace, team
 
 **Device**:
-A computer signed in to an account with the desktop app or `exterior login`. It keeps a stable device id in its sign-in and stays listed while offline; it is online while its daemon is connected. Wire names still say machine (`/api/machines`, the `machines` scope, `Machine` in the contract); a live daemon connection has a machine id that changes on every reconnect.
-_Avoid_: machine (in copy), gateway, host
+A computer signed in to an account with the desktop app or `exterior login`. It keeps one device id per relay, which signing out does not change, and stays listed while offline; it is online while its daemon is connected, and listed once however often that daemon reconnects. A daemon connects only as a device its account registered. Removing a device signs it out; signing it in again brings it back under the same id.
+_Avoid_: machine, gateway, host
 
 **Sign-in**:
-The credentials a machine holds for one relay. A device has at most one sign-in per relay and may have several relays.
+The credentials a device holds for one relay. A device has at most one sign-in per relay and may have several relays.
 _Avoid_: session, profile, login
 
 **Web app**:

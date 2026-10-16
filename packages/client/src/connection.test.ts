@@ -12,7 +12,7 @@ test("concurrent opens share one ticket post", async () => {
   const connector = createAgentConnector({
     relayUrl: "https://relay.example.test",
     accessToken: "token",
-    target: { machineId: "m1", agentName: "work" },
+    target: { deviceId: "device-m1", agentName: "work" },
     open: async () => {
       posts += 1;
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -29,7 +29,7 @@ test("sequential opens mint fresh tickets, never resuming", async () => {
   const connector = createAgentConnector({
     relayUrl: "https://relay.example.test",
     accessToken: "token",
-    target: { machineId: "m1", agentName: "work" },
+    target: { deviceId: "device-m1", agentName: "work" },
     open: async () => {
       posts += 1;
       return opened(posts);
@@ -46,7 +46,7 @@ test("reopen abandons the queue and mints a fresh ticket", async () => {
   const connector = createAgentConnector({
     relayUrl: "https://relay.example.test",
     accessToken: "token",
-    target: { machineId: "m1", agentName: "work" },
+    target: { deviceId: "device-m1", agentName: "work" },
     open: async () => {
       posts += 1;
       return opened(posts);

@@ -28,6 +28,8 @@ export function createRelayApp(input: {
   publicDir?: string;
   devServerUrl?: string;
   readAccess?: ReadAccess;
+  /** How often sockets are pinged; tests shorten it. */
+  heartbeatMs?: number;
 }) {
   const app = new Hono<RelayEnv>();
   const sockets = createNodeWebSocket({ app });
@@ -69,9 +71,10 @@ export function createRelayApp(input: {
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get(publicClientsPath, (c) => c.json(input.clients));
   mountAccountPages(app, input.exterior, input.githubConfigured, render);
-  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, render });
+  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, daemonClientId, render });
   mountClients(app, input.exterior);
   mountConnections(app, {
+    exterior: input.exterior,
     registry: input.registry,
     devices: input.devices,
     readAccess: readAccessAccount,
@@ -83,6 +86,7 @@ export function createRelayApp(input: {
     readAccess: readAccessAccount,
     daemonClientId,
     upgradeWebSocket: sockets.upgradeWebSocket,
+    heartbeatMs: input.heartbeatMs,
   });
   app.use("/assets/*", serveStatic({ root: publicDir }));
   app.all("/api/auth/*", (c) => input.exterior.auth.handler(c.req.raw));
