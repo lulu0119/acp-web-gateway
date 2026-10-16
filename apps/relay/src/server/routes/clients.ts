@@ -1,14 +1,9 @@
-import { authorizeRequestPath, clientRegistryPath, grantsPath } from "@exterior/contract";
+import { clientRegistryPath, grantsPath } from "@exterior/contract";
 import type { Hono } from "hono";
 import { readAccount } from "../identity/session.js";
 import type { RelayEnv } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
-import {
-  requestClientApproval,
-  parseClientRegistration,
-  parsePendingClient,
-  registerClient,
-} from "../identity/clients.js";
+import { parseClientRegistration, registerClient } from "../identity/clients.js";
 import { listGrantedApps, revokeGrant } from "../identity/grants.js";
 
 export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth): void {
@@ -23,16 +18,6 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth): void 
     } catch (error) {
       const message = error instanceof Error ? error.message : "Exterior could not register the client.";
       return c.json({ message }, message.includes("at most") ? 429 : 502);
-    }
-  });
-
-  app.post(authorizeRequestPath, async (c) => {
-    const parsed = parsePendingClient(await c.req.json().catch(() => undefined));
-    if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
-    try {
-      return c.json({ url: await requestClientApproval(exterior, parsed.value) });
-    } catch {
-      return c.json({ message: "Exterior could not start the approval." }, 502);
     }
   });
 

@@ -91,27 +91,43 @@ test("revoking a refresh token names it as one", async () => {
   }
 });
 
-test("a web app without a client id starts approval without one", async () => {
+test("a web app without a client id registers itself once per browser", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
+  const registrations = memoryStore();
   try {
-    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri: `${relay.origin}/oauth/callback`, store }));
-    assert.equal(url.searchParams.get("client_id"), "pending-client");
+    const redirectUri = `${relay.origin}/oauth/callback`;
+    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, logoUri: `${relay.origin}/logo.png` }));
+    assert.equal(url.searchParams.get("client_id"), "registered-client-1");
+    assert.equal(url.searchParams.get("code_challenge_method"), "S256");
+    assert.deepEqual(relay.registrations, [{
+      client_name: `Web app at ${relay.origin}`,
+      logo_uri: `${relay.origin}/logo.png`,
+      redirect_uris: [redirectUri],
+      application_type: "native",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      scope: devicesScope,
+    }]);
     assert.ok(store.getItem("exterior.codeVerifier"));
     assert.ok(store.getItem("exterior.state"));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    callback.searchParams.set("client_id", "pending-client");
-    const tokens = await finishBrowserSignIn({
-      relayUrl: relay.origin,
-      redirectUri: `${relay.origin}/oauth/callback`,
-      callbackUrl: callback.href,
-      store,
-    });
+    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, registrations });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "pending-client");
+    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "registered-client-1");
+    assert.equal(store.getItem("exterior.signInClientId"), null);
+
+    const again = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations }));
+    assert.equal(again.searchParams.get("client_id"), "registered-client-1");
+    assert.equal(relay.registrations.length, 1);
+
+    const named = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, clientId: "https://app.example.test/oauth-client.json" }));
+    assert.equal(named.searchParams.get("client_id"), "https://app.example.test/oauth-client.json");
+    assert.equal(relay.registrations.length, 1);
   } finally {
     relay.close();
   }
@@ -180,22 +196,24 @@ function memoryStore(): BrowserStore {
 async function fakeRelay(): Promise<{
   origin: string;
   tokenPosts: number;
+  registrations: unknown[];
   revoked: { token: string | null; hint: string | null; clientId: string | null }[];
   close: () => void;
 }> {
   let devicePolls = 0;
   let tokenPosts = 0;
   const revoked: { token: string | null; hint: string | null; clientId: string | null }[] = [];
+  const registrations: unknown[] = [];
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
-      const params = new URLSearchParams(Buffer.concat(chunks).toString());
-      respond(url, params, response);
+      const raw = Buffer.concat(chunks).toString();
+      respond(url, new URLSearchParams(raw), raw, response);
     });
   });
-    function respond(url: URL, params: URLSearchParams, response: import("node:http").ServerResponse): void {
+  function respond(url: URL, params: URLSearchParams, raw: string, response: import("node:http").ServerResponse): void {
     const address = server.address();
     const port = address && typeof address !== "string" ? address.port : 0;
     const origin = `http://127.0.0.1:${port}`;
@@ -206,6 +224,7 @@ async function fakeRelay(): Promise<{
         authorization_endpoint: `${issuer}/oauth2/authorize`,
         token_endpoint: `${issuer}/oauth2/token`,
         revocation_endpoint: `${issuer}/oauth2/revoke`,
+        registration_endpoint: `${issuer}/oauth2/register`,
         device_authorization_endpoint: `${issuer}/device/code`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
@@ -215,8 +234,9 @@ async function fakeRelay(): Promise<{
       });
     }
     if (url.pathname === "/api/clients") return json(response, { daemonClientId: "daemon-client" });
-    if (url.pathname === "/api/authorize-request") {
-      return json(response, { url: `${origin}/api/auth/oauth2/authorize?client_id=pending-client` });
+    if (url.pathname === "/api/auth/oauth2/register") {
+      registrations.push(JSON.parse(raw));
+      return json(response, { client_id: `registered-client-${registrations.length}`, token_endpoint_auth_method: "none" }, 201);
     }
     if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
@@ -260,6 +280,7 @@ async function fakeRelay(): Promise<{
     get tokenPosts() {
       return tokenPosts;
     },
+    registrations,
     revoked,
     close: () => server.close(),
   };

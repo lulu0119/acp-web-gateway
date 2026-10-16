@@ -1,5 +1,4 @@
 import {
-  authorizeRequestPath,
   devicesPath,
   exampleCallbackPath,
   devicesScope,
@@ -271,6 +270,8 @@ export type BrowserStore = {
 
 const verifierKey = "exterior.codeVerifier";
 const stateKey = "exterior.state";
+const signInClientKey = "exterior.signInClientId";
+const signInRegistrationKey = "exterior.signInRegistration";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
@@ -285,33 +286,40 @@ export async function fetchExteriorUser(input: { relayUrl: string; accessToken: 
   return { sub: body.sub };
 }
 
-export async function requestApprovalUrl(input: {
+/**
+ * Registers a web app that has no client id of its own (RFC 7591), as a public client that returns
+ * to `redirectUri`. The relay shows `clientName` and the logo at `logoUri` as the app's own claim.
+ */
+export async function registerBrowserClient(input: {
   relayUrl: string;
   redirectUri: string;
   clientName?: string;
   logoUri?: string;
-  scope?: string;
-  state: string;
-  codeChallenge: string;
 }): Promise<string> {
-  const response = await fetch(new URL(authorizeRequestPath, originOf(input.relayUrl)), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      clientName: input.clientName ?? `Web app at ${new URL(input.redirectUri).origin}`,
-      logoUri: input.logoUri,
-      redirectUri: input.redirectUri,
-      scopes: (input.scope ?? devicesScope).split(" ").filter((scope) => scope.length > 0),
-      state: input.state,
-      codeChallenge: input.codeChallenge,
-    }),
-  });
-  const body: unknown = await response.json().catch(() => undefined);
-  if (!response.ok || !isRecord(body) || typeof body.url !== "string") {
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Exterior did not start the approval.";
-    throw new Error(message);
+  const server = await discover(input.relayUrl);
+  if (!server.registration_endpoint) throw new Error("Exterior does not let apps register themselves.");
+  const redirect = new URL(input.redirectUri);
+  const loopback = redirect.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(redirect.hostname);
+  const response = await oauth.dynamicClientRegistrationRequest(
+    server,
+    {
+      client_name: input.clientName ?? `Web app at ${redirect.origin}`,
+      logo_uri: input.logoUri,
+      redirect_uris: [input.redirectUri],
+      // A redirect to this computer is what RFC 8252 calls a native app's.
+      application_type: loopback ? "native" : "web",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      scope: devicesScope,
+    },
+    httpOptions(input.relayUrl),
+  );
+  try {
+    return (await oauth.processDynamicClientRegistrationResponse(response)).client_id;
+  } catch (error) {
+    throw new Error(oauthMessage(error, "Exterior did not register this app."), { cause: error });
   }
-  return body.url;
 }
 
 function cachedClientId(store: BrowserStore, relayUrl: string): string | undefined {
@@ -326,24 +334,37 @@ function clientIdKey(origin: string): string {
   return `exterior.clientId:${origin}`;
 }
 
+/** Where an app's own registration is kept: one per relay and redirect address, for every sign-in from this browser. */
+function registrationKey(relayUrl: string, redirectUri: string): string {
+  return `exterior.registration:${originOf(relayUrl)}:${redirectUri}`;
+}
+
+/**
+ * Starts a sign-in and returns the relay address to send the person to.
+ *
+ * An app passes `clientId` when it has one: a client an account registered, or the https address of
+ * its Client ID Metadata Document. Without one, the app registers itself once per browser, and the
+ * registration is kept in `registrations` after the first sign-in finishes.
+ */
 export async function beginBrowserSignIn(input: {
   relayUrl: string;
   redirectUri: string;
   store: BrowserStore;
+  /** Kept across sign-ins and tabs; `localStorage` in a browser. */
+  registrations?: BrowserStore;
+  clientId?: string;
   clientName?: string;
+  logoUri?: string;
 }): Promise<string> {
-  const codeVerifier = oauth.generateRandomCodeVerifier();
-  const state = oauth.generateRandomState();
-  const url = await requestApprovalUrl({
-    relayUrl: input.relayUrl,
-    redirectUri: input.redirectUri,
-    clientName: input.clientName,
-    state,
-    codeChallenge: await oauth.calculatePKCECodeChallenge(codeVerifier),
-  });
-  input.store.setItem(verifierKey, codeVerifier);
-  input.store.setItem(stateKey, state);
-  return url;
+  const registered = input.clientId ? undefined : input.registrations?.getItem(registrationKey(input.relayUrl, input.redirectUri)) ?? undefined;
+  const clientId = input.clientId ?? registered ?? (await registerBrowserClient(input));
+  const request = await createAuthorizationRequest({ relayUrl: input.relayUrl, clientId, redirectUri: input.redirectUri });
+  input.store.setItem(verifierKey, request.codeVerifier);
+  input.store.setItem(stateKey, request.state);
+  input.store.setItem(signInClientKey, clientId);
+  if (input.clientId) input.store.removeItem(signInRegistrationKey);
+  else input.store.setItem(signInRegistrationKey, clientId);
+  return request.url;
 }
 
 export async function finishBrowserSignIn(input: {
@@ -351,12 +372,13 @@ export async function finishBrowserSignIn(input: {
   redirectUri: string;
   callbackUrl: string;
   store: BrowserStore;
+  registrations?: BrowserStore;
   clientId?: string;
   clientSecret?: string;
 }): Promise<ExteriorTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
-  const clientId = input.clientId ?? callbackClientId(input.callbackUrl) ?? cachedClientId(input.store, input.relayUrl);
+  const clientId = input.clientId ?? input.store.getItem(signInClientKey) ?? cachedClientId(input.store, input.relayUrl);
   if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
   // A code redeems once, but a framework may mount the callback twice:
   // racing callers for the same code share one redemption.
@@ -375,8 +397,13 @@ export async function finishBrowserSignIn(input: {
     .then((tokens) => {
       writeBrowserTokens(input.store, tokens);
       cacheClientId(input.store, input.relayUrl, clientId);
+      // Kept only once a sign-in works, so a registration nobody approved is not reused.
+      const registration = input.store.getItem(signInRegistrationKey);
+      if (registration) input.registrations?.setItem(registrationKey(input.relayUrl, input.redirectUri), registration);
       input.store.removeItem(verifierKey);
       input.store.removeItem(stateKey);
+      input.store.removeItem(signInClientKey);
+      input.store.removeItem(signInRegistrationKey);
       return tokens;
     })
     .finally(() => {
@@ -391,14 +418,6 @@ const pendingCallbackExchanges = new Map<string, Promise<ExteriorTokens>>();
 function callbackCode(callbackUrl: string): string | undefined {
   try {
     return new URL(callbackUrl).searchParams.get("code") ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function callbackClientId(callbackUrl: string): string | undefined {
-  try {
-    return new URL(callbackUrl).searchParams.get("client_id") ?? undefined;
   } catch {
     return undefined;
   }

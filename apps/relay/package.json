@@ -12,6 +12,7 @@
     "web": "vite"
   },
   "dependencies": {
+    "@better-auth/cimd": "1.7.7",
     "@better-auth/oauth-provider": "^1.6.0",
     "@exterior/contract": "workspace:*",
     "@exterior/ui": "workspace:*",

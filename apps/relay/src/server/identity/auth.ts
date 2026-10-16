@@ -1,4 +1,6 @@
-import { oauthDeviceAuthorization, oauthProvider } from "@better-auth/oauth-provider";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { oauthDeviceAuthorization, oauthProvider, type ClientMetadataResourceFetch } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import { bearer, jwt } from "better-auth/plugins";
@@ -11,6 +13,8 @@ export type ExteriorAuthConfig = {
   publicUrl: string;
   githubClientId: string;
   githubClientSecret: string;
+  /** How Client ID Metadata Documents are fetched. Tests pass their own; the default refuses private addresses. */
+  fetchClientMetadataResource?: ClientMetadataResourceFetch;
 };
 
 export async function openExteriorAuth(config: ExteriorAuthConfig) {
@@ -41,12 +45,19 @@ function buildExteriorAuth(config: ExteriorAuthConfig) {
         consentPage: "/consent",
         scopes: ["openid", "profile", "email", "offline_access", "devices"],
         resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: ["devices", "offline_access", "openid", "profile", "email"] }],
+        // A web app registers itself (RFC 7591) or names itself by a metadata document's URL (CIMD).
+        // Either way it can ask for what a web app is granted, against this relay.
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        clientRegistrationDefaultScopes: ["devices", "offline_access"],
+        clientRegistrationDefaultResources: [publicUrl],
         // Named here so the relay can find a refresh token's row by the token itself.
         storeTokens: { hash: hashToken },
       }),
       oauthDeviceAuthorization({
         verificationUri: "/device",
       }),
+      cimd({ fetchClientMetadataResource: config.fetchClientMetadataResource ?? fetchClientMetadataResource }),
     ],
   };
   return {

@@ -25,7 +25,7 @@ export {
   RefreshTokenRejectedError,
   registerDevice,
   revokeRefreshToken,
-  requestApprovalUrl,
+  registerBrowserClient,
   storedAccessToken,
   type BrowserStore,
   type DeviceAuthorization,
