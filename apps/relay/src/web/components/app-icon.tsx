@@ -8,7 +8,7 @@ import { cn } from "cn";
 export function AppIcon({ label, logoUri, className }: { label: string; logoUri?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (logoUri && !failed) {
-    return <img src={logoUri} alt="" referrerPolicy="no-referrer" onError={() => { setFailed(true); }} className={cn("shrink-0 object-cover", className)} />;
+    return <img src={logoUri} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className={cn("shrink-0 object-cover", className)} />;
   }
   return (
     <span className={cn("flex shrink-0 items-center justify-center bg-muted font-semibold text-muted-foreground", className)}>

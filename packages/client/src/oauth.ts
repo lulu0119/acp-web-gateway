@@ -356,7 +356,7 @@ export async function beginBrowserSignIn(input: {
   clientName?: string;
   logoUri?: string;
 }): Promise<string> {
-  const registered = input.clientId ? undefined : (input.registrations?.getItem(registrationKey(input.relayUrl, input.redirectUri)) ?? undefined);
+  const registered = input.clientId ? undefined : input.registrations?.getItem(registrationKey(input.relayUrl, input.redirectUri)) ?? undefined;
   const clientId = input.clientId ?? registered ?? (await registerBrowserClient(input));
   const request = await createAuthorizationRequest({ relayUrl: input.relayUrl, clientId, redirectUri: input.redirectUri });
   input.store.setItem(verifierKey, request.codeVerifier);

@@ -36,7 +36,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
   const clientName = typeof record.clientName === "string" ? record.clientName.trim() : "";
   const redirectUris = Array.isArray(record.redirectUris) ? record.redirectUris.filter((uri): uri is string => typeof uri === "string") : [];
   const logoUri = optionalText(record.logoUri);
-  const clientUri = record.clientUri === undefined ? undefined : typeof record.clientUri === "string" ? record.clientUri.trim() : "";
+  const clientUri = optionalText(record.clientUri);
   const confidential = record.confidential;
 
   const nameProblem = validateClientName(clientName);
@@ -48,7 +48,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
     if (problem) errors.push(problem);
   }
   if (logoUri && redirectProblem(logoUri)) errors.push("The logo must be an https address, or http on this computer.");
-  if (clientUri !== undefined && clientUri.length > 0 && !isHttpsUrl(clientUri)) errors.push("The homepage must be an https address.");
+  if (clientUri && !isHttpsUrl(clientUri)) errors.push("The homepage must be an https address.");
   if (typeof confidential !== "boolean") errors.push("Say whether the client keeps a secret.");
   if (errors.length > 0) return { ok: false, errors };
   return {
@@ -57,7 +57,7 @@ export function parseClientRegistration(body: unknown): RegistrationParse {
       clientName,
       redirectUris,
       logoUri,
-      clientUri: clientUri && clientUri.length > 0 ? clientUri : undefined,
+      clientUri,
       confidential: confidential as boolean,
     },
   };
