@@ -1,4 +1,4 @@
-import { readGatewayConfigForWrite, writeGatewayConfig } from "../../../config.js";
+import { readGatewayConfig, writeGatewayConfig } from "../../../config.js";
 import { defineCommand, stringOption, UsageError } from "../../command.js";
 
 export const remove = defineCommand({
@@ -10,17 +10,17 @@ export const remove = defineCommand({
   async action({ io }, options) {
     const name = stringOption(options, "name");
     if (!name) throw new UsageError("Pass --name <name>.");
-    const config = await readGatewayConfigForWrite(io.homeDirectory);
-    if (!config.ok) {
-      io.stderr.write(`${config.message}\n`);
+    const config = await readGatewayConfig(io.homeDirectory);
+    if (config.warning) {
+      io.stderr.write(`${config.warning}\n`);
       return 1;
     }
-    const agents = config.config.agents.filter((agent) => agent.name !== name);
-    if (agents.length === config.config.agents.length) {
+    const agents = config.agents.filter((agent) => agent.name !== name);
+    if (agents.length === config.agents.length) {
       io.stderr.write(`No agent configuration is named "${name}".\n`);
       return 1;
     }
-    await writeGatewayConfig({ ...config.config, agents }, io.homeDirectory);
+    await writeGatewayConfig({ ...config, agents }, io.homeDirectory);
     io.stdout.write(`Removed agent configuration "${name}".\n`);
     return 0;
   },

@@ -1,6 +1,5 @@
 import { DeviceRegistrationError } from "@exterior/client";
 import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
-import { homedir } from "node:os";
 import WebSocket from "ws";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import { configuredWorkingDirectory, usableWorkingDirectory, type GatewayConfig } from "./config.js";

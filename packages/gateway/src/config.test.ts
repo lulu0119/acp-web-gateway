@@ -6,10 +6,8 @@ import { test } from "vitest";
 import {
   configFilePath,
   configuredWorkingDirectory,
-  defaultConfigText,
   parseGatewayConfig,
   readGatewayConfig,
-  readGatewayConfigForWrite,
   usableWorkingDirectory,
   watchGatewayConfig,
   workingDirectoryPath,
@@ -29,17 +27,26 @@ test("a working directory is stored and written back with the agents", async () 
     agents: [{ name: "work", agentType: "opencode", env: {} }],
     workingDirectory: "/projects/mine",
   });
-  const update = await readGatewayConfigForWrite(homeDirectory);
-  assert.equal(update.ok, true);
-  assert.deepEqual(update.ok ? update.config : undefined, {
-    agents: [{ name: "work", agentType: "opencode", env: {} }],
-    workingDirectory: "/projects/mine",
-  });
 });
 
-test("an empty or unreadable working directory is treated as absent", () => {
-  assert.deepEqual(parseGatewayConfig({ agents: [], workingDirectory: "  " }), { agents: [] });
-  assert.deepEqual(parseGatewayConfig({ agents: [], workingDirectory: 7 }), { agents: [] });
+test("an invalid configuration fails instead of being treated as absent", () => {
+  assert.throws(() => parseGatewayConfig({ agents: [], workingDirectory: "  " }), /workingDirectory.*non-empty/);
+  assert.throws(() => parseGatewayConfig({ agents: [], workingDirectory: 7 }), /workingDirectory.*non-empty/);
+  assert.throws(() => parseGatewayConfig({ agents: [], workingDirectory: "relative/path" }), /absolute/);
+  assert.throws(() => parseGatewayConfig({ agents: [], agentCommand: "opencode acp" }), /Unknown field "agentCommand"/);
+  assert.throws(() => parseGatewayConfig({ agents: "nope" }), /"agents" must be a list/);
+  assert.throws(
+    () =>
+      parseGatewayConfig({
+        agents: [
+          { name: "work", agentType: "opencode", env: {} },
+          { name: "work", agentType: "opencode", env: {} },
+        ],
+      }),
+    /twice/,
+  );
+  assert.throws(() => parseGatewayConfig({ agents: [{ name: "broken", agentType: "Not A Type" }] }), /unknown agent type/);
+  assert.throws(() => parseGatewayConfig({ agents: [], extra: 1 }), /Unknown field "extra"/);
 });
 
 test("a directory that cannot be made is refused with what the system said", async () => {
@@ -53,24 +60,6 @@ test("a directory that cannot be made is refused with what the system said", asy
   const made = join(homeDirectory, "made", "here");
   assert.equal(await usableWorkingDirectory(made, () => undefined), made);
   assert.equal((await stat(made)).isDirectory(), true);
-});
-
-test("config stores named agents and ignores a leftover agent command", () => {
-  assert.deepEqual(parseGatewayConfig({ agentCommand: "opencode acp", port: 1 }), { agents: [] });
-  assert.deepEqual(
-    parseGatewayConfig({
-      agents: [
-        { name: "work", agentType: "opencode", env: { OPENCODE_CONFIG: "/tmp/work" } },
-        { name: "broken", agentType: "Not A Type" },
-        { name: "work", agentType: "opencode", env: {} },
-      ],
-    }),
-    {
-      agents: [{ name: "work", agentType: "opencode", env: { OPENCODE_CONFIG: "/tmp/work" } }],
-    },
-  );
-  assert.equal(defaultConfigText().includes("agentCommand"), false);
-  assert.equal(defaultConfigText().includes("47321"), false);
 });
 
 test("a custom command is stored with the configuration", () => {
@@ -94,28 +83,21 @@ test("written config can be read back and is private", async () => {
   assert.deepEqual(await readGatewayConfig(homeDirectory), {
     agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }],
   });
-  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), {
-    ok: true,
-    config: { agents: [{ name: "personal", agentType: "opencode", env: { PATH_EXTRA: "bin" } }] },
-  });
 });
 
-test("a missing config file is empty and may be created", async () => {
+test("a missing config file is empty", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   assert.deepEqual(await readGatewayConfig(homeDirectory), { agents: [] });
-  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), { ok: true, config: { agents: [] } });
 });
 
-test("a config file that is not JSON is not treated as empty", async () => {
+test("a config file that is not JSON fails to read", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, "{", "utf8");
   const launch = await readGatewayConfig(homeDirectory);
-  const update = await readGatewayConfigForWrite(homeDirectory);
   assert.deepEqual(launch.agents, []);
   assert.equal(launch.warning, `Cannot read ${path} as JSON.`);
-  assert.deepEqual(update, { ok: false, message: `Cannot read ${path} as JSON.` });
   assert.equal(await readFile(path, "utf8"), "{");
 });
 
@@ -168,19 +150,19 @@ test("a watched config reports a changed agent list once, and keeps the list thr
   }
 });
 
-test("a config whose agents field is not a list is refused for rewrite", async () => {
+test("a config whose agents field is not a list fails to read", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
   const text = '{"agents":"nope"}\n';
   await writeFile(path, text, "utf8");
-  assert.deepEqual(await readGatewayConfig(homeDirectory), { agents: [] });
-  const update = await readGatewayConfigForWrite(homeDirectory);
-  assert.equal(update.ok, false);
+  const read = await readGatewayConfig(homeDirectory);
+  assert.deepEqual(read.agents, []);
+  assert.match(read.warning ?? "", /"agents" must be a list/);
   assert.equal(await readFile(path, "utf8"), text);
 });
 
-test("a config that would drop agent entries is refused for rewrite", async () => {
+test("a config with a broken agent entry fails to read", async () => {
   const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
   const path = configFilePath(homeDirectory);
   await mkdir(dirname(path), { recursive: true });
@@ -191,12 +173,8 @@ test("a config that would drop agent entries is refused for rewrite", async () =
     ],
   })}\n`;
   await writeFile(path, text, "utf8");
-  assert.deepEqual(await readGatewayConfig(homeDirectory), {
-    agents: [{ name: "work", agentType: "opencode", env: {} }],
-  });
-  assert.deepEqual(await readGatewayConfigForWrite(homeDirectory), {
-    ok: false,
-    message: `Cannot rewrite ${path} without dropping agent entries.`,
-  });
+  const read = await readGatewayConfig(homeDirectory);
+  assert.deepEqual(read.agents, []);
+  assert.match(read.warning ?? "", /unknown agent type/);
   assert.equal(await readFile(path, "utf8"), text);
 });

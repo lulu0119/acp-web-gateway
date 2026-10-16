@@ -2,7 +2,7 @@ import { isAgentType, isEnvName } from "@exterior/contract";
 import { mkdirSync, watch } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 
 export type StoredAgent = {
   name: string;
@@ -54,24 +54,31 @@ export async function usableWorkingDirectory(directory: string, inform: (line: s
 }
 
 export function parseGatewayConfig(value: unknown): GatewayConfig {
-  const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  const items = Array.isArray(record.agents) ? record.agents : [];
-  const agents: StoredAgent[] = [];
-  for (const item of items) {
-    const agent = parseStoredAgent(item);
-    if (agent && !agents.some((existing) => existing.name === agent.name)) agents.push(agent);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("Configuration must be an object.");
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    if (key !== "agents" && key !== "workingDirectory") throw new Error(`Unknown field "${key}".`);
   }
-  const workingDirectory = typeof record.workingDirectory === "string" ? record.workingDirectory.trim() : "";
-  // A path is either given or absent. An empty string is absent, not a directory to work in.
-  return workingDirectory.length > 0 ? { agents, workingDirectory } : { agents };
+  if (!Array.isArray(record.agents)) throw new Error(`"agents" must be a list.`);
+  const agents: StoredAgent[] = [];
+  const names = new Set<string>();
+  for (const [index, item] of record.agents.entries()) {
+    const agent = parseStoredAgent(item, index);
+    if (names.has(agent.name)) throw new Error(`agents[${index}] names "${agent.name}" twice.`);
+    names.add(agent.name);
+    agents.push(agent);
+  }
+  if (record.workingDirectory === undefined) return { agents };
+  if (typeof record.workingDirectory !== "string" || record.workingDirectory.trim().length === 0) {
+    throw new Error(`"workingDirectory" must be a non-empty path.`);
+  }
+  const workingDirectory = record.workingDirectory.trim();
+  if (!isAbsolute(workingDirectory)) throw new Error(`"workingDirectory" must be absolute.`);
+  return { agents, workingDirectory };
 }
 
 function configText(config: GatewayConfig): string {
   return `${JSON.stringify(config, null, 2)}\n`;
-}
-
-export function defaultConfigText(): string {
-  return configText({ agents: [] });
 }
 
 export async function readGatewayConfig(homeDirectory = homedir()): Promise<GatewayConfig & { warning?: string }> {
@@ -80,19 +87,6 @@ export async function readGatewayConfig(homeDirectory = homedir()): Promise<Gate
   if (failure) return { agents: [], warning: failure };
   if (loaded.kind === "parsed") return loaded.config;
   return { agents: [] };
-}
-
-export async function readGatewayConfigForWrite(
-  homeDirectory = homedir(),
-): Promise<{ ok: true; config: GatewayConfig } | { ok: false; message: string }> {
-  const loaded = await loadGatewayConfig(homeDirectory);
-  const failure = loadFailure(loaded);
-  if (failure) return { ok: false, message: failure };
-  if (loaded.kind === "parsed" && loaded.dropsAgents) {
-    return { ok: false, message: `Cannot rewrite ${loaded.path} without dropping agent entries.` };
-  }
-  // The whole configuration, so a writer adds or removes one thing and leaves the rest alone.
-  return { ok: true, config: loaded.kind === "parsed" ? loaded.config : { agents: [] } };
 }
 
 export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = homedir()): Promise<void> {
@@ -104,11 +98,11 @@ export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = 
 }
 
 /**
- * Calls `onChange` each time the configuration file settles on a different agent list.
+ * Calls `onChange` each time the configuration file settles on different content.
  *
  * The watch is on the directory, not the file: an editor that saves by renaming a new
  * file over the old one leaves a watch on the old file deaf. Events arrive in bursts,
- * so the file is read once they stop. A file that cannot be read keeps the previous list.
+ * so the file is read once they stop. A file that cannot be read keeps the previous configuration.
  * Returns a function that stops watching.
  */
 export function watchGatewayConfig(input: {
@@ -152,8 +146,8 @@ export function watchGatewayConfig(input: {
 type LoadedGatewayConfig =
   | { kind: "missing" }
   | { kind: "unreadable"; path: string }
-  | { kind: "invalid"; path: string }
-  | { kind: "parsed"; path: string; config: GatewayConfig; dropsAgents: boolean };
+  | { kind: "invalid"; path: string; message: string }
+  | { kind: "parsed"; path: string; config: GatewayConfig };
 
 /** One spelling of a configuration, so a watch can tell a change from a rewrite of the same thing. */
 function configKey(config: GatewayConfig): string {
@@ -169,63 +163,67 @@ async function loadGatewayConfig(homeDirectory: string): Promise<LoadedGatewayCo
     if (isMissingFile(error)) return { kind: "missing" };
     return { kind: "unreadable", path };
   }
+  let value: unknown;
   try {
-    const value: unknown = JSON.parse(text);
-    return {
-      kind: "parsed",
-      path,
-      config: parseGatewayConfig(value),
-      dropsAgents: rewriteWouldDropAgents(value),
-    };
+    value = JSON.parse(text);
   } catch {
-    return { kind: "invalid", path };
+    return { kind: "invalid", path, message: `Cannot read ${path} as JSON.` };
+  }
+  try {
+    return { kind: "parsed", path, config: parseGatewayConfig(value) };
+  } catch (error) {
+    return { kind: "invalid", path, message: `Cannot read ${path}: ${error instanceof Error ? error.message : "invalid configuration."}` };
   }
 }
 
 function loadFailure(loaded: LoadedGatewayConfig): string | undefined {
   if (loaded.kind === "unreadable") return `Cannot read ${loaded.path}.`;
-  if (loaded.kind === "invalid") return `Cannot read ${loaded.path} as JSON.`;
+  if (loaded.kind === "invalid") return loaded.message;
   return undefined;
-}
-
-function rewriteWouldDropAgents(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return true;
-  const agents = (value as { agents?: unknown }).agents;
-  if (!Array.isArray(agents)) return true;
-  return parseGatewayConfig(value).agents.length !== agents.length;
 }
 
 function isMissingFile(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-function parseStoredAgent(value: unknown): StoredAgent | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
+function parseStoredAgent(value: unknown, index: number): StoredAgent {
+  const where = `agents[${index}]`;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(`${where} must be an object.`);
   const record = value as Record<string, unknown>;
-  if (typeof record.name !== "string" || record.name.trim().length === 0) return undefined;
-  if (typeof record.agentType !== "string" || !isAgentType(record.agentType)) return undefined;
-  const env = parseEnv(record.env);
-  if (!env) return undefined;
-  const command = parseCommand(record.command, record.args);
-  if (command === "invalid") return undefined;
+  for (const key of Object.keys(record)) {
+    if (key !== "name" && key !== "agentType" && key !== "env" && key !== "command" && key !== "args") {
+      throw new Error(`${where} has unknown field "${key}".`);
+    }
+  }
+  if (typeof record.name !== "string" || record.name.trim().length === 0) throw new Error(`${where} needs a name.`);
+  if (typeof record.agentType !== "string" || !isAgentType(record.agentType)) {
+    throw new Error(`${where} has unknown agent type ${JSON.stringify(record.agentType)}.`);
+  }
+  const env = parseEnv(record.env, where);
+  const command = parseCommand(record.command, record.args, where);
   if (!command) return { name: record.name, agentType: record.agentType, env };
   return { name: record.name, agentType: record.agentType, env, command: command.command, args: command.args };
 }
 
-function parseCommand(command: unknown, args: unknown): { command: string; args: string[] } | "invalid" | undefined {
+function parseCommand(command: unknown, args: unknown, where: string): { command: string; args: string[] } | undefined {
   if (command === undefined && args === undefined) return undefined;
-  if (typeof command !== "string" || command.length === 0) return "invalid";
+  if (typeof command !== "string" || command.length === 0) throw new Error(`${where} needs a command.`);
   if (args === undefined) return { command, args: [] };
-  if (!Array.isArray(args) || args.some((item) => typeof item !== "string")) return "invalid";
-  return { command, args };
+  if (!Array.isArray(args)) throw new Error(`${where} needs args as a list of strings.`);
+  const list: string[] = [];
+  for (const item of args) {
+    if (typeof item !== "string") throw new Error(`${where} needs args as a list of strings.`);
+    list.push(item);
+  }
+  return { command, args: list };
 }
 
-function parseEnv(value: unknown): Record<string, string> | undefined {
+function parseEnv(value: unknown, where: string): Record<string, string> {
   if (value === undefined) return {};
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(`${where} needs env as an object.`);
   const env: Record<string, string> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (!isEnvName(key) || typeof item !== "string") return undefined;
+    if (!isEnvName(key) || typeof item !== "string") throw new Error(`${where} has invalid env entry "${key}".`);
     env[key] = item;
   }
   return env;
