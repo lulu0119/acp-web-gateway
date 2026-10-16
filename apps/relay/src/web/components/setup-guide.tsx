@@ -6,16 +6,16 @@ import { buttonVariants } from "@exterior/ui/button";
 import { CopyButton } from "@exterior/ui/copy-button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
 
-// Three tabs fit a phone only without their icons.
-const tab = "h-auto min-h-8 min-w-0 whitespace-normal max-sm:[&_svg]:hidden";
+// Three tabs fit a phone on one line only as single words without icons.
+const tab = "min-w-0 [&_svg]:shrink-0 max-sm:[&_svg]:hidden";
 
 /** How to connect a device: with the desktop app, through an AI assistant on it, or by running the commands yourself. */
 export function SetupGuide({ guide }: { guide: SetupGuideData }) {
   return (
     <Tabs defaultValue="desktop">
       <TabsList className="max-w-full">
-        <TabsTab value="desktop" className={tab}><MonitorIcon />Desktop app</TabsTab>
-        <TabsTab value="assistant" className={tab}><BotIcon />AI assistant</TabsTab>
+        <TabsTab value="desktop" className={tab}><MonitorIcon /><TabLabel short="Desktop" full="Desktop app" /></TabsTab>
+        <TabsTab value="assistant" className={tab}><BotIcon /><TabLabel short="Assistant" full="AI assistant" /></TabsTab>
         <TabsTab value="terminal" className={tab}><TerminalIcon />Terminal</TabsTab>
       </TabsList>
       <TabsPanel value="desktop" className="flex flex-col gap-5">
@@ -35,6 +35,15 @@ export function SetupGuide({ guide }: { guide: SetupGuideData }) {
         <CodeBlock code={guide.commands} />
       </TabsPanel>
     </Tabs>
+  );
+}
+
+function TabLabel({ short, full }: { short: string; full: string }) {
+  return (
+    <>
+      <span className="sm:hidden">{short}</span>
+      <span className="max-sm:hidden">{full}</span>
+    </>
   );
 }
 
