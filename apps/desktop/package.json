@@ -11,9 +11,8 @@
     "test": "tsc --noEmit -p tsconfig.json && vitest run"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
+    "@exterior/ui": "workspace:*",
     "@tauri-apps/api": "^2.12.4",
-    "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.55.0",
     "react": "^19.2.0",

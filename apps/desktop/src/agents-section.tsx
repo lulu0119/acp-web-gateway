@@ -1,6 +1,6 @@
-import { Badge } from "@relay/ui/badge";
-import { Button } from "@relay/ui/button";
-import { Dialog, DialogContent } from "@relay/ui/dialog";
+import { Badge } from "@exterior/ui/badge";
+import { Button } from "@exterior/ui/button";
+import { Dialog, DialogContent } from "@exterior/ui/dialog";
 import { useCallback, useEffect, useState } from "react";
 import { AddAgentDialog } from "./add-agent-dialog";
 import { api, errorText, type AgentConfig, type AgentType } from "./api";

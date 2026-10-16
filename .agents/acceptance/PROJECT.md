@@ -11,7 +11,7 @@ Exterior is an account and relay that lets a web app reach an ACP agent on a dev
 
 ## 2. Environment
 
-- **Build:** `pnpm install && pnpm build` (from the repo root). Account pages render from the server build, so rebuild after any change under `apps/relay/src/web`.
+- **Build:** `pnpm install && pnpm build` (from the repo root). Account pages render from the server build, so rebuild after any change under `apps/relay/src/web` or `packages/ui`.
 - **Start relay (isolated):** run from a scratch directory, never the repo, so `data/relay.sqlite` is a throwaway:
   ```sh
   RUN=<scratch>/relay && mkdir -p $RUN/data $RUN/home

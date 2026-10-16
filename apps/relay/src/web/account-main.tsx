@@ -2,7 +2,7 @@ import "@vitejs/plugin-react/preamble";
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import type { AccountPage as AccountPageData } from "../shared/account-web.js";
-import { readProps } from "./lib/props";
+import { readProps } from "@exterior/ui/props";
 import { AccountPage } from "./pages/account";
 
 const root = document.querySelector("#root");

@@ -57,10 +57,10 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-false-feedback
 
-- ❌ `c94dada`: buttons had no pointer cursor (Tailwind 4 preflight) and form buttons had no pending state, so Approve could be pressed twice. `web/ui/button.tsx`
+- ❌ `c94dada`: buttons had no pointer cursor (Tailwind 4 preflight) and form buttons had no pending state, so Approve could be pressed twice. `packages/ui/src/button.tsx`
 - ✅ `feat/relay-ux`: a base rule gives every clickable role a pointer; `Button` has `loading`; `PendingForm` spins the pressed button and disables its sibling across forms. L3: after clicking Connect device, `aria-busy=true`, spinner shown, Deny disabled. `web/styles.css`, `web/components/pending-form.tsx`
 - ✅ `feat/relay-ux`: revoking reports a failure instead of silently reloading. `web/components/grants-section.tsx`
 
 ## no-input-hijack
 
-- ✅ `feat/relay-ux`: the device-code field accepts typing and paste, uppercases, and skips the dash. `web/ui/otp-field.tsx`
+- ✅ `feat/relay-ux`: the device-code field accepts typing and paste, uppercases, and skips the dash. `packages/ui/src/otp-field.tsx`

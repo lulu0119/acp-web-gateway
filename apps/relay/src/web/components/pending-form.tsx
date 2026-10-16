@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FormHTMLAttributes, type ReactNode } from "react";
-import { Button } from "../ui/button.js";
+import { Button } from "@exterior/ui/button";
 
 type Pending = { submitter: string; start(submitter: string): void };
 

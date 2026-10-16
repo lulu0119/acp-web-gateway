@@ -1,4 +1,4 @@
-import { ExteriorMark } from "@relay/components/exterior-mark";
+import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { useEffect, useState } from "react";
 import { AgentsSection } from "./agents-section";
 import { api } from "./api";

@@ -1,7 +1,7 @@
-import { Button } from "@relay/ui/button";
-import { Dialog, DialogContent } from "@relay/ui/dialog";
-import { Input } from "@relay/ui/input";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "@relay/ui/tabs";
+import { Button } from "@exterior/ui/button";
+import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Input } from "@exterior/ui/input";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
 import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

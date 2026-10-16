@@ -1,7 +1,7 @@
 import { BotIcon, TerminalIcon } from "lucide-react";
 import type { SetupGuideData } from "../../shared/account-web.js";
 import { CodeBlock } from "./code-block";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "../ui/tabs";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
 
 /** How to connect a device, either through an AI assistant on it or by running the commands yourself. */
 export function SetupGuide({ guide }: { guide: SetupGuideData }) {

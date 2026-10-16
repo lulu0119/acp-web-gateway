@@ -1,6 +1,6 @@
-import { Button } from "@relay/ui/button";
-import { Dialog, DialogContent } from "@relay/ui/dialog";
-import { Input } from "@relay/ui/input";
+import { Button } from "@exterior/ui/button";
+import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Input } from "@exterior/ui/input";
 import { cn } from "cn";
 import { useEffect, useState } from "react";
 import { api, errorText, type RelayView, type SignInEvent } from "./api";

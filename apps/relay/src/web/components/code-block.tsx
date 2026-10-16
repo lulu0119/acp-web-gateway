@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import type { HighlightedCode } from "../../shared/account-web.js";
-import { CopyButton } from "./copy-button.js";
+import { CopyButton } from "@exterior/ui/copy-button";
 
 /**
  * Code highlighted by the server, styled like a GitHub README block, with a copy button in its top-right corner.
