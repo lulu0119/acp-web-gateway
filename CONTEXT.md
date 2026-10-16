@@ -13,7 +13,7 @@ The person who signs in. One account can have many devices.
 _Avoid_: user, workspace, team
 
 **Device**:
-A computer signed in to an account with `exterior login`. It keeps a stable device id in its sign-in and stays listed while offline; it is online while its daemon is connected. Wire names still say machine (`/api/machines`, the `machines` scope, `Machine` in the contract); a live daemon connection has a machine id that changes on every reconnect.
+A computer signed in to an account with the desktop app or `exterior login`. It keeps a stable device id in its sign-in and stays listed while offline; it is online while its daemon is connected. Wire names still say machine (`/api/machines`, the `machines` scope, `Machine` in the contract); a live daemon connection has a machine id that changes on every reconnect.
 _Avoid_: machine (in copy), gateway, host
 
 **Sign-in**:

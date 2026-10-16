@@ -1,0 +1,128 @@
+name: Release
+
+# A tag `v<version>` builds the desktop app and the `exterior` executable on one native runner per
+# target (ADR 0017) and attaches them to a draft release, which a person publishes. The file names
+# carry no version, so `releases/latest/download/<name>` always serves the newest published one;
+# the relay's setup guide links to them. A pull request that touches the build runs the same jobs
+# and keeps the files as workflow artifacts instead.
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - apps/desktop/**
+      - packages/gateway/scripts/**
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag against the app version
+        run: |
+          version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in tauri.conf.json."
+            exit 1
+          fi
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          The desktop app signs a computer in to an Exterior relay, keeps it online, and starts at login. `exterior` alone is the same daemon for a terminal or a server.
+
+          | | Desktop app | `exterior` alone |
+          | --- | --- | --- |
+          | macOS, Apple silicon | `Exterior-macos-arm64.dmg` | `exterior-macos-arm64` |
+          | Windows x64 | `Exterior-windows-x64-setup.exe` | `exterior-windows-x64.exe` |
+          | Windows Arm | `Exterior-windows-arm64-setup.exe` | `exterior-windows-arm64.exe` |
+          | Linux x64 | `Exterior-linux-x64.AppImage`, `Exterior-linux-x64.deb` | `exterior-linux-x64` |
+          | Linux Arm | `Exterior-linux-arm64.AppImage`, `Exterior-linux-arm64.deb` | `exterior-linux-arm64` |
+
+          The app is not signed yet. On macOS, open it once, then choose Open Anyway in System Settings › Privacy & Security. On Windows, choose More info, then Run anyway, when SmartScreen asks.
+          EOF
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Exterior $GITHUB_REF_NAME" --notes-file notes.md
+
+  build:
+    needs: draft
+    # Runs on a pull request too, where `draft` is skipped.
+    if: ${{ !failure() && !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            runner: macos-15
+          - target: windows-x64
+            runner: windows-2025
+          - target: windows-arm64
+            runner: windows-11-arm
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      # The Node that builds the executable is the Node embedded in it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install the Linux libraries Tauri links
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf file
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter exterior... build
+      - run: pnpm --filter @exterior/desktop bundle
+      - name: Name the files for every release alike
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          bundle=apps/desktop/src-tauri/target/release/bundle
+          mkdir release
+          case "$TARGET" in
+            macos-*)
+              cp "$bundle"/dmg/*.dmg "release/Exterior-$TARGET.dmg"
+              cp packages/gateway/dist/exterior "release/exterior-$TARGET"
+              ;;
+            windows-*)
+              cp "$bundle"/nsis/*-setup.exe "release/Exterior-$TARGET-setup.exe"
+              cp packages/gateway/dist/exterior.exe "release/exterior-$TARGET.exe"
+              ;;
+            linux-*)
+              cp "$bundle"/appimage/*.AppImage "release/Exterior-$TARGET.AppImage"
+              cp "$bundle"/deb/*.deb "release/Exterior-$TARGET.deb"
+              cp packages/gateway/dist/exterior "release/exterior-$TARGET"
+              ;;
+          esac
+          ls -l release
+      - name: Attach to the draft release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" release/* --clobber
+      - name: Keep as a workflow artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: exterior-${{ matrix.target }}
+          path: release/
+          retention-days: 7

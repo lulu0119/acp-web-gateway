@@ -120,14 +120,14 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
             <TerminalIcon className="mt-0.5" />
             <span className="flex flex-col">
               <span className="font-medium">Set up a new device</span>
-              <span className="text-xs text-muted-foreground">Steps for an AI assistant or a terminal</span>
+              <span className="text-xs text-muted-foreground">The desktop app, an AI assistant, or a terminal</span>
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2.5 py-2">
             <KeyRoundIcon className="mt-0.5" />
             <span className="flex flex-col">
               <span className="font-medium">Enter a device code</span>
-              <span className="text-xs text-muted-foreground">The code <code className="font-mono">exterior login</code> printed</span>
+              <span className="text-xs text-muted-foreground">The code the app or <code className="font-mono">exterior login</code> shows</span>
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -180,7 +180,7 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
 function AgentList({ device, live }: { device: DeviceView; live: Map<string, number> }) {
   if (!device.machineId) return <span className="text-muted-foreground">Shown when online</span>;
   if (device.agents.length === 0) {
-    return <span className="text-muted-foreground">None configured. Run <code className="font-mono text-xs">exterior agent-config create</code> on it.</span>;
+    return <span className="text-muted-foreground">None configured. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</span>;
   }
   return (
     <ul className="flex flex-wrap gap-1.5">

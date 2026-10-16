@@ -1,16 +1,36 @@
-import type { SetupGuideData } from "../../shared/account-web.js";
+import type { DesktopDownload, SetupGuideData } from "../../shared/account-web.js";
 import { highlight } from "./highlight.js";
 
 const previewPackage = "https://pkg.pr.new/lulu0119/exterior@main";
 const runner = `npx --package=${previewPackage} -- exterior`;
+// The release workflow names its files without a version, so these always serve the newest release.
+const latestRelease = "https://github.com/lulu0119/exterior/releases/latest";
 
-export function setupGuide(relayUrl: string): SetupGuideData {
+export function setupGuide(relayUrl: string, userAgent = ""): SetupGuideData {
   return {
     relayUrl,
+    download: desktopDownload(userAgent),
+    releaseUrl: latestRelease,
     prompt: highlight(agentPrompt(relayUrl), "markdown"),
     commands: highlight(shellSteps(relayUrl), "shellscript"),
     afterLogin: highlight(afterLogin(relayUrl), "shellscript"),
   };
+}
+
+/**
+ * The installer for the browser's own computer, the usual case for someone setting it up. macOS
+ * ships for Apple silicon only, and Windows on Arm reports x64 and runs the x64 installer.
+ */
+export function desktopDownload(userAgent: string): DesktopDownload | undefined {
+  const file = (name: string) => `${latestRelease}/download/${name}`;
+  if (/Android|iPhone/.test(userAgent)) return undefined;
+  if (/Macintosh/.test(userAgent)) return { platform: "macOS", detail: "Apple silicon", href: file("Exterior-macos-arm64.dmg") };
+  if (/Windows/.test(userAgent)) return { platform: "Windows", detail: "x64", href: file("Exterior-windows-x64-setup.exe") };
+  if (/Linux/.test(userAgent)) {
+    const arm = /aarch64|arm64/i.test(userAgent);
+    return { platform: "Linux", detail: `${arm ? "Arm" : "x64"}, AppImage`, href: file(`Exterior-linux-${arm ? "arm64" : "x64"}.AppImage`) };
+  }
+  return undefined;
 }
 
 function agentPrompt(relayUrl: string): string {

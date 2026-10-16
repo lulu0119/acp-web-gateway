@@ -7,7 +7,7 @@ Screenshots of relay pages whose appearance a change affects, for the before/aft
 pnpm --filter @exterior/relay capture --label after --port 8891 --surface dashboard
 ```
 
-`--label before|after` names the output directory. `--surface` names one page this change affects; repeat it for each such page. Known names: `dashboard`, `sign-in`, `device-code`. `--port` defaults to 8799, `--viewport` to `1440x900`, `--out` to `.captures/` at the repository root. Run again with `--viewport 390x844` when the narrow width is part of the change. It prints one path per page.
+`--label before|after` names the output directory. `--surface` names one page this change affects; repeat it for each such page. Known names: `dashboard`, `setup-dialog`, `sign-in`, `device-code`. `--port` defaults to 8799, `--viewport` to `1440x900`, `--out` to `.captures/` at the repository root. Run again with `--viewport 390x844` when the narrow width is part of the change. It prints one path per page.
 
 The script starts its own relay, signs in one account, seeds four devices, and connects the two online ones as daemons. `.captures/` is git-ignored. The images belong in the GitHub copy, not in this repository.
 

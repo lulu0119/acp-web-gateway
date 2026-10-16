@@ -19,7 +19,7 @@ afterAll(() => {
   rmdirSync(publicDir);
 });
 
-const guide = { relayUrl: "http://127.0.0.1:8787", prompt: { code: "", html: "" }, commands: { code: "", html: "" }, afterLogin: { code: "", html: "" } };
+const guide = { relayUrl: "http://127.0.0.1:8787", releaseUrl: "https://github.com/lulu0119/exterior/releases/latest", prompt: { code: "", html: "" }, commands: { code: "", html: "" }, afterLogin: { code: "", html: "" } };
 const permissions = [{ scope: "machines", title: "Use agents on your devices", detail: "" }];
 
 test("all pages use the shared stylesheet and each loads only its own script", () => {

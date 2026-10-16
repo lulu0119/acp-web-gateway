@@ -7,8 +7,7 @@ Current roadmap. Decisions: [adr/](./adr/). How agents maintain docs: [../AGENTS
 Code still missing.
 
 - `agent-config check`: a broken configuration is only found when a connection opens. Check with an ACP `initialize` before writing.
-- Release workflow for the daemon executable and the desktop app ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): Node 26 on native runners for macOS arm64, Linux x64 and arm64, and Windows x64 and arm64; strip the Linux Node before injecting; sign macOS ad hoc; GitHub Releases, `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget.
-- The relay's device pages assume a terminal: they name `exterior login`, `logout`, `daemon`, and `agent-config create` where the desktop app shows the code, signs out, runs the daemon, and adds agents. Word them for both. Once the release workflow publishes downloads, "Add device" offers the desktop app first, and the setup guide installs the executable instead of using `npx`, so the device needs no Node.
+- Installing `exterior` beyond the release files ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): strip the Linux Node before injecting, then `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget. Then the setup guide's assistant and terminal steps install the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
@@ -25,6 +24,7 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
+- The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.

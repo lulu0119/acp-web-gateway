@@ -13,7 +13,7 @@ createRoot(root).render(
   <StrictMode>
     <Dashboard
       initialData={props?.data ?? { userName: "", devices: [], sessions: [] }}
-      guide={props?.guide ?? { relayUrl: window.location.origin, prompt: blank, commands: blank, afterLogin: blank }}
+      guide={props?.guide ?? { relayUrl: window.location.origin, releaseUrl: "https://github.com/lulu0119/exterior/releases/latest", prompt: blank, commands: blank, afterLogin: blank }}
     />
   </StrictMode>,
 );
