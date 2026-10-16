@@ -1,4 +1,4 @@
-import { acpPath, devicesPath, parseDeviceRegistration, sessionsPath } from "@exterior/contract";
+import { acpPath, connectionsPath, devicesPath, parseDeviceRegistration } from "@exterior/contract";
 import type { Hono } from "hono";
 import type { Registry } from "../connections/registry.js";
 import type { DeviceStore } from "../devices/store.js";
@@ -20,7 +20,7 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
   app.get(devicesPath, webApps, (c) => c.json({
     devices: input.registry.listDevices(c.get("userId")).map(({ id, hostname, workingDirectory, agents }) => ({ id, hostname, workingDirectory, agents })),
   }));
-  app.post(sessionsPath, webApps, async (c) => {
+  app.post(connectionsPath, webApps, async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);
     const deviceId = recordString(body, "deviceId");
     const agentName = recordString(body, "agentName");

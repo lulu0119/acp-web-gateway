@@ -265,7 +265,7 @@ async function fakeRelay(): Promise<{
     if (url.pathname === "/api/devices") {
       return json(response, { devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }] });
     }
-    if (url.pathname === "/api/sessions") {
+    if (url.pathname === "/api/connections") {
       return json(response, { url: `${origin.replace("http", "ws")}/api/acp?ticket=once`, agentType: "opencode", agentName: "work" });
     }
     response.writeHead(404);

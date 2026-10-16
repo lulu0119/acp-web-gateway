@@ -4,7 +4,7 @@ import {
   devicesScope,
   isRecord,
   publicClientsPath,
-  sessionsPath,
+  connectionsPath,
   type Device,
   type DeviceRegistration,
   type PublicClients,
@@ -243,7 +243,7 @@ export async function openConnection(
   accessToken: string,
   input: { deviceId: string; agentName: string },
 ): Promise<{ url: string; agentType: string; agentName: string }> {
-  const response = await fetch(new URL(sessionsPath, originOf(relayUrl)), {
+  const response = await fetch(new URL(connectionsPath, originOf(relayUrl)), {
     method: "POST",
     credentials: "omit",
     headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },

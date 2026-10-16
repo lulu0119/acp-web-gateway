@@ -5,7 +5,7 @@ export const daemonPath = "/api/daemon";
 export const acpPath = "/api/acp";
 /** Web apps list devices here; a daemon registers its device here. */
 export const devicesPath = "/api/devices";
-export const sessionsPath = "/api/sessions";
+export const connectionsPath = "/api/connections";
 export const exampleCallbackPath = "/oauth/callback";
 
 export const publicClientsPath = "/api/clients";
