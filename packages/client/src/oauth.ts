@@ -271,6 +271,7 @@ export type BrowserStore = {
 
 const verifierKey = "exterior.codeVerifier";
 const stateKey = "exterior.state";
+const signInClientKey = "exterior.signInClientId";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
@@ -343,6 +344,11 @@ export async function beginBrowserSignIn(input: {
   });
   input.store.setItem(verifierKey, codeVerifier);
   input.store.setItem(stateKey, state);
+  // The relay reuses one client per app, and a remembered approval comes straight back with a code,
+  // so the approval address is where the app learns its client id.
+  const clientId = new URL(url).searchParams.get("client_id");
+  if (clientId) input.store.setItem(signInClientKey, clientId);
+  else input.store.removeItem(signInClientKey);
   return url;
 }
 
@@ -356,7 +362,7 @@ export async function finishBrowserSignIn(input: {
 }): Promise<ExteriorTokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
-  const clientId = input.clientId ?? callbackClientId(input.callbackUrl) ?? cachedClientId(input.store, input.relayUrl);
+  const clientId = input.clientId ?? input.store.getItem(signInClientKey) ?? cachedClientId(input.store, input.relayUrl);
   if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
   // A code redeems once, but a framework may mount the callback twice:
   // racing callers for the same code share one redemption.
@@ -377,6 +383,7 @@ export async function finishBrowserSignIn(input: {
       cacheClientId(input.store, input.relayUrl, clientId);
       input.store.removeItem(verifierKey);
       input.store.removeItem(stateKey);
+      input.store.removeItem(signInClientKey);
       return tokens;
     })
     .finally(() => {
@@ -391,14 +398,6 @@ const pendingCallbackExchanges = new Map<string, Promise<ExteriorTokens>>();
 function callbackCode(callbackUrl: string): string | undefined {
   try {
     return new URL(callbackUrl).searchParams.get("code") ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function callbackClientId(callbackUrl: string): string | undefined {
-  try {
-    return new URL(callbackUrl).searchParams.get("client_id") ?? undefined;
   } catch {
     return undefined;
   }

@@ -11,7 +11,7 @@ Code still missing.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - Consent identity: the relay fetches each app's icon itself (blocking private addresses, re-encoding to PNG) and serves it; apps not on the public internet send a data URI in the approval request. Until then the consent page and authorized apps show a monogram. See `docs/research/2026-10-13-oauth-consent.md`.
-- Pending approvals are unauthenticated and name themselves: rate-limit `POST /api/authorize-request`, reuse one client per app origin instead of one per sign-in, and decide what "verified" means.
+- Pending approvals are unauthenticated and name themselves: rate-limit `POST /api/authorize-request`, and decide what "verified" means.
 - Scope redesign: separate a daemon scope from what web apps ask for (list devices, open agents), and let the person pick devices or agents at consent.
 - One daemon client per device: every device's daemon shares one OAuth client, so when a daemon replays a refresh token that was rotated or revoked, the provider revokes the daemon sign-in of every device on the account.
 - Check `Origin` against the app's redirect origins on the web app API and on `/api/acp`, instead of `Access-Control-Allow-Origin: *`.

@@ -1,5 +1,5 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { devicesScope } from "@exterior/contract";
 import type { ExteriorAuth } from "./auth.js";
 
@@ -141,12 +141,24 @@ function validateClientName(clientName: string): string | undefined {
   return undefined;
 }
 
-export async function createPendingClient(exterior: ExteriorAuth, input: PendingClientRequest): Promise<string> {
+/**
+ * Names an unregistered web app by what it shows and where its codes go, so each sign-in reuses one
+ * client. A request that names itself differently gets a client of its own instead of renaming one
+ * that people already approved.
+ */
+function appKey(input: PendingClientRequest): string {
+  return createHash("sha256")
+    .update(JSON.stringify([input.redirectUri, input.clientName, input.logoUri ?? ""]))
+    .digest("hex")
+    .slice(0, 32);
+}
+
+async function createPendingClient(exterior: ExteriorAuth, key: string, input: PendingClientRequest): Promise<string> {
   const created = await withOwner(exterior, (headers) =>
     exterior.auth.api.adminCreateOAuthClient({
       headers,
       body: {
-        software_id: `${pendingSoftwarePrefix}${randomBytes(8).toString("hex")}`,
+        software_id: `${pendingSoftwarePrefix}${key}`,
         client_name: input.clientName,
         logo_uri: input.logoUri,
         application_type: applicationTypeForRedirects([input.redirectUri]),
@@ -154,7 +166,8 @@ export async function createPendingClient(exterior: ExteriorAuth, input: Pending
         grant_types: ["authorization_code", "refresh_token"],
         token_endpoint_auth_method: "none",
         response_types: ["code"],
-        scope: input.scopes.join(" "),
+        // Every grantable scope, so a later sign-in asking for more still fits the reused client.
+        scope: grantableScopes.join(" "),
         skip_consent: false,
       },
     }),
@@ -164,7 +177,7 @@ export async function createPendingClient(exterior: ExteriorAuth, input: Pending
   return created.client_id;
 }
 
-export async function approvePendingClient(exterior: ExteriorAuth, clientId: string): Promise<boolean> {
+export async function approvePendingClient(exterior: ExteriorAuth, clientId: string): Promise<void> {
   const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({
     model: "oauthClient",
@@ -172,13 +185,12 @@ export async function approvePendingClient(exterior: ExteriorAuth, clientId: str
   });
   const row = rows.find((item) => item.clientId === clientId);
   const softwareId = row?.softwareId;
-  if (!softwareId?.startsWith(pendingSoftwarePrefix)) return false;
+  if (!softwareId?.startsWith(pendingSoftwarePrefix)) return;
   await context.adapter.update({
     model: "oauthClient",
     where: [{ field: "clientId", value: clientId }],
     update: { softwareId: `${openSoftwarePrefix}${softwareId.slice(pendingSoftwarePrefix.length)}` },
   });
-  return true;
 }
 
 export async function prunePendingClients(exterior: ExteriorAuth, olderThanMs = pendingTtlMs, now: number = Date.now()): Promise<number> {
@@ -322,7 +334,11 @@ async function linkResource(exterior: ExteriorAuth, clientId: string): Promise<v
 
 export async function requestClientApproval(exterior: ExteriorAuth, input: PendingClientRequest): Promise<string> {
   await prunePendingClients(exterior);
-  const clientId = await createPendingClient(exterior, input);
+  const key = appKey(input);
+  const clientId =
+    (await findClientId(exterior, `${openSoftwarePrefix}${key}`)) ??
+    (await findClientId(exterior, `${pendingSoftwarePrefix}${key}`)) ??
+    (await createPendingClient(exterior, key, input));
   const url = new URL("/api/auth/oauth2/authorize", exterior.publicUrl);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);

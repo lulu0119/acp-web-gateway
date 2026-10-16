@@ -84,7 +84,6 @@ test("the birth certificate is issued at approval, not before", async () => {
   assert.equal(approved.status, 302);
   const back = new URL(approved.headers.get("location") ?? "");
   assert.equal(back.origin + back.pathname, "https://app.example.test/callback");
-  assert.equal(back.searchParams.get("client_id"), clientId);
   assert.equal(typeof back.searchParams.get("code"), "string");
 
   const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as {
@@ -94,6 +93,37 @@ test("the birth certificate is issued at approval, not before", async () => {
     listed.apps.map((item) => ({ clientId: item.clientId, clientName: item.clientName })),
     [{ clientId, clientName: "Studio" }],
   );
+});
+
+test("an app signing in again reuses its client and skips the consent it already has", async () => {
+  const { app, cookie } = await openRegistry();
+  const studio = { clientName: "Studio", redirectUri: "https://app.example.test/callback", scopes: ["devices"] };
+  const first = await startApproval(app, studio);
+  const firstClient = new URL(first).searchParams.get("client_id") ?? "";
+  const prompted = await app.request(first, { headers: { cookie } });
+  const query = new URL(prompted.headers.get("location") ?? "", publicUrl).search.slice(1);
+  const approved = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query }),
+  });
+  assert.equal(approved.status, 302);
+
+  const again = await startApproval(app, studio);
+  assert.equal(new URL(again).searchParams.get("client_id"), firstClient);
+  const remembered = await app.request(again, { headers: { cookie } });
+  const back = new URL(remembered.headers.get("location") ?? "", publicUrl);
+  assert.equal(back.origin + back.pathname, "https://app.example.test/callback");
+  assert.equal(typeof back.searchParams.get("code"), "string");
+
+  const wider = await startApproval(app, { ...studio, scopes: ["devices", "offline_access"] });
+  assert.equal(new URL(wider).searchParams.get("client_id"), firstClient);
+
+  const renamed = await startApproval(app, { ...studio, clientName: "Studio Next" });
+  assert.notEqual(new URL(renamed).searchParams.get("client_id"), firstClient);
+
+  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: { clientId: string }[] };
+  assert.deepEqual(listed.apps.map((item) => item.clientId), [firstClient]);
 });
 
 test("denied approvals leave no grant and abandoned ones are pruned", async () => {
@@ -189,6 +219,16 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   const asked = await app.request(`${publicUrl}/consent?${thirdQuery}`, { headers: { cookie } });
   assert.equal(asked.status, 200);
 });
+
+async function startApproval(app: Hono<RelayEnv>, input: { clientName: string; redirectUri: string; scopes: string[] }): Promise<string> {
+  const started = await app.request(`${publicUrl}/api/authorize-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...input, state: "browser-state", codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" }),
+  });
+  assert.equal(started.status, 200);
+  return ((await started.json()) as { url: string }).url;
+}
 
 async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: string, redirectUri: string): Promise<string> {
   const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);

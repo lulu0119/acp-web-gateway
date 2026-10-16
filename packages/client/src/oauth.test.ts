@@ -91,7 +91,7 @@ test("revoking a refresh token names it as one", async () => {
   }
 });
 
-test("a web app without a client id starts approval without one", async () => {
+test("a web app without a client id takes the one its approval address names", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
   try {
@@ -103,7 +103,6 @@ test("a web app without a client id starts approval without one", async () => {
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    callback.searchParams.set("client_id", "pending-client");
     const tokens = await finishBrowserSignIn({
       relayUrl: relay.origin,
       redirectUri: `${relay.origin}/oauth/callback`,
@@ -112,6 +111,7 @@ test("a web app without a client id starts approval without one", async () => {
     });
     assert.equal(tokens.accessToken, "access-1");
     assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "pending-client");
+    assert.equal(store.getItem("exterior.signInClientId"), null);
   } finally {
     relay.close();
   }

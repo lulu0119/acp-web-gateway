@@ -80,11 +80,7 @@ export async function decideConsent(request: Request, exterior: ExteriorAuth, qu
   }
   if (!result.redirect) return expiredApproval(query);
   const clientId = new URLSearchParams(query).get("client_id") ?? "";
-  if (accept && clientId && (await approvePendingClient(exterior, clientId))) {
-    const back = new URL(result.url);
-    back.searchParams.set("client_id", clientId);
-    return { redirect: back.href };
-  }
+  if (accept && clientId) await approvePendingClient(exterior, clientId);
   return { redirect: result.url };
 }
 

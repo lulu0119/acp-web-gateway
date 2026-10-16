@@ -45,7 +45,7 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
    Then `systemctl --user enable --now exterior`. A user unit runs while you are logged in; `loginctl enable-linger` keeps it running without a login.
 
-3. The web app redirects the person to Exterior. Exterior asks for consent, then sends them back. Example does this from **Sign in with Exterior**: there is nothing to configure, and the app receives its client id together with the approval. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/exterior/@exterior/client@main`.
+3. The web app redirects the person to Exterior. Exterior asks for consent, then sends them back. Example does this from **Sign in with Exterior**: there is nothing to configure, and the app receives its client id with the approval address. Signing in again reuses that client, so an app that is already approved comes straight back. From a checkout, `pnpm example` starts Example. A web app adds the client with `pnpm add https://pkg.pr.new/lulu0119/exterior/@exterior/client@main`.
 
 4. The web app lists the account's online devices and asks Exterior to open one agent. Exterior returns a one-time WebSocket address. The page uses that address as the ACP connection.
 
@@ -56,6 +56,7 @@ The daemon checks its saved credentials before each connection attempt and refre
 ## Decisions
 
 - [Removing a device deletes the daemon tokens stamped with its id](docs/adr/0020-removing-a-device-deletes-its-tokens.md)
+- [A web app that names itself is one client, keyed by what it shows](docs/adr/0021-a-web-app-is-one-client.md)
 - [A device keeps its id through signing out, and is online once](docs/adr/0019-a-device-keeps-its-id-and-one-connection.md)
 - [The desktop app is a Tauri tray](docs/adr/0018-the-desktop-app-is-a-tauri-tray.md)
 - [The daemon ships as one executable](docs/adr/0017-the-daemon-ships-as-one-executable.md)
