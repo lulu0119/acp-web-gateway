@@ -23,7 +23,6 @@ export async function runDaemon(input: {
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
 }): Promise<void> {
-  // Agents start here, and web apps are told it is where this device works.
   await mkdir(input.workingDirectory, { recursive: true });
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
   const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);

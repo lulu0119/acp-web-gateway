@@ -49,13 +49,11 @@ pub fn state_directory() -> PathBuf {
         .join("exterior")
 }
 
-/// The daemons' stderr, for finding out later why one failed. Started over past 5 MB.
+/// The daemons' stderr, for finding out later why one failed. Truncated past 5 MB.
 pub fn log_file() -> Option<File> {
     let path = state_directory().join("desktop.log");
     std::fs::create_dir_all(state_directory()).ok()?;
-    let fresh = std::fs::metadata(&path)
-        .map(|metadata| metadata.len() > 5_000_000)
-        .unwrap_or(false);
+    let fresh = std::fs::metadata(&path).is_ok_and(|metadata| metadata.len() > 5_000_000);
     OpenOptions::new()
         .create(true)
         .append(!fresh)

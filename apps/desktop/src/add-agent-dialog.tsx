@@ -26,7 +26,6 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
-  // Each opening starts from an empty form.
   useEffect(() => {
     if (!open) return;
     setSource("registry");
@@ -116,7 +115,6 @@ function TypeList({ types, search, chosen, onChoose }: {
     const query = search.trim().toLowerCase();
     return types.value
       .filter((type) => !query || `${type.id} ${type.name} ${type.description ?? ""}`.toLowerCase().includes(query))
-      // Types that can start here come first.
       .sort((a, b) => Number(b.ready) - Number(a.ready) || a.name.localeCompare(b.name));
   }, [types, search]);
   if (types.kind === "loading") return <p className="py-8 text-center text-sm text-muted-foreground">Loading the ACP Registry…</p>;

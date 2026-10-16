@@ -6,7 +6,6 @@ export type Tone = "ok" | "busy" | "attention" | "off";
 export type RelayStatus = { tone: Tone; label: string; detail: string; action?: "sign-in" | "start" };
 
 export function relayStatus(view: RelayView, now: number): RelayStatus {
-  const offering = view.state?.agents.length ? `Offering ${view.state.agents.join(", ")}.` : "Offering no agents yet.";
   switch (view.phase) {
     case "signInRequired":
       return { tone: "attention", label: "Sign in again", detail: view.error ?? "The relay no longer accepts this device's sign-in.", action: "sign-in" };
@@ -19,10 +18,12 @@ export function relayStatus(view: RelayView, now: number): RelayStatus {
       const when = seconds > 0 ? `Restarting in ${seconds}s` : "Restarting";
       return { tone: "attention", label: when, detail: view.error ?? "The daemon stopped unexpectedly." };
     }
-    case "running":
+    case "running": {
+      const offering = view.state?.agents.length ? `Offering ${view.state.agents.join(", ")}.` : "Offering no agents yet.";
       if (view.state?.status === "connected") return { tone: "ok", label: "Connected", detail: offering };
       if (view.state?.status === "waiting") return { tone: "busy", label: "Reconnecting", detail: "The relay is not answering. Trying again." };
       return { tone: "busy", label: "Connecting", detail: offering };
+    }
   }
 }
 

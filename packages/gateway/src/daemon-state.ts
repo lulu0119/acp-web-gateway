@@ -59,8 +59,9 @@ export function daemonStateReporter(input: {
   const update = (change: Partial<DaemonState>) => {
     const since = change.status && change.status !== state.status ? now() : state.since;
     state = { ...state, ...change, since };
-    if (JSON.stringify(state) === written) return writes;
-    written = JSON.stringify(state);
+    const serialized = JSON.stringify(state);
+    if (serialized === written) return writes;
+    written = serialized;
     const snapshot = state;
     input.onState?.(snapshot);
     writes = writes.then(() => writeDaemonState(snapshot, input.homeDirectory)).catch(() => undefined);

@@ -52,7 +52,7 @@ pub fn tray_is_shown() -> bool {
                 "org.kde.StatusNotifierWatcher",
             ])
             .output();
-        return matches!(answer, Ok(output) if String::from_utf8_lossy(&output.stdout).contains("true"));
+        return matches!(answer, Ok(output) if String::from_utf8_lossy(&output.stdout).contains("(true,"));
     }
     #[allow(unreachable_code)]
     true

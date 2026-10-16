@@ -84,11 +84,9 @@ impl Daemons {
         }
         for relay in relays {
             let phase = self.entries.lock().unwrap().get(&relay).map(|entry| entry.view.phase);
-            match phase {
-                None => self.start(app, &relay),
-                // A new sign-in replaced the rejected one.
-                Some(Phase::SignInRequired) => self.start(app, &relay),
-                _ => {}
+            // A new sign-in replaced the rejected one.
+            if matches!(phase, None | Some(Phase::SignInRequired)) {
+                self.start(app, &relay);
             }
         }
         changed(app, self);
@@ -138,9 +136,10 @@ impl Daemons {
                 for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                     let Ok(state) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
                     daemons.update(&relay, generation, |entry| {
+                        let connected = state["status"].as_str() == Some("connected");
                         entry.view.state = Some(state);
                         // A connection that held resets the backoff.
-                        if entry.view.state.as_ref().and_then(|state| state["status"].as_str()) == Some("connected") {
+                        if connected {
                             entry.failures = 0;
                         }
                     });
@@ -190,7 +189,7 @@ impl Daemons {
                 _ => {
                     entry.failures += 1;
                     entry.view.phase = Phase::Restarting;
-                    retry = Some(Duration::from_secs(1 << entry.failures.min(5).saturating_sub(1)).min(Duration::from_secs(30)));
+                    retry = Some(Duration::from_secs(1 << entry.failures.min(5).saturating_sub(1)));
                 }
             }
             if let Some(delay) = retry {
