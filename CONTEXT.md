@@ -37,7 +37,7 @@ The tray app on a device that runs one daemon per sign-in, starts at login, and 
 _Avoid_: tray (for the whole app), GUI, client (a web app is the client)
 
 **Working directory**:
-The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, `~/.local/share/exterior/workspace`, which the device reports when it connects.
+The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, which the device reports when it connects. The device's own is a setting (`exterior config set`, or the desktop app's folder picker) and defaults to `~/.local/share/exterior/workspace`. A running daemon opens later sessions in a changed directory; open sessions keep the one they started in.
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
 **Ticket**:

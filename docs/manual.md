@@ -18,13 +18,23 @@ npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior daemon
 
 `@main` is the latest preview published from `main`. npx caches a package by its address and keeps running the first `@main` it downloaded, so use a commit hash, such as `@0b26097`, to get a newer publish. The package is one bundled file with no dependencies. From a checkout, the same commands are `node packages/gateway/dist/bin/exterior.mjs`.
 
-`login` prints a link with the code filled in. Approve that code on Exterior after signing in with GitHub. `daemon` keeps an outbound connection. It starts agents in `~/.local/share/exterior/workspace` and reports that directory, so a web app has a real working directory on the device to send when the person has not chosen one.
+`login` prints a link with the code filled in. Approve that code on Exterior after signing in with GitHub. `daemon` keeps an outbound connection. It starts agents in the working directory and reports it, so a web app has a real working directory on the device to send when the person has not chosen one.
+
+That directory is `~/.local/share/exterior/workspace` until one is chosen:
+
+```bash
+exterior config show                                  # what sessions work in now
+exterior config set --working-directory ~/Projects    # choose one; it is created
+exterior config set --default                         # go back to the device's own
+```
+
+A running daemon picks the change up and opens later sessions there; sessions already open keep the directory they started in. A directory that cannot be created is refused where it is set, with the system's own reason.
 
 `exterior --help` and `exterior <command> --help` describe each command. A running daemon picks up a changed configuration file and tells the relay; sessions already open keep their agent. A daemon with no configurations stays connected and offers none until one is added.
 
 ## Desktop app
 
-On a desktop, the Exterior app does the same without a terminal. It sits in the tray, starts at login, and runs one daemon for each relay the device is signed in to, starting it again if it stops. Its window signs in to relays and adds or removes agents. Quitting the app stops the daemons, so the device goes offline. Download it from the [latest release](https://github.com/lulu0119/exterior/releases/latest); the relay's Add device offers the file for the computer it is opened on. The app is not signed yet, so macOS and Windows ask once before opening it.
+On a desktop, the Exterior app does the same without a terminal. It sits in the tray, starts at login, and runs one daemon for each relay the device is signed in to, starting it again if it stops. Its window signs in to relays and adds or removes agents, and Settings chooses the directory sessions work in with the system's folder picker. Quitting the app stops the daemons, so the device goes offline. Download it from the [latest release](https://github.com/lulu0119/exterior/releases/latest); the relay's Add device offers the file for the computer it is opened on. The app is not signed yet, so macOS and Windows ask once before opening it.
 
 ## Linux server without a desktop
 

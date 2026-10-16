@@ -89,6 +89,24 @@ async fn agents() -> Result<serde_json::Value, String> {
     cli::run_json(&["agent-config", "list", "--json"])
 }
 
+/// The directory sessions work in, and whether the person chose it.
+#[tauri::command]
+async fn working_directory() -> Result<serde_json::Value, String> {
+    cli::run_json(&["config", "show", "--json"])
+}
+
+/// Writes the directory the person picked in the window's folder dialog.
+#[tauri::command]
+async fn set_working_directory(directory: String) -> Result<(), String> {
+    cli::run(&["config", "set", "--working-directory", &directory]).map(|_| ())
+}
+
+/// Undoes a choice made before, so sessions work in the device's own directory again.
+#[tauri::command]
+async fn reset_working_directory() -> Result<(), String> {
+    cli::run(&["config", "set", "--default"]).map(|_| ())
+}
+
 #[tauri::command]
 async fn agent_types() -> Result<serde_json::Value, String> {
     cli::run_json(&["agent-config", "types", "--json"])
@@ -230,7 +248,8 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             window::open(app)
         }))
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(not(windows))]
     let builder = builder.plugin(tauri_plugin_autostart::init(
         tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -245,6 +264,9 @@ fn main() {
             device_name,
             agents,
             agent_types,
+            working_directory,
+            set_working_directory,
+            reset_working_directory,
             create_agent,
             remove_agent,
             sign_in,

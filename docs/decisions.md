@@ -2,6 +2,7 @@
 
 Every `adr/NNNN-slug.md` is listed here, newest first. Superseded entries stay for history. A new ADR adds its line in the same change.
 
+- [0022 The working directory is chosen, not typed](adr/0022-the-working-directory-is-chosen.md) — accepted. A setting in `config.json` chosen in the system's folder picker; `mkdir` is the check. Amends 0016.
 - [0021 A web app registers itself, or names itself by its own document](adr/0021-a-web-app-registers-itself.md) — accepted. Web apps arrive via RFC 7591 self-registration or a CIMD metadata document; the relay only forces loopback consent and prunes stale registrations.
 - [0020 Removing a device deletes the daemon tokens stamped with its id](adr/0020-removing-a-device-deletes-its-tokens.md) — accepted. Removal deletes stamped daemon tokens, the device, and closes its socket; signing in again binds new tokens to the same id.
 - [0019 A device keeps its id through signing out, and is online once](adr/0019-a-device-keeps-its-id-and-one-connection.md) — accepted. One id per relay survives sign-out; the newest connection wins and both sides heartbeat.

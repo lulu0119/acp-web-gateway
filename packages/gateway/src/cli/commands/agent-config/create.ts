@@ -1,7 +1,7 @@
 import { isAgentType, isEnvName } from "@exterior/contract";
 import { acpRegistryCachePath, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
 import { addAgentConfig, parseCommandArgv } from "../../../agents.js";
-import { readGatewayConfigForWrite, writeGatewayConfig, type StoredAgent } from "../../../config.js";
+import { readGatewayConfig, writeGatewayConfig, type StoredAgent } from "../../../config.js";
 import { defineCommand, stringOption, stringsOption, UsageError } from "../../command.js";
 
 export const create = defineCommand({
@@ -29,9 +29,9 @@ export const create = defineCommand({
     if (agentType && command) throw new UsageError("Pass --agent-type or --command, not both.");
     if (!agentType && !command) throw new UsageError("Pass --agent-type <type> or --command <command>.");
     const env = parseEnv(stringsOption(options, "env"));
-    const config = await readGatewayConfigForWrite(io.homeDirectory);
-    if (!config.ok) {
-      io.stderr.write(`${config.message}\n`);
+    const config = await readGatewayConfig(io.homeDirectory);
+    if (config.warning) {
+      io.stderr.write(`${config.warning}\n`);
       return 1;
     }
     const added = command
@@ -41,7 +41,7 @@ export const create = defineCommand({
       io.stderr.write(`${added.message}\n`);
       return 1;
     }
-    await writeGatewayConfig({ agents: added.agents }, io.homeDirectory);
+    await writeGatewayConfig({ ...config, agents: added.agents }, io.homeDirectory);
     io.stdout.write(`Created agent configuration "${added.createdName}" (${added.agents.at(-1)?.agentType}).\n`);
     return 0;
   },

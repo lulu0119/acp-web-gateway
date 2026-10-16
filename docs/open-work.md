@@ -31,4 +31,6 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.
-- A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in `~/.local/share/exterior/workspace`. The launch, `session/new`, and stop were checked against the real agents without the relay.
+- A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in the device's own directory. The launch, `session/new`, and stop were checked against the real agents without the relay.
+- The folder dialog on a real window: choose a directory in the desktop app's Settings and see it in `exterior config show`, and check a cancelled dialog changes nothing.
+- `agent-config` and a broken entry in the configuration file: one entry the parser cannot read makes `remove` refuse the whole file, including removing a different, good entry, and nothing in the CLI can repair it.

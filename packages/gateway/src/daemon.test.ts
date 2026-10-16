@@ -9,7 +9,7 @@ import { test, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { DeviceRegistrationError } from "@exterior/client";
 import { daemonCloseCodes } from "@exterior/contract";
-import type { StoredAgent } from "./config.js";
+import type { GatewayConfig } from "./config.js";
 import { runDaemon } from "./daemon.js";
 import { usableSignIn } from "./login.js";
 import { readSignIn, writeSignIn } from "./sign-ins.js";
@@ -34,8 +34,7 @@ test("the daemon connects with its access token and says hello", async () => {
     relayUrl: `http://127.0.0.1:${address.port}`,
     getAccessToken: async () => "token-1",
     inform: () => undefined,
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory,
-    agents: [{ name: "work", agentType: "opencode", env: {} }],
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [{ name: "work", agentType: "opencode", env: {} }], workingDirectory },
     signal: controller.signal,
     catalog: [{ id: "opencode", name: "OpenCode", binary: { "darwin-aarch64": { cmd: "./opencode", args: ["acp"], env: {} } } }],
   });
@@ -52,11 +51,11 @@ test("the daemon connects with its access token and says hello", async () => {
   }
 });
 
-test("a changed agent list says hello again on the open connection and on the next one", async () => {
+test("a changed configuration says hello again on the open connection and on the next one", async () => {
   const relay = await daemonRelay();
   const controller = new AbortController();
-  const hellos: { agents: { name: string }[] }[] = [];
-  let push: ((agents: StoredAgent[]) => void) | undefined;
+  const hellos: { agents: { name: string }[]; workingDirectory: string }[] = [];
+  let push: ((config: GatewayConfig & { workingDirectory: string }) => void) | undefined;
   let unsubscribed = false;
   const said = (count: number) =>
     new Promise<void>((resolve, reject) => {
@@ -75,9 +74,8 @@ test("a changed agent list says hello again on the open connection and on the ne
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: () => undefined,
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory,
-    agents: [],
-    agentUpdates(listener) {
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory },
+    configUpdates(listener) {
       push = listener;
       return () => (unsubscribed = true);
     },
@@ -87,11 +85,16 @@ test("a changed agent list says hello again on the open connection and on the ne
   try {
     await said(1);
     // A custom command that exists everywhere the tests run, so hello lists it.
-    push?.([{ name: "work", agentType: "custom", env: {}, command: process.execPath }]);
+    push?.({ agents: [{ name: "work", agentType: "custom", env: {}, command: process.execPath }], workingDirectory });
     await said(2);
-    for (const socket of relay.sockets.clients) socket.terminate();
+    // A person who chooses a directory reaches the relay without a new connection.
+    const chosen = join(tmpdir(), "exterior-chosen-workspace");
+    push?.({ agents: [{ name: "work", agentType: "custom", env: {}, command: process.execPath }], workingDirectory: chosen });
     await said(3);
-    assert.deepEqual(hellos.map((hello) => hello.agents.map((agent) => agent.name)), [[], ["work"], ["work"]]);
+    for (const socket of relay.sockets.clients) socket.terminate();
+    await said(4);
+    assert.deepEqual(hellos.map((hello) => hello.agents.map((agent) => agent.name)), [[], ["work"], ["work"], ["work"]]);
+    assert.deepEqual(hellos.map((hello) => hello.workingDirectory), [workingDirectory, workingDirectory, chosen, chosen]);
   } finally {
     controller.abort();
     await running;
@@ -124,8 +127,7 @@ test("the daemon obtains a fresh token when reconnecting after an hour", async (
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory,
-    agents: [],
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory },
     signal: controller.signal,
     catalog: [],
   });
@@ -158,7 +160,7 @@ test("a 401 forces refresh even when the stored token has not expired", async ()
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -181,7 +183,7 @@ test("a second 401 after refresh stops instead of refreshing forever", async () 
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [],
+      hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Relay rejected the refreshed access token. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1", "Bearer access-2"]);
@@ -201,7 +203,7 @@ test.each(["invalid_grant", "invalid_client", "unauthorized_client", "access_den
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [],
+      hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.tokens, ["Bearer access-1"]);
@@ -224,7 +226,7 @@ test("refresh without a replacement refresh token keeps the previous one", async
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: () => undefined,
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -261,7 +263,7 @@ test.each([false, true])("transient refresh failure is retried (forced refresh: 
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -284,7 +286,7 @@ test("HTTP 403 on the daemon socket requires a new sign-in instead of a refresh"
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [],
+      hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [],
       signal: AbortSignal.timeout(2_000),
     }), /Relay rejected this device \(HTTP 403\)\. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./);
     assert.deepEqual(relay.refreshes, []);
@@ -303,7 +305,7 @@ test("a temporary relay handshake failure retries without refreshing credentials
     relayUrl: relay.origin,
     getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
   });
   try {
     await hello;
@@ -330,7 +332,7 @@ test("a relay that stops answering pings is left, and the daemon connects again"
     relayUrl: `http://127.0.0.1:${address.port}`,
     getAccessToken: async () => "token-1",
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
     heartbeatMs: 50,
   });
   try {
@@ -357,7 +359,7 @@ test("a connection the relay replaced waits the longest before connecting again"
     relayUrl: `http://127.0.0.1:${address.port}`,
     getAccessToken: async () => "token-1",
     inform: (line) => lines.push(line),
-    hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+    hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
   });
   try {
     await waiting;
@@ -381,7 +383,7 @@ test("a removed device stops and asks to sign in again", async () => {
         relayUrl: `http://127.0.0.1:${address.port}`,
         getAccessToken: async () => "token-1",
         inform: () => undefined,
-        hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [],
+        hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [],
         register: async () => void registered.push("device-studio-1"),
       }),
       /This device was removed from the account on the relay\. Run exterior login --relay http:\/\/127\.0\.0\.1:\d+ again\./,
@@ -404,7 +406,7 @@ test("a sign-in the relay no longer accepts stops before connecting", async () =
         relayUrl: `http://127.0.0.1:${address.port}`,
         getAccessToken: async () => "token-1",
         inform: () => undefined,
-        hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [],
+        hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [],
         register: async () => {
           throw new DeviceRegistrationError(403, "The relay no longer accepts this device's sign-in.");
         },
@@ -428,7 +430,7 @@ test("stopping the daemon cancels an in-flight token refresh", async () => {
       relayUrl: relay.origin,
       getAccessToken: (forceRefresh, signal) => relay.accessToken(forceRefresh, signal),
       inform: () => undefined,
-      hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], catalog: [], signal: controller.signal,
+      hostname: "studio", deviceId: "device-studio-1", config: { agents: [], workingDirectory }, catalog: [], signal: controller.signal,
     });
     assert.ok(controller.signal.aborted);
     assert.deepEqual(relay.tokens, []);

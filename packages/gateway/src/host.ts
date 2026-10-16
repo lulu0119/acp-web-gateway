@@ -31,11 +31,14 @@ export function createDaemonHost(input: {
   hello(): void;
   /** Offers a new list from the next `open` on, and says hello again. Open sessions keep their agent. */
   setAgents(agents: readonly StoredAgent[]): void;
+  /** Sessions opened from here on work in `directory`. Open sessions keep the one they started in. */
+  setWorkingDirectory(directory: string): void;
   receive(message: RelayMessage): void;
   close(): void;
 } {
   const sessions = new Map<string, { pipe?: AgentPipe; opened: boolean }>();
   let configured = input.agents;
+  let workingDirectory = input.workingDirectory;
 
   const host = {
     hello() {
@@ -46,12 +49,16 @@ export function createDaemonHost(input: {
         type: "hello",
         hostname: input.hostname.slice(0, 256),
         deviceId: input.deviceId,
-        workingDirectory: input.workingDirectory,
+        workingDirectory,
         agents,
       });
     },
     setAgents(agents: readonly StoredAgent[]) {
       configured = agents;
+      host.hello();
+    },
+    setWorkingDirectory(directory: string) {
+      workingDirectory = directory;
       host.hello();
     },
     receive(message: RelayMessage) {
@@ -83,7 +90,7 @@ export function createDaemonHost(input: {
             sessions.delete(message.sessionId);
             if (live?.opened) input.send({ type: "close", sessionId: message.sessionId });
           },
-        }, input.workingDirectory);
+        }, workingDirectory);
         return;
       }
       const current = sessions.get(message.sessionId);
