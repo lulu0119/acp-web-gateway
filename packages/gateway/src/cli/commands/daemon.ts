@@ -3,7 +3,7 @@ import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
 import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath, type StoredAgent } from "../../config.js";
 import { daemonStateReporter, readDaemonState } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
-import { DaemonLoginRequiredError, signedInDeviceId, usableSignIn } from "../../login.js";
+import { DaemonLoginRequiredError, deviceIdFor, registerSignedInDevice, usableSignIn } from "../../login.js";
 import { loginShellPath } from "../../shell-path.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";
@@ -63,6 +63,7 @@ export const daemon = defineCommand({
     const shellPath = await loginShellPath({ env: process.env });
     if (shellPath) process.env.PATH = shellPath;
     const lifeline = options.stopWhenStdinCloses ? stdinLifeline(context.signal) : undefined;
+    const deviceId = await deviceIdFor(relayUrl, io.homeDirectory);
     try {
       await runDaemon({
         relayUrl,
@@ -71,7 +72,8 @@ export const daemon = defineCommand({
         inform,
         onStatus: state.status,
         hostname: hostname(),
-        deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
+        deviceId,
+        register: (signal) => registerSignedInDevice({ relayUrl, deviceId, hostname: hostname(), homeDirectory: io.homeDirectory, signal }),
         workingDirectory: workingDirectoryPath(io.homeDirectory),
         agents: config.agents,
         agentUpdates: (listener) =>

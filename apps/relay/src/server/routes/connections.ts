@@ -1,10 +1,13 @@
-import { acpPath, devicesPath, machinesPath, parseDeviceRegistration, sessionsPath } from "@exterior/contract";
+import { acpPath, devicesPath, parseDeviceRegistration, sessionsPath } from "@exterior/contract";
 import type { Hono } from "hono";
 import type { Registry } from "../connections/registry.js";
 import type { DeviceStore } from "../devices/store.js";
+import type { ExteriorAuth } from "../identity/auth.js";
+import { bindDeviceToken } from "../identity/device-tokens.js";
 import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 
 export function mountConnections(app: Hono<RelayEnv>, input: {
+  exterior: ExteriorAuth;
   registry: Registry;
   devices: DeviceStore;
   readAccess: ReadAccess;
@@ -14,15 +17,15 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
   const webApps = accessAccount(input.readAccess, (clientId) => clientId !== input.daemonClientId);
   const daemon = accessAccount(input.readAccess, (clientId) => clientId === input.daemonClientId);
 
-  app.get(machinesPath, webApps, (c) => c.json({
-    machines: input.registry.listMachines(c.get("userId")).map(({ id, hostname, agents }) => ({ id, hostname, agents })),
+  app.get(devicesPath, webApps, (c) => c.json({
+    devices: input.registry.listDevices(c.get("userId")).map(({ id, hostname, workingDirectory, agents }) => ({ id, hostname, workingDirectory, agents })),
   }));
   app.post(sessionsPath, webApps, async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);
-    const machineId = recordString(body, "machineId");
+    const deviceId = recordString(body, "deviceId");
     const agentName = recordString(body, "agentName");
-    if (!machineId || !agentName) return c.json({ message: "Choose a machine and an agent." }, 400);
-    const result = await input.registry.openSession({ userId: c.get("userId"), machineId, agentName });
+    if (!deviceId || !agentName) return c.json({ message: "Choose a device and an agent." }, 400);
+    const result = await input.registry.openSession({ userId: c.get("userId"), deviceId, agentName });
     if (!result.ok) return c.json({ message: result.message }, result.status);
     return c.json({
       url: sessionSocketUrl(input.publicUrl, result.ticket),
@@ -32,8 +35,12 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
   });
   app.post(devicesPath, daemon, async (c) => {
     const registration = parseDeviceRegistration(await c.req.json().catch(() => undefined));
-    if (!registration) return c.json({ message: "Send a device id and a hostname." }, 400);
-    if (!input.devices.record({ userId: c.get("userId"), ...registration })) {
+    if (!registration) return c.json({ message: "Send a device id, a hostname, and the refresh token." }, 400);
+    const userId = c.get("userId");
+    const { deviceId, hostname, refreshToken } = registration;
+    const bound = await bindDeviceToken(input.exterior, { userId, clientId: input.daemonClientId, deviceId, refreshToken });
+    if (!bound) return c.json({ message: "The relay no longer accepts this device's sign-in." }, 403);
+    if (!input.devices.record({ userId, deviceId, hostname })) {
       return c.json({ message: "That device id belongs to another account." }, 409);
     }
     return c.json({ recorded: true });

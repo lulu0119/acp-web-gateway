@@ -6,15 +6,15 @@ import type { ReadAccess } from "./http.js";
 import { openExteriorAuth, type ExteriorAuth } from "./identity/auth.js";
 import { ensureDaemonClient } from "./identity/clients.js";
 
-export async function createTestApp(exterior: ExteriorAuth, registry?: Registry, readAccess?: ReadAccess) {
+export async function createTestApp(exterior: ExteriorAuth, registry?: Registry, readAccess?: ReadAccess, heartbeatMs?: number) {
   const devices = openDeviceStore(exterior.options.database);
-  const live = registry ?? createRegistry({ seen: (device) => devices.record(device) });
+  const live = registry ?? createRegistry({ seen: (device) => devices.touch(device) });
   const daemonClientId = await ensureDaemonClient(exterior);
-  const relay = createRelayApp({ exterior, registry: live, devices, clients: { daemonClientId }, githubConfigured: true, readAccess });
+  const relay = createRelayApp({ exterior, registry: live, devices, clients: { daemonClientId }, githubConfigured: true, readAccess, heartbeatMs });
   return { ...relay, registry: live, devices, daemonClientId };
 }
 
-export async function openTestRelay(input: { publicUrl: string; registry?: Registry; readAccess?: ReadAccess }) {
+export async function openTestRelay(input: { publicUrl: string; registry?: Registry; readAccess?: ReadAccess; heartbeatMs?: number }) {
   const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret: testSecret,
@@ -22,7 +22,7 @@ export async function openTestRelay(input: { publicUrl: string; registry?: Regis
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  return { exterior, ...(await createTestApp(exterior, input.registry, input.readAccess)) };
+  return { exterior, ...(await createTestApp(exterior, input.registry, input.readAccess, input.heartbeatMs)) };
 }
 
 export const testSecret = "test-secret-test-secret-test-secret";

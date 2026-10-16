@@ -338,7 +338,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
 }
 
 function Permission({ permission }: { permission: PermissionView }) {
-  const icon = permission.scope === "machines" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
+  const icon = permission.scope === "devices" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
   return (
     <li className="flex gap-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/70 [&_svg]:size-4">{icon}</span>

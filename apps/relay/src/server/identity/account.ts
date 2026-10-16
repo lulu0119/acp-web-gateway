@@ -89,7 +89,7 @@ export async function decideConsent(request: Request, exterior: ExteriorAuth, qu
 }
 
 const scopeDescriptions: Record<string, Omit<PermissionView, "scope">> = {
-  machines: {
+  devices: {
     title: "Use agents on your devices",
     detail: "See which of your devices are online and the agents set up on them, and start a session with one of those agents.",
   },

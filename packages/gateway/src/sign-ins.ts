@@ -3,17 +3,15 @@ import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** The credentials a machine holds for one relay. */
+/** The credentials a device holds for one relay. */
 export type SignIn = {
   relayUrl: string;
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
-  /** Names this device to the relay across daemon restarts. Sign-ins written before it existed lack one. */
-  deviceId?: string;
 };
 
-function configDirectory(homeDirectory: string): string {
+export function configDirectory(homeDirectory: string): string {
   return join(homeDirectory, ".config", "exterior");
 }
 
@@ -42,7 +40,6 @@ export function parseSignIn(value: unknown): SignIn | undefined {
       accessToken: value.accessToken,
       refreshToken: value.refreshToken,
       expiresAt: value.expiresAt,
-      ...(typeof value.deviceId === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(value.deviceId) ? { deviceId: value.deviceId } : {}),
     };
   } catch {
     return undefined;
@@ -50,7 +47,6 @@ export function parseSignIn(value: unknown): SignIn | undefined {
 }
 
 export async function readSignIns(homeDirectory = homedir()): Promise<SignIn[]> {
-  await adoptLegacySignIn(homeDirectory);
   let names: string[];
   try {
     names = await readdir(signInDirectory(homeDirectory));
@@ -66,7 +62,6 @@ export async function readSignIns(homeDirectory = homedir()): Promise<SignIn[]> 
 }
 
 export async function readSignIn(relayUrl: string, homeDirectory = homedir()): Promise<SignIn | undefined> {
-  await adoptLegacySignIn(homeDirectory);
   const signIn = await readSignInFile(signInPath(relayUrl, homeDirectory));
   return signIn?.relayUrl === new URL(relayUrl).origin ? signIn : undefined;
 }
@@ -108,13 +103,4 @@ async function readSignInFile(path: string): Promise<SignIn | undefined> {
   } catch {
     return undefined;
   }
-}
-
-// Before sign-ins were per relay, a machine kept one in daemon-session.json.
-async function adoptLegacySignIn(homeDirectory: string): Promise<void> {
-  const legacyPath = join(configDirectory(homeDirectory), "daemon-session.json");
-  const legacy = await readSignInFile(legacyPath);
-  if (!legacy) return;
-  if (!(await readSignInFile(signInPath(legacy.relayUrl, homeDirectory)))) await writeSignIn(legacy, homeDirectory);
-  await rm(legacyPath, { force: true });
 }

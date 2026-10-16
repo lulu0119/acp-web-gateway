@@ -21,7 +21,7 @@ const maxFailureLength = 500;
 
 export function createDaemonHost(input: {
   hostname: string;
-  deviceId?: string;
+  deviceId: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
   send: (message: DaemonMessage) => void;
@@ -45,7 +45,7 @@ export function createDaemonHost(input: {
       input.send({
         type: "hello",
         hostname: input.hostname.slice(0, 256),
-        ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+        deviceId: input.deviceId,
         workingDirectory: input.workingDirectory,
         agents,
       });

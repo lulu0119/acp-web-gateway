@@ -10,12 +10,11 @@ Code still missing.
 - Installing `exterior` beyond the release files ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): strip the Linux Node before injecting, then `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget. Then the setup guide's assistant and terminal steps install the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
-- `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
 - Consent identity: the relay fetches each app's icon itself (blocking private addresses, re-encoding to PNG) and serves it; apps not on the public internet send a data URI in the approval request. Until then the consent page and authorized apps show a monogram. See `docs/research/2026-10-13-oauth-consent.md`.
 - Pending approvals are unauthenticated and name themselves: rate-limit `POST /api/authorize-request`, reuse one client per app origin instead of one per sign-in, and decide what "verified" means.
-- Scope redesign: separate a daemon scope from what web apps ask for (list devices, open agents), and let the person pick devices or agents at consent. Rename `machines` on the wire to devices in the same change.
+- Scope redesign: separate a daemon scope from what web apps ask for (list devices, open agents), and let the person pick devices or agents at consent.
+- One daemon client per device: every device's daemon shares one OAuth client, so when a daemon replays a refresh token that was rotated or revoked, the provider revokes the daemon sign-in of every device on the account.
 - Check `Origin` against the app's redirect origins on the web app API and on `/api/acp`, instead of `Access-Control-Allow-Origin: *`.
-- Removing a device from the dashboard: it needs to revoke that device's refresh token, which the relay cannot yet map to a device id.
 - The device approval page shows only the code. Show the requesting device's name and address so a forwarded code is easier to spot.
 - npm release of `exterior-project`, `@exterior/contract`, and `@exterior/client`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: update the Coolify application name and the GitHub OAuth app name. The GitHub repo is already [lulu0119/exterior](https://github.com/lulu0119/exterior).
@@ -27,6 +26,8 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
+- Removing a device and `logout` against the hosted relay: a removed device's daemon stops with sign in again, the desktop app shows Sign in, and signing in again lists the device under the same id. `logout` revokes the refresh token there.
+- Heartbeats through the hosted relay behind Coolify: a device that loses its network goes offline on the dashboard within a minute, and a daemon whose socket died without closing connects again and is listed once.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.

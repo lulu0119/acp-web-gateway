@@ -2,13 +2,12 @@ import {
   authorizeRequestPath,
   devicesPath,
   exampleCallbackPath,
+  devicesScope,
   isRecord,
-  machinesPath,
-  machinesScope,
   publicClientsPath,
   sessionsPath,
+  type Device,
   type DeviceRegistration,
-  type Machine,
   type PublicClients,
 } from "@exterior/contract";
 import * as oauth from "oauth4webapi";
@@ -23,6 +22,17 @@ export class RefreshTokenRejectedError extends Error {
   constructor() {
     super("Sign in again.");
     this.name = "RefreshTokenRejectedError";
+  }
+}
+
+/**
+ * The relay did not register the device. 401: the access token expired. 403: the refresh token is not a live
+ * sign-in of this account, such as one revoked by removing the device. 409: another account holds the device id.
+ */
+export class DeviceRegistrationError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "DeviceRegistrationError";
   }
 }
 
@@ -66,7 +76,7 @@ export async function createAuthorizationRequest(input: {
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", machinesScope);
+  url.searchParams.set("scope", devicesScope);
   url.searchParams.set("code_challenge", await oauth.calculatePKCECodeChallenge(codeVerifier));
   url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("state", state);
@@ -131,6 +141,19 @@ export async function refreshExteriorAccessToken(input: {
   return toTokens(tokens, input.refreshToken);
 }
 
+/** Revokes a refresh token, so it no longer signs anything in. */
+export async function revokeRefreshToken(input: { relayUrl: string; clientId: string; refreshToken: string; signal?: AbortSignal }): Promise<void> {
+  const server = await discover(input.relayUrl, input.signal);
+  const response = await oauth.revocationRequest(server, publicClient(input.clientId), oauth.None(), input.refreshToken, {
+    ...httpOptions(input.relayUrl),
+    additionalParameters: { token_type_hint: "refresh_token" },
+    signal: input.signal,
+  });
+  await oauth.processRevocationResponse(response).catch((error: unknown) => {
+    throw new Error(oauthMessage(error, "Exterior did not revoke the sign-in."));
+  });
+}
+
 export async function beginDeviceAuthorization(input: { relayUrl: string; clientId: string }): Promise<DeviceAuthorization> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
@@ -138,7 +161,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
     server,
     client,
     oauth.None(),
-    new URLSearchParams({ scope: machinesScope, resource: originOf(input.relayUrl) }),
+    new URLSearchParams({ scope: devicesScope, resource: originOf(input.relayUrl) }),
     httpOptions(input.relayUrl),
   );
   const device = await oauth.processDeviceAuthorizationResponse(server, client, response).catch((error: unknown) => {
@@ -181,7 +204,7 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, sign
         intervalMs += 5_000;
         continue;
       }
-      if (error.error === "access_denied") throw new Error("The machine was not approved.");
+      if (error.error === "access_denied") throw new Error("The device was not approved.");
       if (error.error === "expired_token") throw new Error("The sign-in code expired.");
       throw new Error(error.error_description ?? "Sign-in failed.");
     }
@@ -189,7 +212,7 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, sign
   throw new Error("The sign-in code expired.");
 }
 
-/** Tells the relay which device a daemon sign-in belongs to, so it is listed before its daemon first connects. */
+/** Tells the relay which device a daemon sign-in belongs to. A daemon connects only as a registered device. */
 export async function registerDevice(relayUrl: string, accessToken: string, device: DeviceRegistration, signal?: AbortSignal): Promise<void> {
   const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
     method: "POST",
@@ -197,25 +220,29 @@ export async function registerDevice(relayUrl: string, accessToken: string, devi
     body: JSON.stringify(device),
     signal,
   });
-  if (!response.ok) throw new Error(`Exterior did not record this device (HTTP ${response.status}).`);
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = isRecord(body) && typeof body.message === "string" ? body.message : `Exterior did not record this device (HTTP ${response.status}).`;
+    throw new DeviceRegistrationError(response.status, message);
+  }
 }
 
-export async function listMachines(relayUrl: string, accessToken: string): Promise<Machine[]> {
-  const response = await fetch(new URL(machinesPath, originOf(relayUrl)), {
+export async function listDevices(relayUrl: string, accessToken: string): Promise<Device[]> {
+  const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
     headers: { authorization: `Bearer ${accessToken}` },
     credentials: "omit",
   });
   if (response.status === 401) throw new Error("Sign in again.");
-  if (!response.ok) throw new Error("Exterior did not list machines.");
+  if (!response.ok) throw new Error("Exterior did not list devices.");
   const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || !Array.isArray(body.machines)) throw new Error("Exterior did not list machines.");
-  return body.machines.filter(isMachine);
+  if (!isRecord(body) || !Array.isArray(body.devices)) throw new Error("Exterior did not list devices.");
+  return body.devices.filter(isDevice);
 }
 
 export async function openConnection(
   relayUrl: string,
   accessToken: string,
-  input: { machineId: string; agentName: string },
+  input: { deviceId: string; agentName: string },
 ): Promise<{ url: string; agentType: string; agentName: string }> {
   const response = await fetch(new URL(sessionsPath, originOf(relayUrl)), {
     method: "POST",
@@ -274,7 +301,7 @@ export async function requestApprovalUrl(input: {
       clientName: input.clientName ?? `Web app at ${new URL(input.redirectUri).origin}`,
       logoUri: input.logoUri,
       redirectUri: input.redirectUri,
-      scopes: (input.scope ?? machinesScope).split(" ").filter((scope) => scope.length > 0),
+      scopes: (input.scope ?? devicesScope).split(" ").filter((scope) => scope.length > 0),
       state: input.state,
       codeChallenge: input.codeChallenge,
     }),
@@ -476,7 +503,7 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function isMachine(value: unknown): value is Machine {
+function isDevice(value: unknown): value is Device {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.hostname !== "string" || !Array.isArray(value.agents)) return false;
   if (typeof value.workingDirectory !== "string") return false;
   return value.agents.every((agent) => isRecord(agent) && typeof agent.name === "string" && typeof agent.agentType === "string");

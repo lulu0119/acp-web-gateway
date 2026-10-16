@@ -33,7 +33,7 @@ const exterior = await openExteriorAuth({
 });
 const daemonClientId = await ensureDaemonClient(exterior);
 const devices = openDeviceStore(database);
-const registry = createRegistry({ seen: (device) => devices.record(device) });
+const registry = createRegistry({ seen: (device) => devices.touch(device) });
 const { app, injectWebSocket } = createRelayApp({
   registry,
   devices,

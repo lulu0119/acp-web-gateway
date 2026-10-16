@@ -3,10 +3,11 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
+import { daemonCloseCodes } from "@exterior/contract";
 import { headerAccess, openTestRelay } from "./testing.js";
 import { createRegistry } from "./connections/registry.js";
 
-test("an online machine accepts one ticket and carries ACP frames", async () => {
+test("an online device accepts one ticket and carries ACP frames", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
   const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
@@ -23,15 +24,19 @@ test("an online machine accepts one ticket and carries ACP frames", async () => 
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    const denied = await fetch(`${base}/api/machines`);
+    const denied = await fetch(`${base}/api/devices`);
     assert.equal(denied.status, 401);
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
-    const machineId = await waitForMachine(base);
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    const deviceId = await waitForDevice(base);
+    const listed = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
+    assert.deepEqual(await listed.json(), {
+      devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }],
+    });
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
-      body: JSON.stringify({ machineId, agentName: "work" }),
+      body: JSON.stringify({ deviceId, agentName: "work" }),
     });
     assert.equal(opened.status, 200);
     const body = (await opened.json()) as { url: string; agentType: string };
@@ -75,13 +80,13 @@ test("a socket that dies before any frame can retake the same ticket", async () 
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
-    const machineId = await waitForMachine(base);
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
-      body: JSON.stringify({ machineId, agentName: "work" }),
+      body: JSON.stringify({ deviceId, agentName: "work" }),
     });
     assert.equal(opened.status, 200);
     const body = (await opened.json()) as { url: string };
@@ -93,7 +98,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
     await once(ghost, "open");
     ghost.close();
     await once(ghost, "close");
-    // No ACP frame flowed, so the machine was never told to close.
+    // No ACP frame flowed, so the device was never told to close.
     const retake = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
     await once(retake, "open");
     const fromBrowser = nextText(daemon);
@@ -124,13 +129,13 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
-    const machineId = await waitForMachine(base);
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
-      body: JSON.stringify({ machineId, agentName: "work" }),
+      body: JSON.stringify({ deviceId, agentName: "work" }),
     });
     assert.equal(opened.status, 200);
     const body = (await opened.json()) as { url: string };
@@ -176,15 +181,78 @@ test("a web app token cannot connect as a daemon, and a daemon token cannot open
       impostor.on("open", () => resolve(101));
     });
     assert.equal(status, 403);
-    const listed = await fetch(`http://127.0.0.1:${port}/api/machines`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
+    const listed = await fetch(`http://127.0.0.1:${port}/api/devices`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
     assert.equal(listed.status, 403);
     const opened = await fetch(`http://127.0.0.1:${port}/api/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada", "x-client-id": daemonClientId },
-      body: JSON.stringify({ machineId: "any-machine", agentName: "work" }),
+      body: JSON.stringify({ deviceId: "device-any-1", agentName: "work" }),
     });
     assert.equal(opened.status, 403);
   } finally {
+    server.close();
+  }
+});
+
+test("a reconnecting device closes its old socket as replaced, and a socket that stops answering pings is dropped", async () => {
+  const { app, injectWebSocket, daemonClientId, devices } = await openTestRelay({
+    publicUrl: "https://relay.example.test",
+    readAccess: headerAccess,
+    heartbeatMs: 50,
+  });
+  devices.record({ userId: "ada", deviceId: "device-studio-1", hostname: "studio" });
+  const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
+    const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
+      resolve({ server: listening, port: info.port });
+    });
+    injectWebSocket(listening);
+  });
+  const base = `http://127.0.0.1:${port}`;
+  const daemonUrl = `ws://127.0.0.1:${port}/api/daemon`;
+  const headers = { "x-user-id": "ada", "x-client-id": daemonClientId };
+  const hello = JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [] });
+  const old = new WebSocket(daemonUrl, { headers });
+  let silent: WebSocket | undefined;
+  try {
+    await once(old, "open");
+    old.send(hello);
+    assert.equal(await waitForDevice(base), "device-studio-1");
+    const oldClosed = once(old, "close");
+    silent = new WebSocket(daemonUrl, { headers, autoPong: false });
+    await once(silent, "open");
+    silent.send(hello);
+    const [code] = (await oldClosed) as [number];
+    assert.equal(code, daemonCloseCodes.replaced);
+    const online = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
+    assert.equal(((await online.json()) as { devices: unknown[] }).devices.length, 1);
+
+    await once(silent, "close");
+    const listed = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
+    assert.deepEqual(await listed.json(), { devices: [] });
+  } finally {
+    old.close();
+    silent?.close();
+    server.close();
+  }
+});
+
+test("a daemon for a device the account has not registered is closed as removed", async () => {
+  const { app, injectWebSocket, daemonClientId } = await openTestRelay({ publicUrl: "https://relay.example.test", readAccess: headerAccess });
+  const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
+    const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
+      resolve({ server: listening, port: info.port });
+    });
+    injectWebSocket(listening);
+  });
+  const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
+  try {
+    await once(daemon, "open");
+    const closed = once(daemon, "close");
+    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] }));
+    const [code] = (await closed) as [number];
+    assert.equal(code, daemonCloseCodes.removed);
+  } finally {
+    daemon.close();
     server.close();
   }
 });
@@ -211,15 +279,15 @@ test("a web page on another site can read the api", async () => {
   assert.equal(response.headers.get("access-control-allow-origin"), "*");
 });
 
-async function waitForMachine(base: string): Promise<string> {
+async function waitForDevice(base: string): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const response = await fetch(`${base}/api/machines`, { headers: { "x-user-id": "ada" } });
-    const body = (await response.json()) as { machines: { id: string }[] };
-    const id = body.machines[0]?.id;
+    const response = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
+    const body = (await response.json()) as { devices: { id: string }[] };
+    const id = body.devices[0]?.id;
     if (id) return id;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error("The machine did not appear.");
+  throw new Error("The device did not appear.");
 }
 
 function waitForOpen(socket: WebSocket): Promise<string> {

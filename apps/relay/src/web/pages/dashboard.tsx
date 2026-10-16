@@ -1,5 +1,5 @@
-import { ChevronDownIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDownIcon, CircleAlertIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
 import { EmptyState } from "@exterior/ui/empty-state";
 import { GrantsSection } from "../components/grants-section";
@@ -20,34 +20,52 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const [refreshedAt, setRefreshedAt] = useState(() => Date.now());
   const [stale, setStale] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [removing, setRemoving] = useState<DeviceView | undefined>();
+  const [removePending, setRemovePending] = useState(false);
+  const [problem, setProblem] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const response = await fetch("/api/dashboard", { headers: { accept: "application/json" }, signal: AbortSignal.timeout(refreshMs) });
-        if (response.status === 401) {
-          window.location.assign("/sign-in?next=%2F");
-          return;
-        }
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const next = (await response.json()) as DashboardData;
-        if (cancelled) return;
-        setData(next);
-        setRefreshedAt(Date.now());
-        setStale(false);
-      } catch {
-        if (!cancelled) setStale(true);
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch("/api/dashboard", { headers: { accept: "application/json" }, signal: AbortSignal.timeout(refreshMs) });
+      if (response.status === 401) {
+        window.location.assign("/sign-in?next=%2F");
+        return;
       }
-    };
-    const timer = setInterval(load, refreshMs);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setData((await response.json()) as DashboardData);
+      setRefreshedAt(Date.now());
+      setStale(false);
+    } catch {
+      setStale(true);
+    }
   }, []);
 
-  const online = data.devices.filter((device) => device.machineId).length;
+  useEffect(() => {
+    const timer = setInterval(() => void load(), refreshMs);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  async function remove(device: DeviceView) {
+    setRemovePending(true);
+    setProblem("");
+    try {
+      const response = await fetch("/api/devices/remove", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deviceId: device.id }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setData((current) => ({ ...current, devices: current.devices.filter((item) => item.id !== device.id) }));
+      setRemoving(undefined);
+      void load();
+    } catch {
+      setProblem(`Could not remove ${device.hostname}. Try again.`);
+    } finally {
+      setRemovePending(false);
+    }
+  }
+
+  const online = data.devices.filter((device) => device.online).length;
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
@@ -85,11 +103,36 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
             <SetupGuide guide={guide} />
           </div>
         ) : (
-          <DeviceTable devices={data.devices} sessions={data.sessions} />
+          <DeviceTable devices={data.devices} sessions={data.sessions} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
         )}
       </section>
 
       <GrantsSection />
+
+      <Dialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
+        {removing ? (
+          <DialogContent
+            title={`Remove ${removing.hostname}?`}
+            description={removing.online
+              ? "It goes offline now, its open sessions end, and it is signed out. To use it again, sign it in again."
+              : "It is signed out and leaves this list. To use it again, sign it in again."}
+            className="max-w-md"
+          >
+            {problem ? (
+              <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
+                <CircleAlertIcon className="size-4" aria-hidden />
+                {problem}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" disabled={removePending} onClick={() => setRemoving(undefined)}>Cancel</Button>
+              <Button variant="destructive" loading={removePending} onClick={() => void remove(removing)}>
+                {removePending ? "Removing" : "Remove device"}
+              </Button>
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
 
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
         <DialogContent title="Set up a new device" description="Sign the computer in, configure its agents, and keep it online.">
@@ -136,13 +179,13 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
   );
 }
 
-function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: DashboardData["sessions"] }) {
+function DeviceTable({ devices, sessions, onRemove }: { devices: DeviceView[]; sessions: DashboardData["sessions"]; onRemove: (device: DeviceView) => void }) {
   const live = new Map<string, number>();
   for (const session of sessions) {
-    const key = `${session.machineId}\t${session.agentName}`;
+    const key = `${session.deviceId}\t${session.agentName}`;
     live.set(key, (live.get(key) ?? 0) + 1);
   }
-  const sorted = [...devices].sort((a, b) => Number(Boolean(b.machineId)) - Number(Boolean(a.machineId)) || (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
+  const sorted = [...devices].sort((a, b) => Number(b.online) - Number(a.online) || b.lastSeenAt - a.lastSeenAt);
 
   return (
     <div>
@@ -151,7 +194,8 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
           <tr>
             <th scope="col" className="w-2/5 py-3 pr-4 font-medium">Device</th>
             <th scope="col" className="w-2/5 px-4 py-3 font-medium">Agents</th>
-            <th scope="col" className="w-1/5 py-3 pl-4 font-medium">Last seen</th>
+            <th scope="col" className="w-1/5 px-4 py-3 font-medium">Last seen</th>
+            <th scope="col" className="w-24 py-3 pl-4"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -166,8 +210,11 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
               <td className="pl-11 sm:px-4 sm:py-4 sm:align-top">
                 <AgentList device={device} live={live} />
               </td>
-              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:py-4 sm:pl-4 sm:align-top">
+              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:px-4 sm:py-4 sm:align-top">
                 <Presence device={device} />
+              </td>
+              <td className="pt-1 pl-11 sm:py-3 sm:pl-4 sm:text-right sm:align-top">
+                <Button variant="secondary" size="sm" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
               </td>
             </tr>
           ))}
@@ -178,14 +225,14 @@ function DeviceTable({ devices, sessions }: { devices: DeviceView[]; sessions: D
 }
 
 function AgentList({ device, live }: { device: DeviceView; live: Map<string, number> }) {
-  if (!device.machineId) return <span className="text-muted-foreground">Shown when online</span>;
+  if (!device.online) return <span className="text-muted-foreground">Shown when online</span>;
   if (device.agents.length === 0) {
     return <span className="text-muted-foreground">None configured. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</span>;
   }
   return (
     <ul className="flex flex-wrap gap-1.5">
       {device.agents.map((agent) => {
-        const count = live.get(`${device.machineId}\t${agent.name}`) ?? 0;
+        const count = live.get(`${device.id}\t${agent.name}`) ?? 0;
         return (
           <li key={agent.name}>
             <Badge variant="secondary" className="h-6 gap-1.5 px-2" title={agent.agentType}>
@@ -201,7 +248,7 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
 }
 
 function Presence({ device }: { device: DeviceView }) {
-  if (device.machineId) {
+  if (device.online) {
     return (
       <span className="inline-flex items-center gap-2">
         <span className="size-2 rounded-full bg-success-500" />
@@ -210,9 +257,9 @@ function Presence({ device }: { device: DeviceView }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-2 text-muted-foreground" title={device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : undefined}>
+    <span className="inline-flex items-center gap-2 text-muted-foreground" title={new Date(device.lastSeenAt).toLocaleString()}>
       <span className="size-2 rounded-full bg-muted-foreground/40" />
-      {device.lastSeenAt ? relativeTime(device.lastSeenAt) : "Offline"}
+      {relativeTime(device.lastSeenAt)}
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -21,14 +21,6 @@ test("a sign-in is private and kept per relay", async () => {
   await removeSignIn("https://exterior.example", home);
   assert.deepEqual(await readSignIns(home), [local]);
   assert.equal(parseSignIn({ accessToken: "x" }), undefined);
-});
-
-test("the single daemon-session.json from before becomes a sign-in", async () => {
-  const home = await mkdtemp(join(tmpdir(), "exterior-sign-in-"));
-  await mkdir(join(home, ".config", "exterior"), { recursive: true });
-  await writeFile(join(home, ".config", "exterior", "daemon-session.json"), JSON.stringify(hosted));
-  assert.deepEqual(await readSignIns(home), [hosted]);
-  assert.deepEqual(await readdir(join(home, ".config", "exterior")), ["sign-ins"]);
 });
 
 test("a requested relay wins, one sign-in is the default, and several are ambiguous", () => {

@@ -25,7 +25,7 @@ test("registration needs a signed-in account, approval requests do not", async (
     body: JSON.stringify({
       clientName: "Studio",
       redirectUri: "https://app.example.test/callback",
-      scopes: ["machines", "offline_access"],
+      scopes: ["devices", "offline_access"],
       state: "browser-state",
       codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     }),
@@ -40,7 +40,7 @@ test("registration needs a signed-in account, approval requests do not", async (
     body: JSON.stringify({
       clientName: "Exterior Official",
       redirectUri: "https://app.example.test/callback",
-      scopes: ["machines"],
+      scopes: ["devices"],
       state: "browser-state",
       codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     }),
@@ -56,7 +56,7 @@ test("the birth certificate is issued at approval, not before", async () => {
     body: JSON.stringify({
       clientName: "Studio",
       redirectUri: "https://app.example.test/callback",
-      scopes: ["machines", "offline_access"],
+      scopes: ["devices", "offline_access"],
       state: "browser-state",
       codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     }),
@@ -104,7 +104,7 @@ test("denied approvals leave no grant and abandoned ones are pruned", async () =
     body: JSON.stringify({
       clientName: "Dither",
       redirectUri: "https://dither.example.test/callback",
-      scopes: ["machines"],
+      scopes: ["devices"],
       state: "browser-state",
       codeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     }),
@@ -195,7 +195,7 @@ async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: 
   authorize.searchParams.set("client_id", clientId);
   authorize.searchParams.set("redirect_uri", redirectUri);
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", "machines offline_access");
+  authorize.searchParams.set("scope", "devices offline_access");
   authorize.searchParams.set("state", "browser-state");
   authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   authorize.searchParams.set("code_challenge_method", "S256");

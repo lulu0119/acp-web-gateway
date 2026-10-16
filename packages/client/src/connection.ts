@@ -1,6 +1,6 @@
 import { openConnection } from "./oauth.js";
 
-export type AgentTarget = { machineId: string; agentName: string };
+export type AgentTarget = { deviceId: string; agentName: string };
 
 export type OpenedAgent = { url: string; agentType: string; agentName: string };
 
@@ -9,7 +9,7 @@ export type TicketCloseReason = "ticket-used" | "ticket-expired" | "ticket-gone"
 /**
  * Reads the relay's ticket close reason. The relay closes a rejected agent
  * socket with 1008 and one of these reasons; anything else is not a ticket
- * outcome. Old relays say only "ticket".
+ * outcome.
  */
 export function parseTicketCloseReason(reason: string | undefined): TicketCloseReason | undefined {
   if (reason === "ticket-used" || reason === "ticket-expired" || reason === "ticket-gone") return reason;

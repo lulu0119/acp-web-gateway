@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { AgentSlot, DaemonMessage, Machine, RelayMessage } from "@exterior/contract";
+import type { AgentSlot, DaemonMessage, Device, RelayMessage } from "@exterior/contract";
 import type { LiveSessionInfo } from "../../shared/account-web.js";
 
 const defaultTicketTtlMs = 60_000;
@@ -19,20 +19,23 @@ export type BrowserLink = {
   close(): void;
 };
 
-type LiveMachine = {
+/** One daemon connection. Its id is the relay's own and changes on every reconnect; the device id does not. */
+type LiveDaemon = {
   id: string;
   userId: string;
-  deviceId?: string;
+  deviceId: string;
   hostname: string;
   workingDirectory: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
+  close: (reason: DaemonCloseReason) => void;
 };
 
 type LiveSession = {
   id: string;
   userId: string;
-  machineId: string;
+  daemonId: string;
+  deviceId: string;
   agentName: string;
   agentType: string;
   ticket: string;
@@ -46,31 +49,37 @@ type LiveSession = {
   openResolve?: (result: OpenSessionResult) => void;
 };
 
-/** A connected daemon, with the stable device id it announced, if any. */
-export type LiveMachineInfo = Machine & { deviceId?: string };
+/** `replaced`: a newer connection announced the same device id. `removed`: the account has no such device. */
+export type DaemonCloseReason = "replaced" | "removed";
 
-/** Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept. */
-export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string }) => void;
+/**
+ * Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept.
+ * Answers false when the account has no such device, and the daemon is turned away.
+ */
+export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string }) => boolean;
 
 export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: "used" | "expired" | "gone" };
 
 export type Registry = {
-  connectDaemon(input: { userId: string; send: (message: RelayMessage) => void }): {
+  /** `close` ends the daemon's socket when the relay turns the daemon away. */
+  connectDaemon(input: { userId: string; send: (message: RelayMessage) => void; close: (reason: DaemonCloseReason) => void }): {
     receive(message: DaemonMessage): void;
     close(): void;
   };
-  listMachines(userId: string): LiveMachineInfo[];
+  listDevices(userId: string): Device[];
   listSessions(userId: string): LiveSessionInfo[];
-  openSession(input: { userId: string; machineId: string; agentName: string }): Promise<OpenSessionResult>;
+  openSession(input: { userId: string; deviceId: string; agentName: string }): Promise<OpenSessionResult>;
+  /** Ends the device's connection and its sessions, as the device was removed. */
+  disconnectDevice(input: { userId: string; deviceId: string }): void;
   takeTicket(ticket: string, browser: BrowserSocket): TakeTicketResult;
 };
 
 export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number; seen?: SeenDevice }): Registry {
   const now = input?.now ?? Date.now;
-  const seen = input?.seen ?? (() => undefined);
+  const seen = input?.seen ?? (() => true);
   const ticketTtlMs = input?.ticketTtlMs ?? defaultTicketTtlMs;
   const openTimeoutMs = input?.openTimeoutMs ?? defaultOpenTimeoutMs;
-  const machines = new Map<string, LiveMachine>();
+  const daemons = new Map<string, LiveDaemon>();
   const sessions = new Map<string, LiveSession>();
   const sessionsByTicket = new Map<string, LiveSession>();
 
@@ -81,20 +90,39 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
     clearTimeout(session.ticketTimer);
     sessions.delete(session.id);
     sessionsByTicket.delete(session.ticket);
-    if (source !== "daemon") sendToMachine(session.machineId, { type: "close", sessionId: session.id });
+    if (source !== "daemon") sendToDaemon(session.daemonId, { type: "close", sessionId: session.id });
     if (source !== "browser") session.browser?.close();
     const resolve = session.openResolve;
     session.openResolve = undefined;
-    resolve?.({ ok: false, status: source === "timeout" ? 504 : 503, message: "The machine did not start the agent." });
+    resolve?.({ ok: false, status: source === "timeout" ? 504 : 503, message: "The device did not start the agent." });
   }
 
-  function sendToMachine(machineId: string, message: RelayMessage): void {
-    const machine = machines.get(machineId);
-    if (!machine) return;
+  function sendToDaemon(daemonId: string, message: RelayMessage): void {
+    const daemon = daemons.get(daemonId);
+    if (!daemon) return;
     try {
-      machine.send(message);
+      daemon.send(message);
     } catch {
-      machine.send = () => undefined;
+      daemon.send = () => undefined;
+    }
+  }
+
+  function findDaemon(userId: string, deviceId: string): LiveDaemon | undefined {
+    for (const daemon of daemons.values()) {
+      if (daemon.userId === userId && daemon.deviceId === deviceId) return daemon;
+    }
+    return undefined;
+  }
+
+  function dropDaemon(daemon: LiveDaemon, reason: DaemonCloseReason): void {
+    daemons.delete(daemon.id);
+    for (const session of sessions.values()) {
+      if (session.daemonId === daemon.id) finishSession(session, "daemon");
+    }
+    try {
+      daemon.close(reason);
+    } catch {
+      // The socket is already gone.
     }
   }
 
@@ -113,7 +141,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       frame(payload) {
         if (session.ended || session.browser !== browser) return;
         markLive(session);
-        sendToMachine(session.machineId, { type: "frame", sessionId: session.id, payload });
+        sendToDaemon(session.daemonId, { type: "frame", sessionId: session.id, payload });
       },
       close() {
         if (session.ended || session.browser !== browser) return;
@@ -130,36 +158,46 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
 
   return {
     connectDaemon(link) {
-      let machineId: string | undefined;
+      let daemonId: string | undefined;
       return {
         receive(message) {
           if (message.type === "hello") {
-            const agents = message.agents.map((agent) => ({ name: agent.name, agentType: agent.agentType }));
-            if (message.deviceId) seen({ userId: link.userId, deviceId: message.deviceId, hostname: message.hostname });
-            if (!machineId) {
-              machineId = randomUUID();
-              machines.set(machineId, {
-                id: machineId,
-                userId: link.userId,
-                deviceId: message.deviceId,
-                hostname: message.hostname,
-                workingDirectory: message.workingDirectory,
-                agents,
-                send: link.send,
-              });
+            const current = daemonId ? daemons.get(daemonId) : undefined;
+            // Another connection took this one's place, or the device was removed.
+            if (daemonId && !current) return;
+            if (!seen({ userId: link.userId, deviceId: message.deviceId, hostname: message.hostname })) {
+              if (current) dropDaemon(current, "removed");
+              else link.close("removed");
               return;
             }
-            const machine = machines.get(machineId);
-            if (!machine) return;
-            machine.deviceId = message.deviceId;
-            machine.hostname = message.hostname;
-            machine.workingDirectory = message.workingDirectory;
-            machine.agents = agents;
+            // A daemon that reconnects before the relay noticed its old socket die announces the same
+            // device id again. The newer connection takes over, so a device is online once.
+            const previous = findDaemon(link.userId, message.deviceId);
+            if (previous && previous !== current) dropDaemon(previous, "replaced");
+            const agents = message.agents.map((agent) => ({ name: agent.name, agentType: agent.agentType }));
+            if (current) {
+              current.deviceId = message.deviceId;
+              current.hostname = message.hostname;
+              current.workingDirectory = message.workingDirectory;
+              current.agents = agents;
+              return;
+            }
+            daemonId = randomUUID();
+            daemons.set(daemonId, {
+              id: daemonId,
+              userId: link.userId,
+              deviceId: message.deviceId,
+              hostname: message.hostname,
+              workingDirectory: message.workingDirectory,
+              agents,
+              send: link.send,
+              close: link.close,
+            });
             return;
           }
-          if (!machineId) return;
+          if (!daemonId) return;
           const session = sessions.get(message.sessionId);
-          if (!session || session.machineId !== machineId || session.ended) return;
+          if (!session || session.daemonId !== daemonId || session.ended) return;
           if (message.type === "opened") {
             if (!session.openResolve) return;
             const resolve = session.openResolve;
@@ -191,48 +229,46 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           finishSession(session, "daemon");
         },
         close() {
-          if (!machineId) return;
-          const closedId = machineId;
-          machineId = undefined;
-          const closed = machines.get(closedId);
-          if (closed?.deviceId) seen({ userId: closed.userId, deviceId: closed.deviceId, hostname: closed.hostname });
-          machines.delete(closedId);
+          if (!daemonId) return;
+          const closed = daemons.get(daemonId);
+          daemonId = undefined;
+          if (!closed) return;
+          seen({ userId: closed.userId, deviceId: closed.deviceId, hostname: closed.hostname });
+          daemons.delete(closed.id);
           for (const session of sessions.values()) {
-            if (session.machineId === closedId) finishSession(session, "daemon");
+            if (session.daemonId === closed.id) finishSession(session, "daemon");
           }
         },
       };
     },
-    listMachines(userId) {
-      return [...machines.values()]
-        .filter((machine) => machine.userId === userId)
-        .map((machine) => ({
-          id: machine.id,
-          hostname: machine.hostname,
-          agents: machine.agents,
-          workingDirectory: machine.workingDirectory,
-          ...(machine.deviceId ? { deviceId: machine.deviceId } : {}),
+    listDevices(userId) {
+      return [...daemons.values()]
+        .filter((daemon) => daemon.userId === userId)
+        .map((daemon) => ({
+          id: daemon.deviceId,
+          hostname: daemon.hostname,
+          agents: daemon.agents,
+          workingDirectory: daemon.workingDirectory,
         }));
     },
     listSessions(userId) {
       return [...sessions.values()]
         .filter((session) => session.userId === userId && !session.ended)
-        .map((session) => ({ machineId: session.machineId, agentName: session.agentName, agentType: session.agentType }));
+        .map((session) => ({ deviceId: session.deviceId, agentName: session.agentName, agentType: session.agentType }));
     },
-    openSession({ userId, machineId, agentName }) {
-      const machine = machines.get(machineId);
-      if (!machine || machine.userId !== userId) {
-        return Promise.resolve({ ok: false, status: 404, message: "That machine is not online." });
-      }
-      const agent = machine.agents.find((slot) => slot.name === agentName);
-      if (!agent) return Promise.resolve({ ok: false, status: 404, message: "That agent is not configured on the machine." });
+    openSession({ userId, deviceId, agentName }) {
+      const daemon = findDaemon(userId, deviceId);
+      if (!daemon) return Promise.resolve({ ok: false, status: 404, message: "That device is not online." });
+      const agent = daemon.agents.find((slot) => slot.name === agentName);
+      if (!agent) return Promise.resolve({ ok: false, status: 404, message: "That agent is not configured on the device." });
       const id = randomUUID();
       const ticket = randomBytes(32).toString("base64url");
       return new Promise((resolve) => {
         const session: LiveSession = {
           id,
           userId,
-          machineId,
+          daemonId: daemon.id,
+          deviceId,
           agentName,
           agentType: agent.agentType,
           ticket,
@@ -245,8 +281,12 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
         };
         sessions.set(id, session);
         sessionsByTicket.set(ticket, session);
-        sendToMachine(machineId, { type: "open", sessionId: id, agentName });
+        sendToDaemon(daemon.id, { type: "open", sessionId: id, agentName });
       });
+    },
+    disconnectDevice({ userId, deviceId }) {
+      const daemon = findDaemon(userId, deviceId);
+      if (daemon) dropDaemon(daemon, "removed");
     },
     takeTicket(ticket, browser) {
       const session = sessionsByTicket.get(ticket);

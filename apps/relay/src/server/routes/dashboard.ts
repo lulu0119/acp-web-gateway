@@ -1,9 +1,11 @@
+import { devicesPath } from "@exterior/contract";
 import type { Hono } from "hono";
 import type { RelayEnv } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
 import type { DashboardData, DeviceView } from "../../shared/account-web.js";
 import type { Registry } from "../connections/registry.js";
 import type { DeviceStore } from "../devices/store.js";
+import { deleteDeviceTokens } from "../identity/device-tokens.js";
 import { readAccount, type Account } from "../identity/session.js";
 import type { PageRenderer } from "../rendering/render-page.js";
 import { setupGuide } from "../rendering/setup-guide.js";
@@ -12,6 +14,7 @@ export function mountDashboard(app: Hono<RelayEnv>, input: {
   exterior: ExteriorAuth;
   registry: Registry;
   devices: DeviceStore;
+  daemonClientId: string;
   render: PageRenderer;
 }): void {
   app.get("/", async (c) => {
@@ -25,19 +28,29 @@ export function mountDashboard(app: Hono<RelayEnv>, input: {
     if (!account) return c.json({ message: "Sign in again." }, 401);
     return c.json(readDashboard(account, input));
   });
+
+  // Removing a device signs it out: its daemon sign-in stops refreshing, and it may not connect again.
+  app.post(`${devicesPath}/remove`, async (c) => {
+    const account = await readAccount(c.req.raw, input.exterior);
+    if (!account) return c.json({ message: "Sign in again." }, 401);
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const deviceId = typeof body === "object" && body !== null && "deviceId" in body && typeof body.deviceId === "string" ? body.deviceId : undefined;
+    if (!deviceId) return c.json({ message: "Choose a device." }, 400);
+    if (!input.devices.remove({ userId: account.userId, deviceId })) return c.json({ message: "That device is not on this account." }, 404);
+    await deleteDeviceTokens(input.exterior, { userId: account.userId, clientId: input.daemonClientId, deviceId });
+    input.registry.disconnectDevice({ userId: account.userId, deviceId });
+    return c.json({ removed: true });
+  });
 }
 
 export function readDashboard(account: Account, input: { registry: Registry; devices: DeviceStore }): DashboardData {
-  const live = input.registry.listMachines(account.userId);
+  // A daemon connects only as a device the account registered, so every online device is stored.
+  const online = new Map(input.registry.listDevices(account.userId).map((device) => [device.id, device]));
   const devices: DeviceView[] = input.devices.list(account.userId).map((device) => {
-    const machine = live.find((item) => item.deviceId === device.id);
-    return machine
-      ? { id: device.id, hostname: machine.hostname, machineId: machine.id, agents: machine.agents, lastSeenAt: device.lastSeenAt }
-      : { id: device.id, hostname: device.hostname, agents: [], lastSeenAt: device.lastSeenAt };
+    const live = online.get(device.id);
+    return live
+      ? { id: device.id, hostname: live.hostname, online: true, agents: live.agents, lastSeenAt: device.lastSeenAt }
+      : { id: device.id, hostname: device.hostname, online: false, agents: [], lastSeenAt: device.lastSeenAt };
   });
-  for (const machine of live) {
-    if (devices.some((device) => device.machineId === machine.id)) continue;
-    devices.push({ id: machine.id, hostname: machine.hostname, machineId: machine.id, agents: machine.agents });
-  }
   return { userName: account.userName, userImage: account.userImage, devices, sessions: input.registry.listSessions(account.userId) };
 }

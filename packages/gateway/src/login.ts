@@ -1,12 +1,14 @@
 import { randomBytes } from "node:crypto";
 import {
   beginDeviceAuthorization,
+  DeviceRegistrationError,
   fetchPublicClients,
   pollDeviceAuthorization,
   refreshExteriorAccessToken,
   RefreshTokenRejectedError,
   registerDevice,
 } from "@exterior/client";
+import { readDeviceId, writeDeviceId } from "./device-ids.js";
 import { readSignIn, writeSignIn, type SignIn } from "./sign-ins.js";
 
 const refreshWindowMs = 60_000;
@@ -47,28 +49,50 @@ export async function signInDaemon(input: {
   const tokens = await pollDeviceAuthorization(pending, input.signal);
   if (!tokens.refreshToken) throw new Error("Exterior did not return a refresh token.");
   const relayUrl = new URL(input.relayUrl).origin;
-  const previous = await readSignIn(relayUrl, input.homeDirectory);
-  const deviceId = previous?.deviceId ?? newDeviceId();
+  const deviceId = await deviceIdFor(relayUrl, input.homeDirectory);
   await writeSignIn({
     relayUrl,
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,
-    deviceId,
   }, input.homeDirectory);
-  // Listing the device right away is a convenience: the daemon announces it again whenever it connects.
-  await registerDevice(relayUrl, tokens.accessToken, { deviceId, hostname: input.hostname.slice(0, 256) }, input.signal).catch(() => {
-    input.inform("The relay did not record this device yet. It appears once exterior daemon connects.");
-  });
+  const registration = { hostname: input.hostname.slice(0, 256), refreshToken: tokens.refreshToken };
+  // Listing the device right away is a convenience: the daemon registers it again before it connects.
+  await registerDevice(relayUrl, tokens.accessToken, { deviceId, ...registration }, input.signal)
+    .catch(async (error: unknown) => {
+      if (!(error instanceof DeviceRegistrationError) || error.status !== 409) throw error;
+      // Another account signed this device in to the relay before; this account gets a device of its own.
+      const fresh = newDeviceId();
+      await writeDeviceId(relayUrl, fresh, input.homeDirectory);
+      await registerDevice(relayUrl, tokens.accessToken, { deviceId: fresh, ...registration }, input.signal);
+    })
+    .catch(() => {
+      input.inform("The relay did not record this device yet. exterior daemon records it before it connects.");
+    });
 }
 
-/** The device id of this device's sign-in to a relay, creating one for a sign-in written before ids existed. */
-export async function signedInDeviceId(relayUrl: string, homeDirectory?: string): Promise<string | undefined> {
-  const signIn = await readSignIn(relayUrl, homeDirectory);
-  if (!signIn) return undefined;
-  if (signIn.deviceId) return signIn.deviceId;
+/** Registers this device with its current sign-in. A daemon connects only as a registered device. */
+export async function registerSignedInDevice(input: {
+  relayUrl: string;
+  deviceId: string;
+  hostname: string;
+  homeDirectory?: string;
+  signal?: AbortSignal;
+}): Promise<void> {
+  const signIn = await usableSignIn({ relayUrl: input.relayUrl, homeDirectory: input.homeDirectory, signal: input.signal });
+  await registerDevice(signIn.relayUrl, signIn.accessToken, {
+    deviceId: input.deviceId,
+    hostname: input.hostname.slice(0, 256),
+    refreshToken: signIn.refreshToken,
+  }, input.signal);
+}
+
+/** The id this device goes by on a relay. It outlives signing out, so signing in again keeps the same device. */
+export async function deviceIdFor(relayUrl: string, homeDirectory?: string): Promise<string> {
+  const kept = await readDeviceId(relayUrl, homeDirectory);
+  if (kept) return kept;
   const deviceId = newDeviceId();
-  await writeSignIn({ ...signIn, deviceId }, homeDirectory);
+  await writeDeviceId(relayUrl, deviceId, homeDirectory);
   return deviceId;
 }
 
@@ -100,7 +124,6 @@ export async function usableSignIn(input: {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,
-    deviceId: signIn.deviceId,
   };
   await writeSignIn(next, input.homeDirectory);
   return next;

@@ -1,6 +1,6 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
 import { randomBytes } from "node:crypto";
-import { machinesScope } from "@exterior/contract";
+import { devicesScope } from "@exterior/contract";
 import type { ExteriorAuth } from "./auth.js";
 
 const daemonSoftwareId = "exterior-daemon";
@@ -98,7 +98,7 @@ export type PendingClientRequest = {
 
 export type PendingParse = { ok: true; value: PendingClientRequest } | { ok: false; errors: string[] };
 
-const grantableScopes = ["machines", "offline_access"];
+const grantableScopes = ["devices", "offline_access"];
 
 export function parsePendingClient(body: unknown): PendingParse {
   const errors: string[] = [];
@@ -217,7 +217,7 @@ export async function ensureDaemonClient(exterior: ExteriorAuth): Promise<string
         grant_types: [DEVICE_CODE_GRANT_TYPE, "refresh_token"],
         token_endpoint_auth_method: "none",
         response_types: [],
-        scope: machinesScope,
+        scope: devicesScope,
         skip_consent: false,
       },
     }),
@@ -253,7 +253,7 @@ export async function registerClient(
         grant_types: ["authorization_code", "refresh_token"],
         token_endpoint_auth_method: input.confidential ? "client_secret_basic" : "none",
         response_types: ["code"],
-        scope: machinesScope,
+        scope: devicesScope,
         skip_consent: false,
       },
     }),

@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
 
-test("a daemon hello names the machine, its working directory, and its agent configurations", () => {
+test("a daemon hello names the device, its working directory, and its agent configurations", () => {
   const hello = {
     type: "hello",
     hostname: "studio",
+    deviceId: "device-studio-1",
     workingDirectory: "C:\\Users\\person\\.local\\share\\exterior\\workspace",
     agents: [{ name: "work", agentType: "opencode" }],
   };
@@ -13,6 +14,7 @@ test("a daemon hello names the machine, its working directory, and its agent con
   assert.equal(parseDaemonMessage({ ...hello, hostname: "" }), undefined);
   assert.equal(parseDaemonMessage({ ...hello, agents: [{ name: "work", agentType: "OpenCode" }] }), undefined);
   assert.equal(parseDaemonMessage({ ...hello, workingDirectory: "" }), undefined);
+  assert.equal(parseDaemonMessage({ ...hello, deviceId: undefined }), undefined);
   assert.equal(parseDaemonMessage({ type: "hello", hostname: "studio", agents: [] }), undefined);
 });
 

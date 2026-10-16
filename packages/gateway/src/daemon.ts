@@ -1,4 +1,5 @@
-import { daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
+import { DeviceRegistrationError } from "@exterior/client";
+import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
 import { mkdir } from "node:fs/promises";
 import WebSocket from "ws";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
@@ -8,6 +9,9 @@ import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
 type DaemonHost = ReturnType<typeof createDaemonHost>;
 
+const defaultHeartbeatMs = 30_000;
+const maxRetryMs = 30_000;
+
 export async function runDaemon(input: {
   relayUrl: string;
   getAccessToken: (forceRefresh: boolean, signal?: AbortSignal) => Promise<string>;
@@ -15,13 +19,17 @@ export async function runDaemon(input: {
   /** Called as the connection moves between connecting, connected, and waiting to retry. */
   onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
-  deviceId?: string;
+  deviceId: string;
+  /** Registers the device before each connection, as the relay turns away a device it has no record of. */
+  register?: (signal?: AbortSignal) => Promise<void>;
   workingDirectory: string;
   agents: readonly StoredAgent[];
   /** Delivers later agent lists. Each one reaches the relay without ending open sessions. Returns a function that unsubscribes. */
   agentUpdates?: (listener: (agents: readonly StoredAgent[]) => void) => () => void;
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
+  /** How often the daemon pings the relay. A ping still unanswered at the next one ends the connection, which then reconnects. */
+  heartbeatMs?: number;
 }): Promise<void> {
   await mkdir(input.workingDirectory, { recursive: true });
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
@@ -50,19 +58,21 @@ async function connectUntilStopped(input: {
   inform: (line: string) => void;
   onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
-  deviceId?: string;
+  deviceId: string;
+  register?: (signal?: AbortSignal) => Promise<void>;
   workingDirectory: string;
   currentAgents: () => readonly StoredAgent[];
   onHost: (host: DaemonHost) => void;
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
+  heartbeatMs?: number;
 }): Promise<void> {
   let authentication: "ready" | "refresh" | "refreshed" = "ready";
   let previousToken: string | undefined;
   let retryMs = 1_000;
   const retry = async () => {
     const ms = retryMs;
-    retryMs = Math.min(retryMs * 2, 30_000);
+    retryMs = Math.min(retryMs * 2, maxRetryMs);
     input.inform(`Retrying in ${ms / 1_000}s.`);
     input.onStatus?.("waiting");
     await delay(ms, input.signal);
@@ -84,8 +94,13 @@ async function connectUntilStopped(input: {
     if (authentication === "refresh") authentication = "refreshed";
     input.inform("Connecting to relay.");
     input.onStatus?.("connecting");
-    const result = await connectOnce({ ...input, accessToken, agents: input.currentAgents() });
+    const registered = await registerDevice(input);
     if (input.signal?.aborted) return;
+    const result = registered === "registered" ? await connectOnce({ ...input, accessToken, agents: input.currentAgents() }) : registered;
+    if (input.signal?.aborted) return;
+    if (result === "removed") {
+      throw new DaemonLoginRequiredError(`This device was removed from the account on the relay. ${loginAgain(input.relayUrl)}`);
+    }
     if (result === "forbidden") {
       throw new DaemonLoginRequiredError(`Relay rejected this device (HTTP 403). ${loginAgain(input.relayUrl)}`);
     }
@@ -99,7 +114,35 @@ async function connectUntilStopped(input: {
       retryMs = 1_000;
       authentication = "ready";
     }
+    // Two daemons with one device id take each other's place on every connect, so this one waits longest.
+    if (result === "replaced") {
+      input.inform("A newer connection with this device's id took its place on the relay. Is this device's configuration copied to another computer?");
+      retryMs = maxRetryMs;
+      authentication = "ready";
+    }
     await retry();
+  }
+}
+
+async function registerDevice(input: {
+  relayUrl: string;
+  inform: (line: string) => void;
+  register?: (signal?: AbortSignal) => Promise<void>;
+  signal?: AbortSignal;
+}): Promise<"registered" | "unauthorized" | "failed"> {
+  if (!input.register) return "registered";
+  try {
+    await input.register(input.signal);
+    return "registered";
+  } catch (error) {
+    if (error instanceof DaemonLoginRequiredError) throw error;
+    if (error instanceof DeviceRegistrationError && error.status === 401) return "unauthorized";
+    // 403: the sign-in was revoked, such as by removing the device. 409: another account holds the device id.
+    if (error instanceof DeviceRegistrationError && (error.status === 403 || error.status === 409)) {
+      throw new DaemonLoginRequiredError(`${error.message} ${loginAgain(input.relayUrl)}`);
+    }
+    if (!input.signal?.aborted) input.inform(`Could not register this device: ${error instanceof Error ? error.message : "no reason given"}`);
+    return "failed";
   }
 }
 
@@ -109,13 +152,14 @@ function connectOnce(input: {
   inform: (line: string) => void;
   onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
-  deviceId?: string;
+  deviceId: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
   onHost: (host: DaemonHost) => void;
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
-}): Promise<"failed" | "disconnected" | "unauthorized" | "forbidden"> {
+  heartbeatMs?: number;
+}): Promise<"failed" | "disconnected" | "replaced" | "removed" | "unauthorized" | "forbidden"> {
   const socket = new WebSocket(relayWebSocketUrl(input.relayUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
     handshakeTimeout: 10_000,
@@ -123,6 +167,18 @@ function connectOnce(input: {
   let unauthorized = false;
   let forbidden = false;
   let connected = false;
+  let answered = true;
+  // A relay that vanished without closing the socket leaves it open here. Unanswered pings notice.
+  const heartbeat = setInterval(() => {
+    if (!connected) return;
+    if (!answered) {
+      input.inform("The relay stopped answering.");
+      socket.terminate();
+      return;
+    }
+    answered = false;
+    socket.ping();
+  }, input.heartbeatMs ?? defaultHeartbeatMs);
   const host = createDaemonHost({
     hostname: input.hostname,
     deviceId: input.deviceId,
@@ -151,6 +207,7 @@ function connectOnce(input: {
       input.onStatus?.("connected");
       host.hello();
     });
+    socket.on("pong", () => (answered = true));
     socket.on("message", (data, isBinary) => {
       if (isBinary) return;
       let parsed: unknown;
@@ -173,10 +230,15 @@ function connectOnce(input: {
       if (!unauthorized && !forbidden && !input.signal?.aborted) input.inform("Relay connection failed.");
     });
     socket.on("close", (code) => {
+      clearInterval(heartbeat);
       host.close();
       input.signal?.removeEventListener("abort", stop);
       if (!input.signal?.aborted && !unauthorized && !forbidden) input.inform(`Relay disconnected (code ${code}).`);
-      resolve(unauthorized ? "unauthorized" : forbidden ? "forbidden" : connected ? "disconnected" : "failed");
+      if (unauthorized) resolve("unauthorized");
+      else if (forbidden) resolve("forbidden");
+      else if (code === daemonCloseCodes.replaced) resolve("replaced");
+      else if (code === daemonCloseCodes.removed) resolve("removed");
+      else resolve(connected ? "disconnected" : "failed");
     });
     input.signal?.addEventListener("abort", stop, { once: true });
     if (input.signal?.aborted) stop();
