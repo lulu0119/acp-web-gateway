@@ -65,9 +65,7 @@ export function SettingsDialog({ open, onOpenChange }: {
               {chosen ? "Change folder" : "Choose folder"}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Where agents work. A web app can name its own directory, and a session that names none works here.
-          </p>
+          <p className="text-sm text-muted-foreground">Where agents work.</p>
           {load.kind === "loading" ? <p className="text-sm text-muted-foreground">Reading the working directory…</p> : null}
           {load.kind === "error" ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">Could not read the working directory: {load.message}</p> : null}
           {load.kind === "ready" ? (
@@ -75,7 +73,7 @@ export function SettingsDialog({ open, onOpenChange }: {
               <p className="selectable font-mono text-sm break-all">{load.value.workingDirectory}</p>
               <div className="flex items-center justify-between gap-4">
                 <p className="text-xs text-muted-foreground">
-                  {chosen ? "Chosen for this device." : "This device's own directory. No choice has been made."}
+                  {chosen ? "Chosen for this device." : "The default directory."}
                 </p>
                 {chosen ? (
                   <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" loading={choosing} onClick={() => void reset()}>
@@ -86,7 +84,6 @@ export function SettingsDialog({ open, onOpenChange }: {
             </>
           ) : null}
           {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
-          <p className="text-xs text-muted-foreground">Sessions already open keep the directory they started in.</p>
         </div>
       </DialogContent>
     </Dialog>
