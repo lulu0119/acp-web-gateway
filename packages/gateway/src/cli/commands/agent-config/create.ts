@@ -35,13 +35,13 @@ export const create = defineCommand({
       return 1;
     }
     const added = command
-      ? addCustomAgent(config.agents, { command, name, env })
-      : await addRegistryAgent(config.agents, { agentType: agentType ?? "", name, env, homeDirectory: io.homeDirectory });
+      ? addCustomAgent(config.config.agents, { command, name, env })
+      : await addRegistryAgent(config.config.agents, { agentType: agentType ?? "", name, env, homeDirectory: io.homeDirectory });
     if (!added.ok) {
       io.stderr.write(`${added.message}\n`);
       return 1;
     }
-    await writeGatewayConfig({ agents: added.agents }, io.homeDirectory);
+    await writeGatewayConfig({ ...config.config, agents: added.agents }, io.homeDirectory);
     io.stdout.write(`Created agent configuration "${added.createdName}" (${added.agents.at(-1)?.agentType}).\n`);
     return 0;
   },

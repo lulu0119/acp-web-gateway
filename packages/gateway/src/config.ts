@@ -14,6 +14,8 @@ export type StoredAgent = {
 
 export type GatewayConfig = {
   agents: StoredAgent[];
+  /** Absolute. The directory sessions work in, or unset for `workingDirectoryPath`. */
+  workingDirectory?: string;
 };
 
 export function configFilePath(homeDirectory = homedir()): string {
@@ -21,13 +23,34 @@ export function configFilePath(homeDirectory = homedir()): string {
 }
 
 /**
- * The directory the daemon runs agents in when a web app names none.
+ * The directory the daemon runs agents in when the configuration names none.
  *
  * Sign-ins live in `~/.config/exterior`. This path is the data directory, the
- * same relative path on every system. The daemon creates it when it starts.
+ * same relative path on every system.
  */
 export function workingDirectoryPath(homeDirectory = homedir()): string {
   return join(homeDirectory, ".local", "share", "exterior", "workspace");
+}
+
+/** Where this device's sessions work: what the configuration names, or the default. */
+export function configuredWorkingDirectory(config: GatewayConfig, homeDirectory = homedir()): string {
+  return config.workingDirectory ?? workingDirectoryPath(homeDirectory);
+}
+
+/**
+ * The directory if it can be worked in, or undefined after saying why.
+ *
+ * Creating it is the whole check: `mkdir` knows this system's rules, and its reason is
+ * the only accurate one.
+ */
+export async function usableWorkingDirectory(directory: string, inform: (line: string) => void): Promise<string | undefined> {
+  try {
+    await mkdir(directory, { recursive: true });
+    return directory;
+  } catch (error) {
+    inform(`Cannot use ${directory} as the working directory: ${error instanceof Error ? error.message : "no reason given"}`);
+    return undefined;
+  }
 }
 
 export function parseGatewayConfig(value: unknown): GatewayConfig {
@@ -38,38 +61,38 @@ export function parseGatewayConfig(value: unknown): GatewayConfig {
     const agent = parseStoredAgent(item);
     if (agent && !agents.some((existing) => existing.name === agent.name)) agents.push(agent);
   }
-  return { agents };
+  const workingDirectory = typeof record.workingDirectory === "string" ? record.workingDirectory.trim() : "";
+  // A path is either given or absent. An empty string is absent, not a directory to work in.
+  return workingDirectory.length > 0 ? { agents, workingDirectory } : { agents };
 }
 
 function configText(config: GatewayConfig): string {
-  return `${JSON.stringify({ agents: config.agents }, null, 2)}\n`;
+  return `${JSON.stringify(config, null, 2)}\n`;
 }
 
 export function defaultConfigText(): string {
   return configText({ agents: [] });
 }
 
-export async function readGatewayConfig(homeDirectory = homedir()): Promise<{
-  agents: StoredAgent[];
-  warning?: string;
-}> {
+export async function readGatewayConfig(homeDirectory = homedir()): Promise<GatewayConfig & { warning?: string }> {
   const loaded = await loadGatewayConfig(homeDirectory);
   const failure = loadFailure(loaded);
   if (failure) return { agents: [], warning: failure };
-  if (loaded.kind === "parsed") return { agents: loaded.config.agents };
+  if (loaded.kind === "parsed") return loaded.config;
   return { agents: [] };
 }
 
-export async function readGatewayConfigForWrite(homeDirectory = homedir()): Promise<
-  { ok: true; agents: StoredAgent[] } | { ok: false; message: string }
-> {
+export async function readGatewayConfigForWrite(
+  homeDirectory = homedir(),
+): Promise<{ ok: true; config: GatewayConfig } | { ok: false; message: string }> {
   const loaded = await loadGatewayConfig(homeDirectory);
   const failure = loadFailure(loaded);
   if (failure) return { ok: false, message: failure };
   if (loaded.kind === "parsed" && loaded.dropsAgents) {
     return { ok: false, message: `Cannot rewrite ${loaded.path} without dropping agent entries.` };
   }
-  return { ok: true, agents: loaded.kind === "parsed" ? loaded.config.agents : [] };
+  // The whole configuration, so a writer adds or removes one thing and leaves the rest alone.
+  return { ok: true, config: loaded.kind === "parsed" ? loaded.config : { agents: [] } };
 }
 
 export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = homedir()): Promise<void> {
@@ -90,27 +113,27 @@ export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = 
  */
 export function watchGatewayConfig(input: {
   homeDirectory?: string;
-  agents: readonly StoredAgent[];
-  onChange: (agents: readonly StoredAgent[]) => void;
+  config: GatewayConfig;
+  onChange: (config: GatewayConfig) => void;
   onWarning: (message: string) => void;
   settleMs?: number;
 }): () => void {
   const path = configFilePath(input.homeDirectory);
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  let current = JSON.stringify(input.agents);
+  let current = configKey(input.config);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   const reload = async () => {
     const config = await readGatewayConfig(input.homeDirectory);
     if (stopped) return;
     if (config.warning) {
-      input.onWarning(`${config.warning} Keeping the previous agent configurations.`);
+      input.onWarning(`${config.warning} Keeping the previous configuration.`);
       return;
     }
-    const next = JSON.stringify(config.agents);
+    const next = configKey(config);
     if (next === current) return;
     current = next;
-    input.onChange(config.agents);
+    input.onChange(config);
   };
   const watcher = watch(dirname(path), (_event, filename) => {
     // Some platforms do not report the name; read the file anyway.
@@ -131,6 +154,11 @@ type LoadedGatewayConfig =
   | { kind: "unreadable"; path: string }
   | { kind: "invalid"; path: string }
   | { kind: "parsed"; path: string; config: GatewayConfig; dropsAgents: boolean };
+
+/** One spelling of a configuration, so a watch can tell a change from a rewrite of the same thing. */
+function configKey(config: GatewayConfig): string {
+  return JSON.stringify({ agents: config.agents, workingDirectory: config.workingDirectory ?? null });
+}
 
 async function loadGatewayConfig(homeDirectory: string): Promise<LoadedGatewayConfig> {
   const path = configFilePath(homeDirectory);

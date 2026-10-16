@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AgentsSection } from "./agents-section";
 import { api } from "./api";
 import { RelaysSection } from "./relays-section";
+import { SessionsSection } from "./sessions-section";
 
 export function App() {
   const [device, setDevice] = useState("");
@@ -19,6 +20,7 @@ export function App() {
         </div>
       </header>
       <RelaysSection />
+      <SessionsSection />
       <AgentsSection />
     </main>
   );

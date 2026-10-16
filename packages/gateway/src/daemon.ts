@@ -1,9 +1,9 @@
 import { DeviceRegistrationError } from "@exterior/client";
 import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
-import { mkdir } from "node:fs/promises";
+import { homedir } from "node:os";
 import WebSocket from "ws";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
-import type { StoredAgent } from "./config.js";
+import { configuredWorkingDirectory, usableWorkingDirectory, type GatewayConfig } from "./config.js";
 import { createDaemonHost } from "./host.js";
 import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
@@ -22,29 +22,43 @@ export async function runDaemon(input: {
   deviceId: string;
   /** Registers the device before each connection, as the relay turns away a device it has no record of. */
   register?: (signal?: AbortSignal) => Promise<void>;
-  workingDirectory: string;
-  agents: readonly StoredAgent[];
-  /** Delivers later agent lists. Each one reaches the relay without ending open sessions. Returns a function that unsubscribes. */
-  agentUpdates?: (listener: (agents: readonly StoredAgent[]) => void) => () => void;
+  /** The agents to offer and the directory their sessions work in. Its `workingDirectory` is already resolved. */
+  config: GatewayConfig & { workingDirectory: string };
+  /**
+   * Delivers later configurations, each one with the directory already resolved. A change
+   * reaches the relay without ending open sessions. Returns a function that unsubscribes.
+   */
+  configUpdates?: (listener: (config: GatewayConfig & { workingDirectory: string }) => void) => () => void;
   signal?: AbortSignal;
   catalog?: readonly RegistryAgent[];
   /** How often the daemon pings the relay. A ping still unanswered at the next one ends the connection, which then reconnects. */
   heartbeatMs?: number;
 }): Promise<void> {
-  await mkdir(input.workingDirectory, { recursive: true });
+  // Made once here as well as when it is set, so a directory deleted since is back before a session needs it.
+  await usableWorkingDirectory(input.config.workingDirectory, input.inform);
   const loaded = input.catalog ? undefined : await loadAcpRegistry();
   const catalog = input.catalog ?? (loaded?.ok ? loaded.agents : []);
-  let agents = input.agents;
+  let config = input.config;
   let host: DaemonHost | undefined;
-  const unsubscribe = input.agentUpdates?.((next) => {
-    agents = next;
-    host?.setAgents(next);
+  // Configuration changes queue: a directory is made before the hello that carries it.
+  let applied = Promise.resolve();
+  const unsubscribe = input.configUpdates?.((next) => {
+    applied = applied.then(async () => {
+      // A directory that cannot be made is not one a session can work in, so the last good one stays.
+      if (next.workingDirectory !== config.workingDirectory) {
+        const usable = await usableWorkingDirectory(next.workingDirectory, input.inform);
+        if (!usable) return;
+        host?.setWorkingDirectory(usable);
+      }
+      config = next;
+      host?.setAgents(next.agents);
+    });
   });
   try {
     await connectUntilStopped({
       ...input,
       catalog,
-      currentAgents: () => agents,
+      currentConfig: () => config,
       onHost: (created) => (host = created),
     });
   } finally {
@@ -60,8 +74,7 @@ async function connectUntilStopped(input: {
   hostname: string;
   deviceId: string;
   register?: (signal?: AbortSignal) => Promise<void>;
-  workingDirectory: string;
-  currentAgents: () => readonly StoredAgent[];
+  currentConfig: () => GatewayConfig & { workingDirectory: string };
   onHost: (host: DaemonHost) => void;
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
@@ -96,7 +109,7 @@ async function connectUntilStopped(input: {
     input.onStatus?.("connecting");
     const registered = await registerDevice(input);
     if (input.signal?.aborted) return;
-    const result = registered === "registered" ? await connectOnce({ ...input, accessToken, agents: input.currentAgents() }) : registered;
+    const result = registered === "registered" ? await connectOnce({ ...input, accessToken, config: input.currentConfig() }) : registered;
     if (input.signal?.aborted) return;
     if (result === "removed") {
       throw new DaemonLoginRequiredError(`This device was removed from the account on the relay. ${loginAgain(input.relayUrl)}`);
@@ -153,8 +166,7 @@ function connectOnce(input: {
   onStatus?: (status: "connecting" | "connected" | "waiting") => void;
   hostname: string;
   deviceId: string;
-  workingDirectory: string;
-  agents: readonly StoredAgent[];
+  config: GatewayConfig & { workingDirectory: string };
   onHost: (host: DaemonHost) => void;
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
@@ -182,8 +194,8 @@ function connectOnce(input: {
   const host = createDaemonHost({
     hostname: input.hostname,
     deviceId: input.deviceId,
-    workingDirectory: input.workingDirectory,
-    agents: input.agents,
+    workingDirectory: input.config.workingDirectory,
+    agents: input.config.agents,
     send(message: DaemonMessage) {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
     },

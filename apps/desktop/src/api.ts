@@ -22,6 +22,9 @@ export type AgentConfig = { name: string; agentType: string; envNames: string[];
 
 export type AgentType = { id: string; name: string; description?: string; ready: boolean; reason?: string };
 
+/** The directory sessions work in, and whether the person chose it. */
+export type WorkingDirectory = { workingDirectory: string; source: "chosen" | "default" };
+
 export type SignInEvent =
   | { event: "code"; relayUrl: string; verificationUri: string; userCode: string; expiresAt: number }
   | { event: "signed-in"; relayUrl: string }
@@ -33,6 +36,9 @@ export const api = {
   deviceName: () => invoke<string>("device_name"),
   agents: async () => (await invoke<{ agents: AgentConfig[] }>("agents")).agents,
   agentTypes: async () => (await invoke<{ types: AgentType[] }>("agent_types")).types,
+  workingDirectory: async () => (await invoke<{ config: WorkingDirectory }>("working_directory")).config,
+  setWorkingDirectory: (directory: string) => invoke<void>("set_working_directory", { directory }),
+  resetWorkingDirectory: () => invoke<void>("reset_working_directory"),
   createAgent: (agent: { agentType?: string; command?: string; name?: string; env: [string, string][] }) =>
     invoke<void>("create_agent", { agent }),
   removeAgent: (name: string) => invoke<void>("remove_agent", { name }),

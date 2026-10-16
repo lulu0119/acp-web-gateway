@@ -15,12 +15,12 @@ export const remove = defineCommand({
       io.stderr.write(`${config.message}\n`);
       return 1;
     }
-    const agents = config.agents.filter((agent) => agent.name !== name);
-    if (agents.length === config.agents.length) {
+    const agents = config.config.agents.filter((agent) => agent.name !== name);
+    if (agents.length === config.config.agents.length) {
       io.stderr.write(`No agent configuration is named "${name}".\n`);
       return 1;
     }
-    await writeGatewayConfig({ agents }, io.homeDirectory);
+    await writeGatewayConfig({ ...config.config, agents }, io.homeDirectory);
     io.stdout.write(`Removed agent configuration "${name}".\n`);
     return 0;
   },

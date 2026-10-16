@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -193,6 +193,58 @@ test("agent-config list --json names environment variables without their values,
   const removed = await run(["agent-config", "remove", "--name", "mine"], { home });
   assert.equal(removed.stdout, "Removed agent configuration \"mine\".\n");
   assert.deepEqual(JSON.parse((await run(["agent-config", "list", "--json"], { home })).stdout), { agents: [] });
+});
+
+test("a directory is set for sessions, and survives a change to the agents", async () => {
+  const home = await mkdtemp(join(tmpdir(), "exterior-cli-"));
+  // Nothing is chosen yet, so the device's own directory is the answer.
+  const initial = await run(["config", "show", "--json"], { home });
+  assert.deepEqual(JSON.parse(initial.stdout), {
+    workingDirectory: join(home, ".local", "share", "exterior", "workspace"),
+    source: "default",
+  });
+
+  const chosen = join(home, "projects", "mine");
+  const set = await run(["config", "set", "--working-directory", chosen], { home });
+  assert.equal(set.code, 0, set.stderr);
+  assert.equal(set.stdout, `Sessions work in ${chosen}.\n`);
+  assert.equal((await stat(chosen)).isDirectory(), true);
+
+  // Adding an agent rewrites the file, and must not drop the directory with it.
+  await run(["agent-config", "create", "--command", "my-agent", "--name", "mine"], { home });
+  assert.deepEqual(JSON.parse((await run(["config", "show", "--json"], { home })).stdout), { workingDirectory: chosen, source: "chosen" });
+  assert.deepEqual(JSON.parse(await readFile(join(home, ".config", "exterior", "config.json"), "utf8")).agents, [
+    { name: "mine", agentType: "custom", env: {}, command: "my-agent", args: [] },
+  ]);
+
+  // And removing one does not either.
+  await run(["agent-config", "remove", "--name", "mine"], { home });
+  assert.equal((await run(["config", "show"], { home })).stdout, `${chosen}\n`);
+
+  // A path that cannot be a directory is refused where it is typed.
+  const blocked = join(home, "as-a-file");
+  await writeFile(blocked, "not a directory", "utf8");
+  const refused = await run(["config", "set", "--working-directory", join(blocked, "inside")], { home });
+  assert.equal(refused.code, 1);
+  assert.match(refused.stderr, /^Cannot use .* as the working directory: /);
+  assert.equal((await run(["config", "show"], { home })).stdout, `${chosen}\n`);
+
+  const back = await run(["config", "set", "--default"], { home });
+  assert.equal(back.stdout, `Sessions work in ${join(home, ".local", "share", "exterior", "workspace")}.\n`);
+  assert.equal(JSON.parse(await readFile(join(home, ".config", "exterior", "config.json"), "utf8")).workingDirectory, undefined);
+});
+
+test("config set takes one of its two choices and refuses a mistyped one", async () => {
+  const cases: [string[], RegExp][] = [
+    [["config"], /^exterior config needs a command:\n {2}exterior config show\n/],
+    [["config", "set"], /^Pass --working-directory <path> or --default\./],
+    [["config", "set", "--working-directory", "x", "--default"], /^Pass --working-directory <path> or --default, not both\./],
+  ];
+  for (const [args, message] of cases) {
+    const result = await run(args);
+    assert.equal(result.code, 2, args.join(" "));
+    assert.match(result.stderr, message, args.join(" "));
+  }
 });
 
 test("a second daemon for a relay whose daemon is running exits with 4", async () => {

@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath, type StoredAgent } from "../../config.js";
+import { configuredWorkingDirectory, readGatewayConfig, watchGatewayConfig, type GatewayConfig, type StoredAgent } from "../../config.js";
 import { daemonStateReporter, readDaemonState } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
 import { DaemonLoginRequiredError, deviceIdFor, registerSignedInDevice, usableSignIn } from "../../login.js";
@@ -64,6 +64,7 @@ export const daemon = defineCommand({
     if (shellPath) process.env.PATH = shellPath;
     const lifeline = options.stopWhenStdinCloses ? stdinLifeline(context.signal) : undefined;
     const deviceId = await deviceIdFor(relayUrl, io.homeDirectory);
+    const workingDirectory = configuredWorkingDirectory(config, io.homeDirectory);
     try {
       await runDaemon({
         relayUrl,
@@ -74,16 +75,16 @@ export const daemon = defineCommand({
         hostname: hostname(),
         deviceId,
         register: (signal) => registerSignedInDevice({ relayUrl, deviceId, hostname: hostname(), homeDirectory: io.homeDirectory, signal }),
-        workingDirectory: workingDirectoryPath(io.homeDirectory),
-        agents: config.agents,
-        agentUpdates: (listener) =>
+        config: { ...config, workingDirectory },
+        configUpdates: (listener) =>
           watchGatewayConfig({
             homeDirectory: io.homeDirectory,
-            agents: config.agents,
-            onChange(agents) {
-              inform(`Agent configurations changed: ${names(agents).join(", ") || "none"}.`);
-              state.agents(names(agents));
-              listener(agents);
+            config: { ...config, workingDirectory },
+            onChange(next) {
+              const directory = configuredWorkingDirectory(next, io.homeDirectory);
+              inform(`Configuration changed: ${names(next.agents).join(", ") || "no agents"}. Sessions work in ${directory}.`);
+              state.agents(names(next.agents));
+              listener({ ...next, workingDirectory: directory });
             },
             onWarning: inform,
           }),
