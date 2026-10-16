@@ -60,28 +60,27 @@ export function SettingsDialog({ open, onOpenChange }: {
       <DialogContent title="Settings" className="max-w-md">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium">Working directory</span>
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="text-sm font-medium">Working directory</span>
+              {load.kind === "ready" ? (
+                <span className="shrink-0 text-xs text-muted-foreground">{chosen ? "Chosen for this device" : "The default directory"}</span>
+              ) : null}
+            </div>
             <Button variant="outline" size="sm" loading={choosing} onClick={() => void choose()}>
               {chosen ? "Change folder" : "Choose folder"}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">Where agents work.</p>
           {load.kind === "loading" ? <p className="text-sm text-muted-foreground">Reading the working directory…</p> : null}
           {load.kind === "error" ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">Could not read the working directory: {load.message}</p> : null}
           {load.kind === "ready" ? (
-            <>
-              <p className="selectable font-mono text-sm break-all">{load.value.workingDirectory}</p>
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-xs text-muted-foreground">
-                  {chosen ? "Chosen for this device." : "The default directory."}
-                </p>
-                {chosen ? (
-                  <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" loading={choosing} onClick={() => void reset()}>
-                    Use the default
-                  </Button>
-                ) : null}
-              </div>
-            </>
+            <div className="flex items-start justify-between gap-4">
+              <p className="selectable min-w-0 flex-1 font-mono text-sm break-all">{load.value.workingDirectory}</p>
+              {chosen ? (
+                <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" loading={choosing} onClick={() => void reset()}>
+                  Use the default
+                </Button>
+              ) : null}
+            </div>
           ) : null}
           {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         </div>
