@@ -10,7 +10,6 @@ Code still missing.
 - Installing `exterior` beyond the release files ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): strip the Linux Node before injecting, then `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget. Then the setup guide's assistant and terminal steps install the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
-- App logos: the browser loads each app's `logo_uri` from the app, which learns who is looking and can change the image. Fetch and cache it on the relay instead, blocking private addresses. See `docs/research/2026-10-13-oauth-consent.md`.
 - Unauthenticated endpoints that add rows: rate-limit `POST /api/auth/oauth2/register` and the metadata-document fetch, and decide what "verified" means beyond the redirect host the pages show.
 - Scope redesign: separate a daemon scope from what web apps ask for (list devices, open agents), and let the person pick devices or agents at consent.
 - One daemon client per device: every device's daemon shares one OAuth client, so when a daemon replays a refresh token that was rotated or revoked, the provider revokes the daemon sign-in of every device on the account.
