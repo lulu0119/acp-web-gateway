@@ -1,6 +1,7 @@
 //! The macOS menu bar. Text shortcuts reach the webview only through the Edit menu.
 //! The tray menu is separate and stays with the icon.
 
+#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::AppHandle;
 

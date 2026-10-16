@@ -264,11 +264,12 @@ fn main() {
             let handle = app.handle().clone();
             let window_is_the_app = !window::tray_is_shown();
             app.manage(WindowIsTheApp(window_is_the_app));
+            // Before the tray, whose Start at Login item reads the setting once.
+            autostart::first_run(&handle);
             if !window_is_the_app {
                 tray::build(&handle)?;
             }
             menu::install(&handle)?;
-            autostart::first_run(&handle);
             let daemons = app.state::<Daemons>().inner().clone();
             std::thread::spawn(move || {
                 if let Err(message) = daemons.reconcile(&handle) {

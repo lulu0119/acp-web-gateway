@@ -6,6 +6,7 @@ use tauri::AppHandle;
 
 #[cfg(windows)]
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+/// The product name: Tauri's uninstaller deletes the `Run` value of that name.
 #[cfg(windows)]
 const VALUE: &str = "Exterior";
 
