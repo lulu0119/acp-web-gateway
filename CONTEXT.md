@@ -8,24 +8,28 @@ An account that lets a web app reach an ACP agent on a machine the person owns.
 The product name. An external brain: the relay that lends a web app reach to an agent on a machine the person owns.
 _Avoid_: ACP Gateway, acp-web-gateway
 
-**Account**:
-The person who signs in. One account can have many devices.
-_Avoid_: user, workspace, team
+**User**:
+The person who signs in. One user has many devices. The person is better-auth's `user`; the browser cookie session is this user's login state, not a device sign-in. better-auth's `account` is something else — the linked GitHub login — which Exterior does not surface. UI copy may still say "your account" for the user's own.
+_Avoid_: account (for the person), workspace, team
 
 **Device**:
 A computer signed in to an account with the desktop app or `exterior login`. It keeps one device id per relay, which signing out does not change, and stays listed while offline; it is online while its daemon is connected, and listed once however often that daemon reconnects. A daemon connects only as a device its account registered. Removing a device signs it out; signing it in again brings it back under the same id.
 _Avoid_: machine, gateway, host
 
 **Sign-in**:
-The credentials a device holds for one relay. A device has at most one sign-in per relay and may have several relays.
+The credentials a device holds for one relay. A device has at most one sign-in per relay and may have several relays. The command verb stays `exterior login`/`logout` (the action); the noun is always sign-in (the state and the credential).
 _Avoid_: session, profile, login
 
 **Web app**:
 A site that redirects the person to Exterior to sign in, then opens an agent.
 _Avoid_: Example (Example is one web app in this repo, not the product)
 
+**Client**:
+The OAuth identity a web app signs in with: a dashboard-registered id, a metadata document address, or a self-registration one browser keeps. One client is one row in Authorized apps.
+_Avoid_: account, device
+
 **Connection**:
-One live ACP session with one agent on one device.
+One live ACP session with one agent on one device. Opened with `POST /api/connections` (`openConnection` in the SDK); the relay tracks it as a live session. Neither the browser session nor a device sign-in.
 _Avoid_: port, nonce, gateway process
 
 **Desktop app**:
