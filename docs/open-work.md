@@ -25,7 +25,7 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
-- The desktop app on macOS and Linux: the tray, start at login, the window as the app when GNOME shows no tray, and the daemon finding `npx` through the login shell's `PATH` when the app starts at login.
+- The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.

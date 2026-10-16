@@ -11,20 +11,52 @@ pub struct Tray {
     status: MenuItem<Wry>,
 }
 
+/// Quitting stops the daemons, so the item says the device goes offline (ADR 0018).
+pub const QUIT_ITEM: &str = "Quit, Device Goes Offline";
+
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", "Open Exterior", true, None::<&str>)?;
-    let login = CheckMenuItem::with_id(app, "login", "Start at Login", true, crate::autostart::enabled(app), None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Exterior", true, None::<&str>)?;
+    let login = CheckMenuItem::with_id(
+        app,
+        "login",
+        "Start at Login",
+        true,
+        crate::autostart::enabled(app),
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "quit", QUIT_ITEM, true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&status, &PredefinedMenuItem::separator(app)?, &open, &login, &PredefinedMenuItem::separator(app)?, &quit],
+        &[
+            &status,
+            &PredefinedMenuItem::separator(app)?,
+            &open,
+            &login,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
     )?;
     app.manage(Tray { status });
-    TrayIconBuilder::with_id("tray")
-        .icon(app.default_window_icon().cloned().expect("the bundle has an icon"))
-        .tooltip("Exterior")
-        .menu(&menu)
+    let mut icon = TrayIconBuilder::with_id("tray").tooltip("Exterior");
+    #[cfg(target_os = "macos")]
+    {
+        // A template glyph follows the menu bar's light and dark appearance. The app icon is a black tile.
+        icon = icon
+            .icon(tauri::image::Image::from_bytes(include_bytes!(
+                "../icons/tray-template.png"
+            ))?)
+            .icon_as_template(true);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        icon = icon.icon(
+            app.default_window_icon()
+                .cloned()
+                .expect("the bundle has an icon"),
+        );
+    }
+    icon.menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             "open" => crate::window::open(app),
@@ -38,7 +70,12 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         })
         // Linux tray hosts deliver no clicks, so there the menu is the only way in.
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
                 crate::window::open(tray.app_handle());
             }
         })
@@ -61,7 +98,10 @@ fn summary(views: &[RelayView]) -> String {
     if views.is_empty() {
         return "Not signed in to a relay".into();
     }
-    if let Some(view) = views.iter().find(|view| view.phase == Phase::SignInRequired) {
+    if let Some(view) = views
+        .iter()
+        .find(|view| view.phase == Phase::SignInRequired)
+    {
         return format!("Sign in again to {}", host(&view.relay_url));
     }
     let connected = views.iter().filter(|view| is_connected(view)).count();
@@ -77,14 +117,25 @@ fn summary(views: &[RelayView]) -> String {
     if views.iter().all(|view| view.phase == Phase::Stopped) {
         return "Stopped".into();
     }
-    let waiting = views.iter().find(|view| !is_connected(view) && view.phase != Phase::Stopped).unwrap_or(&views[0]);
+    let waiting = views
+        .iter()
+        .find(|view| !is_connected(view) && view.phase != Phase::Stopped)
+        .unwrap_or(&views[0]);
     format!("Connecting to {}…", host(&waiting.relay_url))
 }
 
 fn is_connected(view: &RelayView) -> bool {
-    view.phase == Phase::Running && view.state.as_ref().and_then(|state| state["status"].as_str()) == Some("connected")
+    view.phase == Phase::Running
+        && view
+            .state
+            .as_ref()
+            .and_then(|state| state["status"].as_str())
+            == Some("connected")
 }
 
 fn host(relay_url: &str) -> &str {
-    relay_url.split_once("://").map(|(_, rest)| rest).unwrap_or(relay_url)
+    relay_url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(relay_url)
 }

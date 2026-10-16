@@ -3,6 +3,7 @@
 mod autostart;
 mod cli;
 mod daemons;
+mod menu;
 mod tray;
 mod window;
 
@@ -10,6 +11,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use serde::Deserialize;
@@ -19,24 +21,54 @@ use tauri_plugin_opener::OpenerExt;
 use daemons::{Daemons, RelayView};
 
 /// Set when the desktop shows no tray: the window is then the app, and closing it quits.
-struct WindowIsTheApp(bool);
+pub struct WindowIsTheApp(pub bool);
+
+/// Set while a window close is destroying the webview, so that close is not taken as quitting.
+pub struct SuppressExit(AtomicBool);
+
+impl SuppressExit {
+    pub fn arm(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    pub fn take(&self) -> bool {
+        self.0.swap(false, Ordering::SeqCst)
+    }
+}
+
+static QUITTING: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default)]
 struct SignIn(Mutex<Option<Child>>);
 
 pub fn state_directory() -> PathBuf {
-    std::env::home_dir().unwrap_or_default().join(".local").join("state").join("exterior")
+    std::env::home_dir()
+        .unwrap_or_default()
+        .join(".local")
+        .join("state")
+        .join("exterior")
 }
 
 /// The daemons' stderr, for finding out later why one failed. Started over past 5 MB.
 pub fn log_file() -> Option<File> {
     let path = state_directory().join("desktop.log");
     std::fs::create_dir_all(state_directory()).ok()?;
-    let fresh = std::fs::metadata(&path).map(|metadata| metadata.len() > 5_000_000).unwrap_or(false);
-    OpenOptions::new().create(true).append(!fresh).write(true).truncate(fresh).open(path).ok()
+    let fresh = std::fs::metadata(&path)
+        .map(|metadata| metadata.len() > 5_000_000)
+        .unwrap_or(false);
+    OpenOptions::new()
+        .create(true)
+        .append(!fresh)
+        .write(true)
+        .truncate(fresh)
+        .open(path)
+        .ok()
 }
 
 pub fn quit(app: &AppHandle) {
+    if QUITTING.swap(true, Ordering::SeqCst) {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         app.state::<Daemons>().stop_all();
@@ -118,7 +150,9 @@ fn sign_in(app: AppHandle, state: State<SignIn>, relay: String) -> Result<(), St
         let mut finished = false;
         if let Some(stdout) = stdout {
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+                let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
+                    continue;
+                };
                 match event["event"].as_str() {
                     Some("code") => {
                         if let Some(url) = event["verificationUri"].as_str() {
@@ -143,11 +177,18 @@ fn sign_in(app: AppHandle, state: State<SignIn>, relay: String) -> Result<(), St
                     BufReader::new(stderr)
                         .lines()
                         .map_while(Result::ok)
-                        .find(|line| !line.trim().is_empty() && !line.starts_with("Signing in to ") && !line.starts_with("Run `exterior"))
+                        .find(|line| {
+                            !line.trim().is_empty()
+                                && !line.starts_with("Signing in to ")
+                                && !line.starts_with("Run `exterior")
+                        })
                         .unwrap_or_default()
                 })
                 .unwrap_or_default();
-            let _ = app.emit("sign-in", serde_json::json!({ "event": "ended", "message": reason }));
+            let _ = app.emit(
+                "sign-in",
+                serde_json::json!({ "event": "ended", "message": reason }),
+            );
         }
         app.state::<SignIn>().0.lock().unwrap().take();
     });
@@ -180,13 +221,17 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
         return Err("Only web addresses open from here.".into());
     }
-    app.opener().open_url(url, None::<&str>).map_err(|error| error.to_string())
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| error.to_string())
 }
 
 fn main() {
     let builder = tauri::Builder::default()
         // First, so a second launch only opens the window of the running one.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| window::open(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            window::open(app)
+        }))
         .plugin(tauri_plugin_opener::init());
     #[cfg(not(windows))]
     let builder = builder.plugin(tauri_plugin_autostart::init(
@@ -196,10 +241,25 @@ fn main() {
     let app = builder
         .manage(Daemons::default())
         .manage(SignIn::default())
+        .manage(SuppressExit(AtomicBool::new(false)))
         .invoke_handler(tauri::generate_handler![
-            relays, device_name, agents, agent_types, create_agent, remove_agent, sign_in, cancel_sign_in, sign_out,
-            start_daemon, open_url
+            relays,
+            device_name,
+            agents,
+            agent_types,
+            create_agent,
+            remove_agent,
+            sign_in,
+            cancel_sign_in,
+            sign_out,
+            start_daemon,
+            open_url
         ])
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "app-quit" {
+                quit(app);
+            }
+        })
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -209,6 +269,7 @@ fn main() {
             if !window_is_the_app {
                 tray::build(&handle)?;
             }
+            menu::install(&handle)?;
             autostart::first_run(&handle);
             let daemons = app.state::<Daemons>().inner().clone();
             std::thread::spawn(move || {
@@ -226,11 +287,24 @@ fn main() {
         .expect("build the Exterior app");
 
     app.run(|app, event| match event {
-        // The last window closed: keep running in the tray, unless the window is the app.
-        RunEvent::ExitRequested { code: None, api, .. } if !app.state::<WindowIsTheApp>().0 => api.prevent_exit(),
-        RunEvent::ExitRequested { code: None, api, .. } => {
+        // The runtime exits when the last window is destroyed. With a tray, closing the window
+        // is not quitting, so that exit is declined.
+        RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::CloseRequested { .. },
+            ..
+        } if label == "main" && !app.state::<WindowIsTheApp>().0 => {
+            app.state::<SuppressExit>().arm();
+        }
+        RunEvent::ExitRequested {
+            code: None, api, ..
+        } => {
             api.prevent_exit();
-            quit(app);
+            if app.state::<SuppressExit>().take() {
+                window::returned_to_menu_bar(app);
+            } else {
+                quit(app);
+            }
         }
         _ => {}
     });

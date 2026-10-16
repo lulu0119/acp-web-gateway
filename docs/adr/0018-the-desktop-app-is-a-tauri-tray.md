@@ -19,6 +19,7 @@ Measured with a throwaway prototype on Windows on 2026-10-15: the tray executabl
 ## Consequences
 
 - Quitting the app takes the device offline. The tray says so in the Quit item.
+- On macOS the open window is a normal app: it appears in the Dock and in Command-Tab. Closing it returns the app to the menu bar and leaves the daemons running. Quitting from the tray, the app menu, Command-Q, or the Dock stops them. A development binary does not register itself to start at login; the bundled app does, the first time it runs.
 - A second `exterior daemon` for the same relay, started by hand beside the app's, is refused, so one relay never gets two connections from one device.
 - An app started at login on macOS gets launchd's minimal `PATH`, so the daemon reads the person's login shell `PATH` before it starts agents.
 - Without an Apple Developer ID signature and notarization, Gatekeeper blocks the downloaded app, and Homebrew's official casks disabled apps that fail Gatekeeper on 2026-09-01. Until there is an account, the macOS app is for testers. Windows shows a SmartScreen warning for an unsigned installer.

@@ -18,6 +18,7 @@ test("the login shell's PATH goes first and keeps entries only it lacks", async 
   assert.equal(path, join("/opt/homebrew/bin", "/usr/bin", "/bin"));
   assert.equal(seen[0]?.[0], "/bin/zsh");
   assert.equal(seen[0]?.[1], "-ilc");
+  assert.match(seen[0]?.[2] ?? "", /\$\{PATH\}__EXTERIOR_PATH__/);
 });
 
 test("nothing changes on Windows, when the shell fails, or when it adds nothing", async () => {

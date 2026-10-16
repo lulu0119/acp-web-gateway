@@ -23,7 +23,9 @@ export async function loginShellPath(input: {
   let output: string;
   try {
     // Startup files may print anything, so the value sits between markers.
-    output = await (input.run ?? runShell)(shell, ["-ilc", `printf '%s' "${marker}$PATH${marker}"`]);
+    // `${PATH}` keeps the closing marker out of the variable name. `$PATH` plus the marker
+    // is one name, and the shell prints nothing.
+    output = await (input.run ?? runShell)(shell, ["-ilc", `printf '%s' "${marker}\${PATH}${marker}"`]);
   } catch {
     return undefined;
   }
