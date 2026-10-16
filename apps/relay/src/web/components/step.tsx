@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** One numbered step of an `<ol>`. */
 export function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <li className="flex gap-3">
