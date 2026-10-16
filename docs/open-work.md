@@ -6,7 +6,10 @@ Current roadmap. Decisions: [adr/](./adr/). How agents maintain docs: [../AGENTS
 
 Code still missing.
 
-- `agent-config check` and `agent-config remove`: the CLI cannot undo a configuration, and a broken one is only found when a connection opens. Check with an ACP `initialize` before writing.
+- `agent-config check`: a broken configuration is only found when a connection opens. Check with an ACP `initialize` before writing.
+- Release workflow for the daemon executable and the desktop app ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): Node 26 on native runners for macOS arm64, Linux x64 and arm64, and Windows x64 and arm64; strip the Linux Node before injecting; sign macOS ad hoc; GitHub Releases, `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget.
+- The relay's device pages assume a terminal: they name `exterior login`, `logout`, `daemon`, and `agent-config create` where the desktop app shows the code, signs out, runs the daemon, and adds agents. Word them for both. Once the release workflow publishes downloads, "Add device" offers the desktop app first, and the setup guide installs the executable instead of using `npx`, so the device needs no Node.
+- Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - `logout` deletes the local sign-in and does not revoke its refresh token on the relay.
 - Consent identity: the relay fetches each app's icon itself (blocking private addresses, re-encoding to PNG) and serves it; apps not on the public internet send a data URI in the approval request. Until then the consent page and authorized apps show a monogram. See `docs/research/2026-10-13-oauth-consent.md`.
@@ -22,6 +25,9 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
+- The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
+- The systemd user unit in the README, on a Linux server.
+- An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
 - Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.

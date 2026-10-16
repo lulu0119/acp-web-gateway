@@ -1,5 +1,5 @@
-// Writes src/web/palette.css: status colors from @proj-airi/chromatic as Tailwind theme tokens.
-// Run with `pnpm --filter @exterior/relay palette` after changing a hue; the output is committed.
+// Writes src/palette.css: status colors from @proj-airi/chromatic as Tailwind theme tokens.
+// Run with `pnpm --filter @exterior/ui palette` after changing a hue; the output is committed.
 import { writeFileSync } from "node:fs";
 import { colorBy } from "@proj-airi/chromatic";
 
@@ -12,4 +12,4 @@ for (const [name, hue] of Object.entries(hues)) {
   for (const shade of shades) lines.push(`  --color-${name}-${shade}: ${palette[shade].toCSS()};`);
 }
 lines.push("}", "");
-writeFileSync(new URL("../src/web/palette.css", import.meta.url), lines.join("\n"));
+writeFileSync(new URL("../src/palette.css", import.meta.url), lines.join("\n"));

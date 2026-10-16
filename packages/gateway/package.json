@@ -14,11 +14,14 @@
   "bin": {
     "exterior": "./dist/bin/exterior.mjs"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown",
     "prepublishOnly": "pnpm run build",
-    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "build:executable": "pnpm run build && node scripts/build-executable.mjs"
   },
   "devDependencies": {
     "@exterior/client": "workspace:*",

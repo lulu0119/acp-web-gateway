@@ -1,0 +1,33 @@
+{
+  "name": "@exterior/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/prepare-sidecar.mjs && tauri dev",
+    "bundle": "node scripts/prepare-sidecar.mjs && tauri build",
+    "vite": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "test": "tsc --noEmit -p tsconfig.json && vitest run"
+  },
+  "dependencies": {
+    "@exterior/ui": "workspace:*",
+    "@tauri-apps/api": "^2.12.4",
+    "cn": "^0.4.0",
+    "lucide-react": "^1.55.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@tauri-apps/cli": "^2.12.3",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.9",
+    "vitest": "^3.2.7"
+  }
+}

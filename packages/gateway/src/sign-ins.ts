@@ -21,10 +21,15 @@ function signInDirectory(homeDirectory: string): string {
   return join(configDirectory(homeDirectory), "sign-ins");
 }
 
+/** Names a file that belongs to one relay, such as its sign-in or its daemon's state. */
+export function relayFileName(relayUrl: string): string {
+  const url = new URL(relayUrl);
+  return `${url.protocol.slice(0, -1)}_${url.host.replaceAll(":", "_")}.json`;
+}
+
 // One file per relay, so daemons for different relays never overwrite each other's rotated refresh token.
 function signInPath(relayUrl: string, homeDirectory: string): string {
-  const url = new URL(relayUrl);
-  return join(signInDirectory(homeDirectory), `${url.protocol.slice(0, -1)}_${url.host.replaceAll(":", "_")}.json`);
+  return join(signInDirectory(homeDirectory), relayFileName(relayUrl));
 }
 
 export function parseSignIn(value: unknown): SignIn | undefined {

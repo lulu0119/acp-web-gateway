@@ -16,13 +16,13 @@ import {
 import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
-import { ExteriorMark } from "../components/exterior-mark.js";
+import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
-import { Avatar } from "../ui/avatar.js";
-import { Badge } from "../ui/badge.js";
-import { buttonVariants } from "../ui/button.js";
-import { OTPField } from "../ui/otp-field.js";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "../ui/tabs.js";
+import { Avatar } from "@exterior/ui/avatar";
+import { Badge } from "@exterior/ui/badge";
+import { buttonVariants } from "@exterior/ui/button";
+import { OTPField } from "@exterior/ui/otp-field";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
 
 const userCodeGroups = [4, 4] as const;
 

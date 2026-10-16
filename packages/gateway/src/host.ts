@@ -27,12 +27,19 @@ export function createDaemonHost(input: {
   send: (message: DaemonMessage) => void;
   resolveLaunch: (agent: StoredAgent) => AgentLaunch | undefined;
   spawnAgent?: (launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string) => AgentPipe;
-}): { hello(): void; receive(message: RelayMessage): void; close(): void } {
+}): {
+  hello(): void;
+  /** Offers a new list from the next `open` on, and says hello again. Open sessions keep their agent. */
+  setAgents(agents: readonly StoredAgent[]): void;
+  receive(message: RelayMessage): void;
+  close(): void;
+} {
   const sessions = new Map<string, { pipe?: AgentPipe; opened: boolean }>();
+  let configured = input.agents;
 
-  return {
+  const host = {
     hello() {
-      const agents: AgentSlot[] = input.agents.flatMap((agent) =>
+      const agents: AgentSlot[] = configured.flatMap((agent) =>
         input.resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : [],
       );
       input.send({
@@ -43,10 +50,14 @@ export function createDaemonHost(input: {
         agents,
       });
     },
-    receive(message) {
+    setAgents(agents: readonly StoredAgent[]) {
+      configured = agents;
+      host.hello();
+    },
+    receive(message: RelayMessage) {
       if (message.type === "open") {
         if (sessions.has(message.sessionId)) return;
-        const agent = input.agents.find((item) => item.name === message.agentName);
+        const agent = configured.find((item) => item.name === message.agentName);
         const launch = agent ? input.resolveLaunch(agent) : undefined;
         if (!agent || !launch) {
           input.send({ type: "open-failed", sessionId: message.sessionId, message: "That agent is not configured." });
@@ -90,6 +101,7 @@ export function createDaemonHost(input: {
       for (const current of live) current.pipe?.stop();
     },
   };
+  return host;
 }
 
 export function startAgent(launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string): AgentPipe {

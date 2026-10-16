@@ -21,6 +21,7 @@ const platformTargets: Record<string, string> = {
 export type RegistryAgent = {
   id: string;
   name: string;
+  description?: string;
   npx?: PackageDistribution;
   uvx?: PackageDistribution;
   binary?: Readonly<Record<string, BinaryDistribution>>;
@@ -207,7 +208,8 @@ function parseAgent(value: unknown): RegistryAgent | undefined {
   const npx = parsePackage(distribution.npx);
   const uvx = parsePackage(distribution.uvx);
   const binary = parseBinary(distribution.binary);
-  return { id: value.id, name, npx, uvx, binary };
+  const description = typeof value.description === "string" && value.description.length > 0 ? { description: value.description } : {};
+  return { id: value.id, name, ...description, npx, uvx, binary };
 }
 
 function parsePackage(value: unknown): PackageDistribution | undefined {

@@ -1,7 +1,7 @@
 import { cn } from "cn";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "../ui/button.js";
+import { Button } from "./button.js";
 
 /** `iconOnly` keeps the label for assistive technology and the tooltip, and shows only the icon. */
 export function CopyButton({ text, label, iconOnly, className }: { text: string; label: string; iconOnly?: boolean; className?: string }) {

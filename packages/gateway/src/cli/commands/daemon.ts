@@ -1,19 +1,31 @@
 import { hostname } from "node:os";
 import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
-import { readGatewayConfig, workingDirectoryPath } from "../../config.js";
+import { readGatewayConfig, watchGatewayConfig, workingDirectoryPath, type StoredAgent } from "../../config.js";
+import { daemonStateReporter, readDaemonState } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
-import { signedInDeviceId, usableSignIn } from "../../login.js";
+import { DaemonLoginRequiredError, signedInDeviceId, usableSignIn } from "../../login.js";
+import { loginShellPath } from "../../shell-path.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";
+
+/** Exit codes the desktop app acts on: it starts the daemon again after any other failure. */
+export const daemonExit = { signInRequired: 3, alreadyRunning: 4 } as const;
 
 export const daemon = defineCommand({
   name: "daemon",
   description: "Keep this device connected to a relay and run its agents",
   help: [
     "Keep an outbound connection to one relay and start an agent for each connection a web app opens. Connection, refresh, and retry messages go to stderr.",
-    "One daemon serves one relay. Run a second daemon to serve a second relay.",
+    "One daemon serves one relay. Run a second daemon to serve a second relay. A second daemon for the same relay exits with 4.",
+    "A change to the agent configurations reaches the relay while the daemon runs. Sessions already open keep their agent.",
+    `When the relay rejects this device's sign-in, the daemon exits with ${daemonExit.signInRequired}. --json prints each state change as one JSON line on stdout.`,
+    "--stop-when-stdin-closes is for a program that runs the daemon, such as the desktop app: closing the pipe stops it cleanly on every system, and so does that program exiting.",
   ].join("\n\n"),
-  options: [relayOption],
+  options: [
+    relayOption,
+    { flags: "--json", description: "Print each state change as a JSON line" },
+    { flags: "--stop-when-stdin-closes", description: "Stop, and stop its agents, when stdin closes" },
+  ],
   examples: ["exterior daemon", "exterior daemon --relay relay.example.com"],
   async action(context, options) {
     const { io } = context;
@@ -24,34 +36,82 @@ export const daemon = defineCommand({
     }
     const { relayUrl } = chosen;
     const inform = (line: string) => io.stderr.write(`${new Date().toISOString()} [exterior] ${line}\n`);
+    const running = await readDaemonState(relayUrl, io.homeDirectory);
+    if (running && running.status !== "stopped" && running.pid !== process.pid) {
+      io.stderr.write(`A daemon for ${relayUrl} is already running (process ${running.pid}).\n`);
+      return daemonExit.alreadyRunning;
+    }
     const config = await readGatewayConfig(io.homeDirectory);
     if (config.warning) {
       io.stderr.write(`${config.warning}\n`);
       return 1;
     }
+    // The daemon stays up without agents: one added later reaches the relay without a restart.
     if (config.agents.length === 0) {
-      io.stderr.write("No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n");
-      return 1;
+      io.stderr.write("No agent configurations yet.\nNext: exterior agent-config create --agent-type opencode\n");
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });
     if (!registry.ok) io.stderr.write(`${registry.message}\n`);
+    const names = (agents: readonly StoredAgent[]) => agents.map((agent) => agent.name);
+    const state = daemonStateReporter({
+      relayUrl,
+      agents: names(config.agents),
+      homeDirectory: io.homeDirectory,
+      onState: options.json ? (current) => io.stdout.write(`${JSON.stringify(current)}\n`) : undefined,
+    });
+    // Command lookup and agents read process.env.PATH, which an app started at login gets minimal.
+    const shellPath = await loginShellPath({ env: process.env });
+    if (shellPath) process.env.PATH = shellPath;
+    const lifeline = options.stopWhenStdinCloses ? stdinLifeline(context.signal) : undefined;
     try {
       await runDaemon({
         relayUrl,
         getAccessToken: async (forceRefresh, signal) =>
           (await usableSignIn({ relayUrl, homeDirectory: io.homeDirectory, forceRefresh, signal })).accessToken,
         inform,
+        onStatus: state.status,
         hostname: hostname(),
         deviceId: await signedInDeviceId(relayUrl, io.homeDirectory),
         workingDirectory: workingDirectoryPath(io.homeDirectory),
         agents: config.agents,
-        signal: context.signal,
+        agentUpdates: (listener) =>
+          watchGatewayConfig({
+            homeDirectory: io.homeDirectory,
+            agents: config.agents,
+            onChange(agents) {
+              inform(`Agent configurations changed: ${names(agents).join(", ") || "none"}.`);
+              state.agents(names(agents));
+              listener(agents);
+            },
+            onWarning: inform,
+          }),
+        signal: lifeline?.signal ?? context.signal,
         catalog: registry.ok ? registry.agents : [],
       });
+      await state.stopped("The daemon was stopped.");
       return 0;
     } catch (error) {
-      inform(error instanceof Error ? error.message : "The daemon stopped.");
-      return 1;
+      const message = error instanceof Error ? error.message : "The daemon stopped.";
+      inform(message);
+      await state.stopped(message);
+      return error instanceof DaemonLoginRequiredError ? daemonExit.signInRequired : 1;
+    } finally {
+      lifeline?.release();
     }
   },
 });
+
+/** A signal that also aborts when stdin closes. `release` stops reading stdin so the process can exit. */
+function stdinLifeline(signal: AbortSignal | undefined) {
+  const controller = new AbortController();
+  signal?.addEventListener("abort", () => controller.abort(), { once: true });
+  const stop = () => controller.abort();
+  process.stdin.on("end", stop).on("error", stop).resume();
+  return {
+    signal: controller.signal,
+    release() {
+      process.stdin.off("end", stop).off("error", stop).pause();
+      process.stdin.unref?.();
+    },
+  };
+}

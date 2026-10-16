@@ -1,7 +1,7 @@
 import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
-import { Avatar } from "../ui/avatar.js";
-import { Button } from "../ui/button";
+import { Avatar } from "@exterior/ui/avatar";
+import { Button } from "@exterior/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@exterior/ui/dropdown-menu";
 
 export function UserMenu({ userName, userImage }: { userName: string; userImage?: string }) {
   const [busy, setBusy] = useState(false);

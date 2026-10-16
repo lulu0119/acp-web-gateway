@@ -1,7 +1,8 @@
 import { isAgentType, isEnvName } from "@exterior/contract";
+import { mkdirSync, watch } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 export type StoredAgent = {
   name: string;
@@ -77,6 +78,52 @@ export async function writeGatewayConfig(config: GatewayConfig, homeDirectory = 
   // Agent environment values can be API keys.
   await writeFile(path, configText(config), { encoding: "utf8", mode: 0o600 });
   await chmod(path, 0o600);
+}
+
+/**
+ * Calls `onChange` each time the configuration file settles on a different agent list.
+ *
+ * The watch is on the directory, not the file: an editor that saves by renaming a new
+ * file over the old one leaves a watch on the old file deaf. Events arrive in bursts,
+ * so the file is read once they stop. A file that cannot be read keeps the previous list.
+ * Returns a function that stops watching.
+ */
+export function watchGatewayConfig(input: {
+  homeDirectory?: string;
+  agents: readonly StoredAgent[];
+  onChange: (agents: readonly StoredAgent[]) => void;
+  onWarning: (message: string) => void;
+  settleMs?: number;
+}): () => void {
+  const path = configFilePath(input.homeDirectory);
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  let current = JSON.stringify(input.agents);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  const reload = async () => {
+    const config = await readGatewayConfig(input.homeDirectory);
+    if (stopped) return;
+    if (config.warning) {
+      input.onWarning(`${config.warning} Keeping the previous agent configurations.`);
+      return;
+    }
+    const next = JSON.stringify(config.agents);
+    if (next === current) return;
+    current = next;
+    input.onChange(config.agents);
+  };
+  const watcher = watch(dirname(path), (_event, filename) => {
+    // Some platforms do not report the name; read the file anyway.
+    if (filename && filename !== basename(path)) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => void reload(), input.settleMs ?? 250);
+  });
+  watcher.on("error", () => input.onWarning(`Stopped watching ${path}. Restart the daemon to pick up changes.`));
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    watcher.close();
+  };
 }
 
 type LoadedGatewayConfig =

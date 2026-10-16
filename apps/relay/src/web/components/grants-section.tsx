@@ -1,10 +1,10 @@
 import { AppWindowIcon, CircleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { GrantedApp } from "../../shared/account-web.js";
-import { Button } from "../ui/button";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "../ui/item";
-import { EmptyState } from "./empty-state";
-import { SectionHeading } from "./section-heading";
+import { Button } from "@exterior/ui/button";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
+import { EmptyState } from "@exterior/ui/empty-state";
+import { SectionHeading } from "@exterior/ui/section-heading";
 
 type Loaded = { state: "loading" } | { state: "error" } | { state: "ready"; apps: GrantedApp[] };
 

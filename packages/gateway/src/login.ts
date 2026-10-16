@@ -30,11 +30,14 @@ export async function signInDaemon(input: {
   relayUrl: string;
   hostname: string;
   inform: (line: string) => void;
+  /** Hears the code to approve, for a caller that shows it itself instead of reading `inform`. */
+  onCode?: (code: { verificationUri: string; userCode: string; expiresAt: number }) => void;
   homeDirectory?: string;
   signal?: AbortSignal;
 }): Promise<void> {
   const clients = await fetchPublicClients(input.relayUrl, input.signal);
   const pending = await beginDeviceAuthorization({ relayUrl: input.relayUrl, clientId: clients.daemonClientId });
+  input.onCode?.({ verificationUri: pending.verificationUriComplete ?? pending.verificationUri, userCode: pending.userCode, expiresAt: pending.expiresAt });
   if (pending.verificationUriComplete) {
     input.inform(`Open ${pending.verificationUriComplete} and approve the code ${pending.userCode}.`);
   } else {

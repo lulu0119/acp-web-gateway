@@ -13,7 +13,7 @@
     "build": "pnpm -r --filter \"!exterior-workspace\" --if-present run build",
     "test": "pnpm -r --filter \"!exterior-workspace\" --if-present run test",
     "example": "pnpm --filter @exterior/example start",
-    "relay": "pnpm --filter @exterior/relay build && pnpm --filter @exterior/relay start"
+    "relay": "pnpm --filter @exterior/relay... build && pnpm --filter @exterior/relay start"
   },
   "devDependencies": {
     "pkg-pr-new": "^0.0.91"

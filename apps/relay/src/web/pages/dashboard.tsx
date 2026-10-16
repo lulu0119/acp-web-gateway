@@ -1,17 +1,17 @@
 import { ChevronDownIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
-import { EmptyState } from "../components/empty-state";
+import { EmptyState } from "@exterior/ui/empty-state";
 import { GrantsSection } from "../components/grants-section";
-import { ExteriorMark } from "../components/exterior-mark";
-import { SectionHeading } from "../components/section-heading";
+import { ExteriorMark } from "@exterior/ui/exterior-mark";
+import { SectionHeading } from "@exterior/ui/section-heading";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
-import { Badge } from "../ui/badge";
-import { Button, buttonVariants } from "../ui/button";
-import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
-import { Dialog, DialogContent } from "../ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Badge } from "@exterior/ui/badge";
+import { Button, buttonVariants } from "@exterior/ui/button";
+import { ButtonGroup, ButtonGroupSeparator } from "@exterior/ui/button-group";
+import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@exterior/ui/dropdown-menu";
 
 const refreshMs = 5000;
 

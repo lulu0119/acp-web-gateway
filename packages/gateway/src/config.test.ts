@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "vitest";
@@ -9,6 +9,7 @@ import {
   parseGatewayConfig,
   readGatewayConfig,
   readGatewayConfigForWrite,
+  watchGatewayConfig,
   workingDirectoryPath,
   writeGatewayConfig,
 } from "./config.js";
@@ -79,6 +80,45 @@ test("a config file that is not JSON is not treated as empty", async () => {
   assert.equal(launch.warning, `Cannot read ${path} as JSON.`);
   assert.deepEqual(update, { ok: false, message: `Cannot read ${path} as JSON.` });
   assert.equal(await readFile(path, "utf8"), "{");
+});
+
+test("a watched config reports a changed agent list once, and keeps the list through a broken write", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "exterior-config-"));
+  const path = configFilePath(homeDirectory);
+  const changes: string[][] = [];
+  const warnings: string[] = [];
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 300));
+  const stop = watchGatewayConfig({
+    homeDirectory,
+    agents: [],
+    onChange: (agents) => changes.push(agents.map((agent) => agent.name)),
+    onWarning: (message) => warnings.push(message),
+    settleMs: 50,
+  });
+  try {
+    await writeGatewayConfig({ agents: [{ name: "work", agentType: "opencode", env: {} }] }, homeDirectory);
+    await settled();
+    assert.deepEqual(changes, [["work"]]);
+
+    // Rewriting the same list is not a change.
+    await writeGatewayConfig({ agents: [{ name: "work", agentType: "opencode", env: {} }] }, homeDirectory);
+    await settled();
+    assert.deepEqual(changes, [["work"]]);
+
+    await writeFile(path, "{", "utf8");
+    await settled();
+    assert.deepEqual(changes, [["work"]]);
+    assert.deepEqual(warnings, [`Cannot read ${path} as JSON. Keeping the previous agent configurations.`]);
+
+    // An editor that saves by renaming a new file over the old one.
+    const next = `${path}.tmp`;
+    await writeFile(next, JSON.stringify({ agents: [{ name: "home", agentType: "opencode", env: {} }] }), "utf8");
+    await rename(next, path);
+    await settled();
+    assert.deepEqual(changes, [["work"], ["home"]]);
+  } finally {
+    stop();
+  }
 });
 
 test("a config whose agents field is not a list is refused for rewrite", async () => {
