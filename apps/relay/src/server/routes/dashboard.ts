@@ -17,7 +17,7 @@ export function mountDashboard(app: Hono<RelayEnv>, input: {
   app.get("/", async (c) => {
     const account = await readAccount(c.req.raw, input.exterior);
     if (!account) return c.redirect("/sign-in?next=%2F");
-    return c.html(input.render.dashboard(readDashboard(account, input), setupGuide(input.exterior.publicUrl)));
+    return c.html(input.render.dashboard(readDashboard(account, input), setupGuide(input.exterior.publicUrl, c.req.header("user-agent"))));
   });
 
   app.get("/api/dashboard", async (c) => {

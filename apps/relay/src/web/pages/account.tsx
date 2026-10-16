@@ -10,7 +10,6 @@ import {
   LaptopIcon,
   RefreshCwIcon,
   ShieldAlertIcon,
-  TerminalIcon,
   UserIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -18,6 +17,7 @@ import type { AccountPage as AccountPageData, AccountView, PermissionView } from
 import { CodeBlock } from "../components/code-block.js";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
+import { Step } from "../components/step.js";
 import { Avatar } from "@exterior/ui/avatar";
 import { Badge } from "@exterior/ui/badge";
 import { buttonVariants } from "@exterior/ui/button";
@@ -111,15 +111,15 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
     <Shell
       header={(
         <>
-          <IconBadge><TerminalIcon /></IconBadge>
+          <IconBadge><KeyRoundIcon /></IconBadge>
           <h1 className="text-2xl font-semibold tracking-tight">Connect a device</h1>
           <SignedInAs account={page.account} />
         </>
       )}
-      footer="Only enter a code your own device printed. Exterior never sends you a code."
+      footer="Only enter a code your own device shows. Exterior never sends you a code."
     >
       <p className="text-center text-sm text-muted-foreground">
-        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">exterior login</code>.
+        Enter the code the desktop app shows, or the one <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">exterior login</code> printed.
       </p>
       <PendingForm method="get" action="/device" className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -140,8 +140,7 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
             <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
               <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
-                {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or run{" "}
-                <code className="font-mono">exterior login</code> again for a new one.
+                {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or sign in again there for a new one.
               </span>
             </p>
           ) : null}
@@ -170,7 +169,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
       </div>
       <ul className="flex flex-col gap-3 text-sm">
         <Allowance icon={<BotIcon />}>The device can run agents for your account when an app you approved asks for one.</Allowance>
-        <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out with <code className="font-mono">exterior logout</code>.</Allowance>
+        <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out from the device.</Allowance>
       </ul>
       <Notice tone="warning" title="Only connect a device you just started">
         If someone sent you this code or link, deny it. Their computer would join your account and receive the agent sessions your apps open.
@@ -202,7 +201,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
           <StatusMark tone="success" />
           <h1 className="text-2xl font-semibold tracking-tight">Device connected</h1>
           <p className="max-w-md text-muted-foreground">
-            The device is signed in to your account. <code className="font-mono text-sm">exterior login</code> on it finishes on its own.
+            The device is signed in to your account. Sign-in on it finishes on its own.
           </p>
         </>
       )}
@@ -214,11 +213,11 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
         </TabsList>
         <TabsPanel value="user" className="flex flex-col gap-5">
           <ol className="flex flex-col gap-4">
-            <Step n={1} title="Go back to your AI assistant or terminal">
-              If an assistant is setting this device up, it continues by itself: it configures the agents installed there and keeps the device online.
+            <Step n={1} title="Add its agents">
+              In the desktop app, add them under Agents. An AI assistant setting the device up does this by itself, then keeps the device online.
             </Step>
             <Step n={2} title="Wait for the device to come online">
-              It shows as online on your dashboard once <code className="font-mono">exterior daemon</code> runs.
+              The desktop app keeps it online on its own; in a terminal, <code className="font-mono">exterior daemon</code> does. Your dashboard shows it as online.
             </Step>
             <Step n={3} title="Return to the web app">
               The app lists the device and can open an agent on it.
@@ -356,18 +355,6 @@ function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode })
     <li className="flex gap-3">
       <span className="mt-0.5 text-muted-foreground [&_svg]:size-4">{icon}</span>
       <span>{children}</span>
-    </li>
-  );
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
-  return (
-    <li className="flex gap-3">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">{n}</span>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-semibold">{title}</span>
-        <span className="text-sm text-muted-foreground">{children}</span>
-      </div>
     </li>
   );
 }

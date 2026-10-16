@@ -29,9 +29,19 @@ export type DashboardData = {
 /** Code highlighted on the server, so pages ship HTML instead of a highlighter. */
 export type HighlightedCode = { code: string; html: string };
 
-/** How to connect a device: a prompt for an AI assistant, the same steps as shell commands, and what follows sign-in. */
+/** A desktop app installer from the latest release. */
+export type DesktopDownload = { platform: string; detail: string; href: string };
+
+/**
+ * How to connect a device: the desktop app, a prompt for an AI assistant, the same steps as shell
+ * commands, and what follows sign-in.
+ */
 export type SetupGuideData = {
   relayUrl: string;
+  /** The installer for the computer the browser runs on, when its user agent names one the release builds. */
+  download?: DesktopDownload;
+  /** The latest release, which lists every platform. */
+  releaseUrl: string;
   prompt: HighlightedCode;
   commands: HighlightedCode;
   afterLogin: HighlightedCode;

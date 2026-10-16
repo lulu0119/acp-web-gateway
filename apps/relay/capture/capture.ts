@@ -48,6 +48,16 @@ const surfaces: Surface[] = [
       await page.waitForFunction(() => document.querySelectorAll("table tbody tr").length > 0);
     },
   },
+  {
+    name: "setup-dialog",
+    path: "/",
+    // "Set up a new device" from the Add device menu.
+    ready: async (page) => {
+      await page.getByRole("button", { name: "More ways to add a device" }).click();
+      await page.getByRole("menuitem", { name: /Set up a new device/ }).click();
+      await page.waitForSelector("[role=dialog] [role=tablist]");
+    },
+  },
   { name: "sign-in", path: "/sign-in", ready: async (page) => await page.waitForSelector("form") },
   { name: "device-code", path: "/device", ready: async (page) => await page.waitForSelector("form") },
 ];
