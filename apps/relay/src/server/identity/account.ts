@@ -3,7 +3,7 @@ import type { AccountPage, AccountView, PermissionView } from "../../shared/acco
 import { setupGuide } from "../rendering/setup-guide.js";
 import type { ExteriorAuth } from "./auth.js";
 import { approvePendingClient } from "./clients.js";
-import { findClientMeta, hasRememberedGrant } from "./grants.js";
+import { findClientMeta } from "./grants.js";
 import { readAccount, type Account } from "./session.js";
 
 export type AccountResult =
@@ -36,17 +36,10 @@ export async function readConsent(request: Request, exterior: ExteriorAuth): Pro
   const params = new URLSearchParams(query);
   const clientId = params.get("client_id") ?? "";
   const scopes = (params.get("scope") ?? "").split(" ").filter((scope) => scope.length > 0);
+  // The provider already answers a request an earlier approval covers, so whoever reaches this page
+  // is asked: the app wanted `prompt=consent`, or it runs on this computer.
   const account = await readAccount(request, exterior);
   if (!account) return { redirect: `/sign-in?${query}` };
-  if (clientId && (await hasRememberedGrant(exterior, account, clientId, scopes))) {
-    const approved = await exterior.auth.api.oauth2Consent({
-      body: { accept: true, oauth_query: query },
-      headers: request.headers,
-      request,
-      asResponse: false,
-    }).catch(() => undefined);
-    if (approved?.redirect) return { redirect: approved.url };
-  }
   const meta = clientId ? await findClientMeta(exterior, clientId) : undefined;
   const redirectUri = params.get("redirect_uri") ?? "";
   return {

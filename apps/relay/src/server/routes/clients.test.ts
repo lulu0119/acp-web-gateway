@@ -137,6 +137,32 @@ test("an app signing in again reuses its client, skips the consent it has, and t
   assert.deepEqual(Buffer.from(await icon.arrayBuffer()), Buffer.from(onePixelPng, "base64"));
 });
 
+test("an app on this computer is asked every time, and so is one that asks for consent", async () => {
+  const { app, cookie } = await openRegistry();
+  const local = { clientName: "Studio", redirectUri: "http://localhost:5173/callback", scopes: ["devices"] };
+  await approve(app, cookie, await startApproval(app, local));
+
+  for (const prompt of [undefined, "none"]) {
+    const again = new URL(await startApproval(app, local));
+    if (prompt) again.searchParams.set("prompt", prompt);
+    const asked = await app.request(again, { headers: { cookie } });
+    const consent = new URL(asked.headers.get("location") ?? "", publicUrl);
+    assert.equal(consent.pathname, "/consent", `prompt=${prompt ?? "(none given)"}`);
+    const page = await app.request(`${publicUrl}/consent?${consent.search.slice(1)}`, { headers: { cookie } });
+    assert.equal(page.status, 200);
+  }
+
+  const remote = { clientName: "Notes", redirectUri: "https://notes.example.test/callback", scopes: ["devices"] };
+  await approve(app, cookie, await startApproval(app, remote));
+  const forced = new URL(await startApproval(app, remote));
+  forced.searchParams.set("prompt", "consent");
+  const asked = await app.request(forced, { headers: { cookie } });
+  const consent = new URL(asked.headers.get("location") ?? "", publicUrl);
+  assert.equal(consent.pathname, "/consent");
+  const page = await app.request(`${publicUrl}/consent?${consent.search.slice(1)}`, { headers: { cookie } });
+  assert.equal(page.status, 200);
+});
+
 test("an app's logo must be a small raster image that is what it says", async () => {
   const { app } = await openRegistry();
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString("base64");
@@ -266,6 +292,19 @@ async function startApproval(app: Hono<RelayEnv>, input: { clientName: string; r
   });
   assert.equal(started.status, 200);
   return ((await started.json()) as { url: string }).url;
+}
+
+/** Opens an approval address as the signed-in person and authorizes it on the consent page. */
+async function approve(app: Hono<RelayEnv>, cookie: string, url: string): Promise<void> {
+  const prompted = await app.request(url, { headers: { cookie } });
+  const query = new URL(prompted.headers.get("location") ?? "", publicUrl).search.slice(1);
+  const approved = await app.request(`${publicUrl}/consent`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accept: "yes", query }),
+  });
+  assert.equal(approved.status, 302);
+  assert.match(approved.headers.get("location") ?? "", /[?&]code=/);
 }
 
 async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: string, redirectUri: string): Promise<string> {

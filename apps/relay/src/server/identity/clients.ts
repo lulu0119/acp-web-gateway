@@ -77,6 +77,33 @@ function redirectProblem(uri: string): string | undefined {
   return `Redirect ${uri} must be https, or http on this computer.`;
 }
 
+/**
+ * A redirect to this computer does not prove which program asks: any process here can listen on
+ * that port. So the provider must ask the person every time, even for an app they approved before
+ * (OAuth 2.1 §7.3). The authorization request gains `prompt=consent`; `prompt=none` is dropped,
+ * since the provider would otherwise answer it from the remembered approval.
+ */
+export function askConsentForLoopback(request: Request): Request {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || !url.pathname.endsWith("/oauth2/authorize")) return request;
+  if (!isLoopbackRedirect(url.searchParams.get("redirect_uri") ?? "")) return request;
+  const prompts = new Set((url.searchParams.get("prompt") ?? "").split(" ").filter((prompt) => prompt.length > 0));
+  if (prompts.has("consent") && !prompts.has("none")) return request;
+  prompts.delete("none");
+  prompts.add("consent");
+  url.searchParams.set("prompt", [...prompts].join(" "));
+  return new Request(url, request);
+}
+
+function isLoopbackRedirect(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return url.protocol === "http:" && isLoopback(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function isLoopback(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
@@ -281,15 +308,7 @@ export async function registerClient(
 }
 
 function applicationTypeForRedirects(redirectUris: string[]): "web" | "native" {
-  const loopbackOnly = redirectUris.every((uri) => {
-    try {
-      const url = new URL(uri);
-      return url.protocol === "http:" && isLoopback(url.hostname);
-    } catch {
-      return false;
-    }
-  });
-  return loopbackOnly ? "native" : "web";
+  return redirectUris.every(isLoopbackRedirect) ? "native" : "web";
 }
 
 type StoredClient = { clientId?: string; softwareId?: string | null };

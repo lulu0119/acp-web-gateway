@@ -93,22 +93,6 @@ export async function findClientIcon(exterior: ExteriorAuth, clientId: string): 
   return icon ? parseAppIcon(icon) : undefined;
 }
 
-export async function hasRememberedGrant(exterior: ExteriorAuth, account: Account, clientId: string, scopes: string[]): Promise<boolean> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredConsent>({
-    model: "oauthConsent",
-    where: [
-      { field: "userId", value: account.userId },
-      { field: "clientId", value: clientId },
-    ],
-  });
-  return rows.some((row) => {
-    if (row.userId !== account.userId || row.clientId !== clientId) return false;
-    const granted = Array.isArray(row.scopes) ? row.scopes : [];
-    return scopes.every((scope) => granted.includes(scope));
-  });
-}
-
 export async function revokeGrant(exterior: ExteriorAuth, account: Account, clientId: string): Promise<void> {
   const context = await exterior.auth.$context;
   const where = [
