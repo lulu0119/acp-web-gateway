@@ -2,7 +2,9 @@
 
 A web app with no client of its own used to ask the relay for an approval, and the relay created a client for every sign-in: the app was listed in Authorized apps once per sign-in, revoking one row left the others working, and consent was asked again each time. The relay also had its own way of starting an approval and handing the app a client id, which no other OAuth client knows.
 
-Now a web app registers itself at the provider's own registration endpoint (RFC 7591, unauthenticated), or, when it is served over https, names itself by the address of a metadata document the relay reads (Client ID Metadata Documents, as MCP requires and `@better-auth/cimd` implements). Both are standard, and the relay publishes them in its OAuth metadata. A metadata document's origin is the app's identity: the document is fetched from that address, and the redirect it names must return there. Consent, tokens, and revocation are unchanged.
+Now a web app registers itself at the provider's own registration endpoint (RFC 7591, unauthenticated), or, when it is served over https, names itself by the address of a metadata document the relay reads (Client ID Metadata Documents, which `@better-auth/cimd` implements). Both are standard, and the relay publishes them in its OAuth metadata. A metadata document's origin is the app's identity: the document is fetched from that address, and the redirect it names must return there. Consent, tokens, and revocation are unchanged.
+
+Exterior serves ACP agents, so an MCP client has nothing here to talk to. CIMD and registration are worth having because they are what the OAuth specs and the MCP authorization specification have settled on for web apps, and because the plugin's fetch already refuses private addresses and redirects; every standard OAuth client is what benefits.
 
 The relay had to keep two things from the old path:
 
@@ -15,7 +17,7 @@ A logo is loaded by the browser from the address the app named, which is what `l
 
 - **One client per redirect address, minted by the relay.** Rejected as the whole mechanism. It made the app one row and one revoke, and it was the relay's own convention; a standard OAuth client cannot discover or use it. Kept only as the registration the standard names.
 - **Fetching each app's logo on the relay and serving it.** Deferred. It needs SSRF guards, a byte limit, and re-encoding, and a logo can be an inline image instead. See `docs/research/2026-10-13-oauth-consent.md`.
-- **Not letting unauthenticated apps register at all.** Rejected. It is how the spec expects a web app or an MCP client to arrive, and a client nobody approved is inert until a person consents.
+- **Not letting unauthenticated apps register at all.** Rejected. It is how the spec expects a web app to arrive, and a client nobody approved is inert until a person consents.
 - **Signing the app out when its registration is pruned.** Rejected. Better Auth treats a refresh with a deleted client as a replay and revokes every token of that client and account, and one registration per browser would sign out the others.
 
 ## Consequences
