@@ -1,5 +1,7 @@
 # Consent screen redesign: OAuth/OIDC research and Exterior audit
 
+Status: partially applied. Relay-side logo fetching is rejected (ADR 0021); rate limiting and scope redesign stay in open-work.md. The "Status after `feat/relay-ux`" paragraph below is a 2026-10-13 snapshot and is stale where the code moved on (A9, icons).
+
 Date: 2026-10-13. Scope: relay consent page (`/consent`), pending clients (`POST /api/authorize-request`), scopes, CORS, token binding. Code refs are against `main` at `c94dada`. better-auth / @better-auth/oauth-provider are at 1.7.7 in `node_modules`.
 
 Status after `feat/relay-ux`: A1 and A2 fixed by checking `azp` ([ADR 0014](../adr/0014-tokens-are-told-apart-by-client.md)); A8 partly (the consent page leads with the app's origin, an Unverified pill, the account, and named permissions; the client id moved under Details; icons still pending); A9 fixed (no third-party image is loaded); A12 fixed (`frame-ancestors 'none'`); A14 fixed (devices carry a stable id). The rest is in `docs/open-work.md`.

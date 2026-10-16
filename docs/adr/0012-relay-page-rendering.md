@@ -1,5 +1,7 @@
 # Relay pages share React UI
 
+Status: accepted
+
 The relay's sign-in, consent, and machine-approval pages use React server rendering, while its dashboard uses React in the browser. Page markup, UI modules, layout, and CSS live together under `apps/relay/src/web`; the stylesheet is an independent build entry, so an account page does not depend on the dashboard's JavaScript bundle.
 
 Keeping HTML-string templates alongside React meant maintaining two button and layout implementations.

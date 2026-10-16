@@ -1,5 +1,7 @@
 # Tokens are told apart by the client they were issued to
 
+Status: accepted
+
 The daemon and web apps both hold access tokens for the relay with the `machines` scope. The relay now reads the `azp` claim and routes on it: only the daemon client's tokens open `/api/daemon` and record devices on `/api/devices`; only other clients' tokens list machines and open sessions. Before this, an approved web app could connect as a daemon, appear as a device, and receive the ACP frames of sessions opened on it; a signed-in device could open agents on the account's other devices.
 
 ## Considered Options

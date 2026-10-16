@@ -1,5 +1,7 @@
 # The daemon ships as one executable
 
+Status: accepted
+
 `npx` runs a package; it does not install one. It caches a package by its address, so `@main` keeps the first copy it downloaded, and a login item or tray that points into the npx cache stops working when the cache is cleared, as [ADR 0005](0005-npx-installs-a-stable-copy.md) found. A daemon that starts at login needs a file that stays where it was put. The daemon now ships as one executable per platform, built with Node's single executable application support (`node --build-sea`) from the bundle tsdown already produces. GitHub Releases hosts the files, and `install.sh`, a Homebrew formula in our own tap, a Scoop bucket, and winget each point at them. The daemon stays TypeScript, so it keeps sharing `@exterior/contract` with the relay and the web client. npx stays the way to run a preview.
 
 Measured on Windows on 2026-10-15: the file is 104 MB, 39 MB gzipped, and an idle connected daemon holds about 66 MB working set.

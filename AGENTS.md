@@ -1,10 +1,13 @@
 # AGENTS.md
 
-Product narrative: [README.md](README.md). Decisions: [docs/adr/](docs/adr/). Roadmap: [docs/open-work.md](docs/open-work.md).
+Product narrative: [README.md](README.md). Decisions: [docs/decisions.md](docs/decisions.md) (every `adr/` file listed). Manual: [docs/manual.md](docs/manual.md). Roadmap: [docs/open-work.md](docs/open-work.md).
 
 ## Homes
 
 - What the product does stays in README.
+- Device setup and relay operation go in `docs/manual.md`; the web app SDK is documented in `packages/client/README.md` beside the code.
+- Every `docs/adr/NNNN-slug.md` is listed in `docs/decisions.md` with its status.
+- A research note carries a `Status` line: consumed by an ADR, partially applied with a pointer, or rejected with the reason.
 - A term crystallizes → root `CONTEXT.md`: what it is, plus `_Avoid_`.
 - A choice is hard to reverse, surprising without context, and the result of a real trade-off → next `docs/adr/NNNN-slug.md`.
 - Unfinished roadmap only in `docs/open-work.md`. When an item is done, delete the bullet.

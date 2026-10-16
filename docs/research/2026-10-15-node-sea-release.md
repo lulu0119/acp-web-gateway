@@ -1,5 +1,7 @@
 # Node single executables for a six-target release
 
+Status: consumed by [ADR 0017](../adr/0017-the-daemon-ships-as-one-executable.md).
+
 Researched 2026-10-15 for [ADR 0017](../adr/0017-the-daemon-ships-as-one-executable.md). Links are pinned to commits.
 
 ## Node

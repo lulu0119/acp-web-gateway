@@ -1,5 +1,7 @@
 # How desktop apps keep a background process running
 
+Status: consumed by [ADR 0018](../adr/0018-the-desktop-app-is-a-tauri-tray.md).
+
 Researched 2026-10-15 for [ADR 0018](../adr/0018-the-desktop-app-is-a-tauri-tray.md). Links are pinned to commits.
 
 ## Who starts the process

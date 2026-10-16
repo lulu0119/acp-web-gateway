@@ -1,5 +1,7 @@
 # A web app registers itself, or names itself by its own document
 
+Status: accepted
+
 A web app with no client of its own used to ask the relay for an approval, and the relay created a client for every sign-in: the app was listed in Authorized apps once per sign-in, revoking one row left the others working, and consent was asked again each time. The relay also had its own way of starting an approval and handing the app a client id, which no other OAuth client knows.
 
 Now a web app registers itself at the provider's own registration endpoint (RFC 7591, unauthenticated), or, when it is served over https, names itself by the address of a metadata document the relay reads (Client ID Metadata Documents, which `@better-auth/cimd` implements). Both are standard, and the relay publishes them in its OAuth metadata. A metadata document's origin is the app's identity: the document is fetched from that address, and the redirect it names must return there. Consent, tokens, and revocation are unchanged.
@@ -27,3 +29,12 @@ A logo is loaded by the browser from the address the app named, which is what `l
 - An app on `localhost`, registered through the dashboard or itself, shows consent on every sign-in.
 - The relay keeps two open, unauthenticated endpoints, the registration endpoint and a metadata fetch. Both are rate-limiting territory; see `open-work.md`.
 - The daemon still tells `/api/devices` the refresh token that proves its device, which is the relay's own endpoint, not a standard one.
+
+## Prior art
+
+MCP-side OAuth gateways, for contrast: Exterior serves ACP agents, so an MCP client has nothing here to talk to. Only the registration pattern (CIMD, which the MCP authorization specification settled on) carries over.
+
+- [agentgateway MCP auth](https://agentgateway.dev/docs/standalone/latest/configuration/security/mcp-authn/)
+- [mcp-auth-gateway](https://github.com/nicknikolakakis/mcp-auth-gateway)
+- [mcp-stdio serve](https://github.com/shigechika/mcp-stdio)
+- [mcp-switch](https://github.com/asashiki/mcp-switch)

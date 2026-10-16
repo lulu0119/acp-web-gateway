@@ -33,7 +33,7 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
       devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }],
     });
     const openedSession = waitForOpen(daemon);
-    const opened = await fetch(`${base}/api/sessions`, {
+    const opened = await fetch(`${base}/api/connections`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
@@ -83,7 +83,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
     daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
-    const opened = await fetch(`${base}/api/sessions`, {
+    const opened = await fetch(`${base}/api/connections`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
@@ -132,7 +132,7 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
     daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
-    const opened = await fetch(`${base}/api/sessions`, {
+    const opened = await fetch(`${base}/api/connections`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
@@ -183,7 +183,7 @@ test("a web app token cannot connect as a daemon, and a daemon token cannot open
     assert.equal(status, 403);
     const listed = await fetch(`http://127.0.0.1:${port}/api/devices`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
     assert.equal(listed.status, 403);
-    const opened = await fetch(`http://127.0.0.1:${port}/api/sessions`, {
+    const opened = await fetch(`http://127.0.0.1:${port}/api/connections`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada", "x-client-id": daemonClientId },
       body: JSON.stringify({ deviceId: "device-any-1", agentName: "work" }),

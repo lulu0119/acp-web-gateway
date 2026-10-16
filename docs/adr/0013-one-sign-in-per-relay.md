@@ -1,5 +1,7 @@
 # A machine keeps one sign-in per relay
 
+Status: accepted
+
 A machine can be signed in to several relays, such as a shared one and a local one. A command picks the relay from `--relay` or `EXTERIOR_RELAY`. When neither is given, a machine with one sign-in uses that one, and a machine with several stops and lists the choices. Nothing remembers an "active" relay, because a long-running daemon that silently follows a switch made in another terminal connects to the wrong place. Each sign-in is its own file, because each refresh rotates the refresh token: two daemons for two relays that rewrote one shared file could drop the other's new token and force a fresh login.
 
 ## Considered Options
