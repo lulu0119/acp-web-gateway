@@ -1,5 +1,7 @@
 # The desktop app is a Tauri tray that runs the daemon
 
+Status: accepted
+
 A device needs a desktop presence on macOS, Windows, and Linux: whether the daemon is running, which relays the device is signed in to, and a place to edit its agent configurations. The desktop app is Tauri. Its tray is built in Rust and stays resident. Its settings window is created when opened and destroyed when closed, so no webview stays in memory while the person is not looking at it.
 
 The app starts the daemon. It starts at login, runs one `exterior daemon` child per sign-in from the executable of [ADR 0017](0017-the-daemon-ships-as-one-executable.md) shipped beside it, and starts a child again when it exits on its own. Quitting the app stops the daemons. This is the shape of Ollama's app and opencodex's desktop app: the app owns the process, so it knows whether it runs without asking anyone. The app acts only through the executable's commands, which print JSON for it, so the app never reads the daemon's files itself. A Linux server without a desktop runs `exterior daemon` under a systemd user unit the person writes, as Syncthing documents.

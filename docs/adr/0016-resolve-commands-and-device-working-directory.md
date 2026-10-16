@@ -1,5 +1,7 @@
 # A command resolves to one file, and a device has its own working directory
 
+Status: accepted
+
 Agents failed to start or stop on Windows, and the fixes were growing a Windows check at every call site. The cause was one fact asked three times with three rules: the existence check walked `PATH` with `PATHEXT`, Node's spawn looked only for `.exe`, and cmd.exe searched again by its own rules. The daemon now resolves a command name once, to the file it will start. A `.exe` is started directly. A `.cmd` or `.bat` goes through cmd.exe, the only path that does, and an argument cmd.exe would read as syntax (`&`, `%`, `|`, quotes, and the like) is refused instead of escaped. A registry binary such as `./opencode.exe` names a file inside the archive, so the daemon looks up the name the person installed, `opencode`, which may be an `.exe` or the `.cmd` npm writes.
 
 A stop closes the agent's stdin, then ends the whole process tree after two seconds: on Windows with `taskkill /t`, elsewhere by signalling the process group the agent was started in. A batch script, `npx`, and `uvx` all start the agent as their own child, so stopping only the direct child leaves the agent running.
