@@ -19,6 +19,11 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  # A push supersedes the previous run on the same branch. A tag build never cancels.
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 jobs:
   draft:
     if: github.ref_type == 'tag'
