@@ -5,10 +5,11 @@
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub fn open(app: &AppHandle) {
-    // An accessory app cannot take focus. Become a normal app before the window is shown.
+    // From the tray the app is an accessory without a Dock tile and inactive,
+    // so its window would draw gray until a click. Become foreground instead.
     #[cfg(target_os = "macos")]
     if !app.state::<crate::WindowIsTheApp>().0 {
-        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        become_foreground(app);
     }
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -27,10 +28,34 @@ pub fn open(app: &AppHandle) {
 pub fn returned_to_menu_bar(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     if !app.state::<crate::WindowIsTheApp>().0 {
-        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        let _ = app.set_dock_visibility(false);
     }
     #[cfg(not(target_os = "macos"))]
     let _ = app;
+}
+
+/// Shows the app in the Dock and activates it, so the window draws active.
+/// Transforming an already foreground app confuses the Dock and blanks its
+/// tile, so only transform out of Accessory. Tauri exposes neither the current
+/// policy nor runtime activation, so this asks NSApplication directly. The
+/// person asked for the window through the tray, a menu, or a second launch,
+/// so activate regardless.
+#[cfg(target_os = "macos")]
+fn become_foreground(app: &AppHandle) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let application = NSApplication::sharedApplication(mtm);
+    if application.activationPolicy() != NSApplicationActivationPolicy::Regular {
+        let _ = app.set_dock_visibility(true);
+    }
+    // activateIgnoringOtherApps works on every macOS Tauri supports; the newer
+    // activate needs macOS 14.
+    #[allow(deprecated)]
+    application.activateIgnoringOtherApps(true);
 }
 
 /// Whether this desktop shows tray icons. A Linux desktop may have no StatusNotifier host,

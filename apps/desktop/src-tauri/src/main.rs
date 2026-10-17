@@ -255,7 +255,8 @@ fn main() {
         tauri_plugin_autostart::MacosLauncher::LaunchAgent,
         Some(vec!["--autostart"]),
     ));
-    let app = builder
+    #[allow(unused_mut)]
+    let mut app = builder
         .manage(Daemons::default())
         .manage(SignIn::default())
         .manage(SuppressExit(AtomicBool::new(false)))
@@ -281,8 +282,6 @@ fn main() {
             }
         })
         .setup(|app| {
-            #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let handle = app.handle().clone();
             let window_is_the_app = !window::tray_is_shown();
             app.manage(WindowIsTheApp(window_is_the_app));
@@ -306,6 +305,16 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("build the Exterior app");
+
+    // Started at login, the app waits in the tray and stays out of the Dock. Any
+    // other launch opens a window, so it starts as a normal app and keeps the
+    // system's own launch activation and Dock tile. This must run between build
+    // and run: afterwards the policy is a runtime transition, which macOS
+    // applies unreliably.
+    #[cfg(target_os = "macos")]
+    if std::env::args().any(|arg| arg == "--autostart") {
+        app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    }
 
     app.run(|app, event| match event {
         // The runtime exits when the last window is destroyed. With a tray, closing the window
