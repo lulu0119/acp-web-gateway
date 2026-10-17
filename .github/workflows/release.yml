@@ -118,6 +118,11 @@ jobs:
               ;;
           esac
           ls -l release
+      # Tauri re-signs the bundle with hardened runtime; without the JIT
+      # entitlements the Node sidecar dies at startup, so start it once here.
+      - name: Start the bundled sidecar
+        if: runner.os == 'macOS'
+        run: apps/desktop/src-tauri/target/release/bundle/macos/Exterior.app/Contents/MacOS/exterior --version
       - name: Attach to the draft release
         if: github.ref_type == 'tag'
         shell: bash

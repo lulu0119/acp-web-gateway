@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The bundled `exterior` sidecar is a Node single executable; its V8
+	maps writable-executable memory at startup, which hardened runtime
+	forbids unless these rights are granted. Without them the sidecar dies
+	before any JavaScript runs ("Failed to reserve virtual memory for
+	CodeRange") and the window reports it cannot read agent configurations. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<key>com.apple.security.cs.disable-executable-page-protection</key>
+	<true/>
+</dict>
+</plist>
