@@ -1,4 +1,5 @@
 {
+  "client_id": "https://lulu0119.github.io/exterior/oauth-client.json",
   "client_name": "Example",
   "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
   "redirect_uris": ["https://lulu0119.github.io/exterior/oauth/callback"],
