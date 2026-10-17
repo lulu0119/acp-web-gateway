@@ -1,9 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/noto-sans";
+@import "@fontsource-variable/quicksand";
 @import "@fontsource/maple-mono/400.css";
 @import "@fontsource/maple-mono/600.css";
 @import "./palette.css";
+@plugin "./iconify.mjs";
 
 @source "./";
 
@@ -11,7 +13,10 @@
 
 @theme inline {
   --font-sans: "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Quicksand Variable", "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -40,46 +45,55 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /*
+   * Exterior is named after the cultivated "external brain" in A Certain Magical Index. Cool white
+   * and ink carry the page; honey gold is kept for icons and the few words that must stand out.
+   */
+  --background: oklch(0.99 0.002 250);
+  --foreground: oklch(0.2 0.01 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.2 0.01 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.2 0.01 260);
+  --primary: oklch(0.21 0.01 260);
+  --primary-foreground: oklch(0.99 0.002 250);
+  --secondary: oklch(0.96 0.004 255);
+  --secondary-foreground: oklch(0.21 0.01 260);
+  --muted: oklch(0.96 0.004 255);
+  --muted-foreground: oklch(0.52 0.012 258);
+  --accent: oklch(0.96 0.004 255);
+  --accent-foreground: oklch(0.55 0.11 75);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --border: oklch(0.915 0.005 255);
+  --input: oklch(0.89 0.006 255);
+  --ring: oklch(0.7 0.01 255);
+  --radius: 0.5rem;
+  /* Honey gold, for icons and highlighted words only. Text in gold uses --gold-ink. */
+  --gold: oklch(0.8 0.135 82);
+  --gold-ink: oklch(0.55 0.11 75);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.16 0.006 260);
+  --foreground: oklch(0.96 0.003 250);
+  --card: oklch(0.2 0.007 260);
+  --card-foreground: oklch(0.96 0.003 250);
+  --popover: oklch(0.22 0.007 260);
+  --popover-foreground: oklch(0.96 0.003 250);
+  --primary: oklch(0.94 0.003 250);
+  --primary-foreground: oklch(0.2 0.007 260);
+  --secondary: oklch(0.26 0.008 260);
+  --secondary-foreground: oklch(0.96 0.003 250);
+  --muted: oklch(0.26 0.008 260);
+  --muted-foreground: oklch(0.7 0.01 258);
+  --accent: oklch(0.26 0.008 260);
+  --accent-foreground: oklch(0.82 0.12 82);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.55 0.01 258);
+  --gold: oklch(0.8 0.135 82);
+  --gold-ink: oklch(0.82 0.12 82);
 }
 
 @layer base {
@@ -102,5 +116,26 @@
   label[for],
   select:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/* Quicksand for titles and figures; body text stays in Noto Sans. */
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* The dashes between two icons slide toward the second, like a signal on its way. */
+@keyframes signal-flow {
+  to {
+    background-position: 12px 0;
+  }
+}
+
+@utility signal-line {
+  background-image: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px);
+  background-size: 12px 2px;
+  background-repeat: repeat-x;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: signal-flow 1.1s linear infinite;
   }
 }

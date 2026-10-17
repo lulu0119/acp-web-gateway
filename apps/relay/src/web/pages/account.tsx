@@ -61,7 +61,7 @@ function Shell({ header, children, footer, wide }: { header: ReactNode; children
   return (
     <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
       <div className="flex flex-col items-center gap-5 text-center">{header}</div>
-      <div className="flex w-full flex-col gap-6 sm:rounded-2xl sm:bg-card sm:p-8 sm:shadow-[0_1px_2px_oklch(0_0_0/0.04),0_12px_32px_-8px_oklch(0_0_0/0.08)]">{children}</div>
+      <div className="flex w-full flex-col gap-6 sm:rounded-2xl sm:bg-card sm:p-8 sm:ring-1 sm:ring-border">{children}</div>
       {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
     </div>
   );
@@ -83,7 +83,7 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
       header={(
         <>
           <ExteriorMark className="size-14" />
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to Exterior</h1>
+          <h1 className="font-display text-2xl font-bold">Sign in to Exterior</h1>
           <p className="max-w-sm text-muted-foreground">
             Exterior lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device.
           </p>
@@ -112,8 +112,8 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
     <Shell
       header={(
         <>
-          <IconBadge><KeyRoundIcon /></IconBadge>
-          <h1 className="text-2xl font-semibold tracking-tight">Connect a device</h1>
+          <DeviceSteps current={0} />
+          <h1 className="font-display text-2xl font-bold">Connect a device</h1>
           <SignedInAs account={page.account} />
         </>
       )}
@@ -157,15 +157,15 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
     <Shell
       header={(
         <>
-          <IconBadge><LaptopIcon /></IconBadge>
-          <h1 className="text-2xl font-semibold tracking-tight">Connect this device?</h1>
+          <DeviceSteps current={1} />
+          <h1 className="font-display text-2xl font-bold">Connect this device?</h1>
           <SignedInAs account={page.account} />
         </>
       )}
       footer={<a href="/device" className="underline underline-offset-4 hover:text-foreground">Enter a different code</a>}
     >
       <div className="flex flex-col items-center gap-2">
-        <p className="text-sm text-muted-foreground">Check that this matches the code on your device</p>
+        <p className="text-sm font-medium">Check that this matches the code on your device</p>
         <CodeDisplay code={page.userCode} />
       </div>
       <ul className="flex flex-col gap-3 text-sm">
@@ -199,8 +199,9 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
       wide
       header={(
         <>
+          <DeviceSteps current={2} />
           <StatusMark tone="success" />
-          <h1 className="text-2xl font-semibold tracking-tight">Device connected</h1>
+          <h1 className="font-display text-2xl font-bold">Device connected</h1>
           <p className="max-w-md text-muted-foreground">
             The device is signed in to your account. Sign-in on it finishes on its own.
           </p>
@@ -253,34 +254,34 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
       header={(
         <>
           <div className="flex items-center gap-3" aria-hidden>
-            <AppIcon label={name || site} logoUri={page.logoUri} className="size-14 rounded-2xl text-xl" />
-            <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
+            <AppIcon label={name || site} logoUri={page.logoUri} className="size-14 rounded-xl bg-card text-xl ring-1 ring-border" />
+            <span className="signal-line h-0.5 w-12 text-gold-ink" aria-hidden />
             <ExteriorMark className="size-14" />
           </div>
-          <h1 className="max-w-lg text-2xl font-semibold tracking-tight text-balance">
+          <h1 className="max-w-lg font-display text-2xl font-bold text-balance">
             {name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
-            {page.unverified ? <Badge className="bg-warning-100 text-warning-800">Unverified</Badge> : null}
+            {page.unverified ? <Badge variant="outline" className="border-gold/50 text-gold-ink">Unverified</Badge> : null}
           </div>
         </>
       )}
       footer="You can revoke this app anytime from your Exterior dashboard."
     >
       <SignedInAs account={page.account} />
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">This app will be able to</h2>
-        <ul className="flex flex-col gap-4">
-          {page.permissions.map((permission) => <Permission key={permission.scope} permission={permission} />)}
-        </ul>
-      </section>
       {page.unverified ? (
         <Notice tone="warning" title="Exterior has not verified this app">
           {name ? <>The name “{name}” comes from the app itself. </> : null}
           Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
         </Notice>
       ) : null}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">This app will be able to</h2>
+        <ul className="flex flex-col gap-4">
+          {page.permissions.map((permission) => <Permission key={permission.scope} permission={permission} />)}
+        </ul>
+      </section>
       <details className="group rounded-lg text-sm">
         <summary className="cursor-pointer text-muted-foreground select-none hover:text-foreground">Details</summary>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
@@ -320,7 +321,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
       header={(
         <>
           <StatusMark tone={page.tone} />
-          <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
+          <h1 className="font-display text-2xl font-bold">{page.title}</h1>
         </>
       )}
     >
@@ -342,7 +343,7 @@ function Permission({ permission }: { permission: PermissionView }) {
   const icon = permission.scope === "devices" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
   return (
     <li className="flex gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/70 [&_svg]:size-4">{icon}</span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground [&_svg]:size-4">{icon}</span>
       <div className="flex flex-col gap-0.5">
         <span className="text-sm font-semibold">{permission.title}</span>
         <span className="text-sm text-muted-foreground">{permission.detail}</span>
@@ -354,7 +355,7 @@ function Permission({ permission }: { permission: PermissionView }) {
 function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 text-muted-foreground [&_svg]:size-4">{icon}</span>
+      <span className="mt-0.5 text-gold-ink [&_svg]:size-4">{icon}</span>
       <span>{children}</span>
     </li>
   );
@@ -365,14 +366,14 @@ function Notice({ tone, title, children }: { tone: "warning" | "error"; title: s
     <div
       role={tone === "error" ? "alert" : undefined}
       className={cn(
-        "flex gap-3 rounded-xl p-4 text-sm",
-        tone === "warning" ? "bg-warning-50 text-warning-900" : "bg-danger-50 text-danger-900",
+        "flex gap-3 rounded-xl p-4 text-sm ring-1",
+        tone === "warning" ? "bg-muted/60 ring-border" : "bg-danger-50 text-danger-900 ring-danger-200/70",
       )}
     >
-      <ShieldAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <ShieldAlertIcon className={cn("mt-0.5 size-4 shrink-0", tone === "warning" && "text-gold-ink")} aria-hidden />
       <div className="flex flex-col gap-0.5">
-        <span className="font-semibold">{title}</span>
-        <span className="opacity-90">{children}</span>
+        <span className={cn("font-semibold", tone === "warning" && "text-gold-ink")}>{title}</span>
+        <span className={tone === "warning" ? "text-muted-foreground" : "opacity-90"}>{children}</span>
       </div>
     </div>
   );
@@ -385,7 +386,7 @@ function CodeDisplay({ code }: { code: string }) {
       {characters.map((character, index) => (
         <span key={index} className="contents">
           {index === userCodeGroups[0] ? <span className="px-1 text-muted-foreground" aria-hidden>-</span> : null}
-          <span className="flex h-12 w-9 items-center justify-center rounded-lg bg-muted" aria-hidden>{character}</span>
+          <span className="flex h-12 w-9 items-center justify-center rounded-md bg-card ring-1 ring-border" aria-hidden>{character}</span>
         </span>
       ))}
     </div>
@@ -401,8 +402,35 @@ function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
   return <span className={cn("flex size-14 items-center justify-center rounded-full [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
 }
 
-function IconBadge({ children }: { children: ReactNode }) {
-  return <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-foreground/80 [&_svg]:size-6">{children}</span>;
+const deviceSteps = ["Enter code", "Check device", "Connected"] as const;
+
+/** Where the person is in connecting a device: the code, then the check, then the result. */
+function DeviceSteps({ current }: { current: number }) {
+  return (
+    <ol className="flex items-center gap-2 text-xs font-medium" aria-label="Connecting a device">
+      {deviceSteps.map((label, index) => {
+        // The last step is done once it is reached; the others once they are passed.
+        const done = index < current || (index === current && index === deviceSteps.length - 1);
+        return (
+          <li key={label} className="flex items-center gap-2" aria-current={index === current ? "step" : undefined}>
+            {index > 0 ? <span className={cn("h-px w-6", index <= current ? "bg-foreground/40" : "bg-border")} aria-hidden /> : null}
+            <span
+              className={cn(
+                "flex size-5 items-center justify-center rounded-full font-display text-[11px] font-bold",
+                index < current && "bg-foreground/10 text-foreground",
+                index === current && "bg-primary text-primary-foreground",
+                index > current && "text-muted-foreground ring-1 ring-border",
+              )}
+              aria-hidden
+            >
+              {done ? <CheckIcon className="size-3" strokeWidth={3} /> : index + 1}
+            </span>
+            <span className={index === current ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function GitHubIcon() {

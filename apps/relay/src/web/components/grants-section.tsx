@@ -1,6 +1,7 @@
 import { AppWindowIcon, CircleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { GrantedApp } from "../../shared/account-web.js";
+import type { DeviceView, GrantedApp, LiveSessionInfo } from "../../shared/account-web.js";
+import { AgentIcon } from "@exterior/ui/agent-icon";
 import { AppIcon } from "./app-icon.js";
 import { Button } from "@exterior/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
@@ -9,10 +10,11 @@ import { SectionHeading } from "@exterior/ui/section-heading";
 
 type Loaded = { state: "loading" } | { state: "error" } | { state: "ready"; apps: GrantedApp[] };
 
-export function GrantsSection() {
+export type Grants = { loaded: Loaded; load: () => Promise<void>; retry: () => void };
+
+/** The account's authorized apps. The dashboard loads them once: this section lists them, devices name the app using an agent. */
+export function useGrants(): Grants {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-  const [revoking, setRevoking] = useState("");
-  const [problem, setProblem] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +30,15 @@ export function GrantsSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  return { loaded, load, retry: () => { setLoaded({ state: "loading" }); void load(); } };
+}
+
+export function GrantsSection({ grants, devices, sessions }: { grants: Grants; devices: DeviceView[]; sessions: LiveSessionInfo[] }) {
+  const { loaded, load } = grants;
+  const [revoking, setRevoking] = useState("");
+  const [problem, setProblem] = useState("");
+  const hostnames = new Map(devices.map((device) => [device.id, device.hostname]));
 
   async function revoke(app: GrantedApp) {
     setRevoking(app.clientId);
@@ -66,14 +77,14 @@ export function GrantsSection() {
         <EmptyState
           icon={<CircleAlertIcon />}
           title="Couldn't load authorized apps"
-          action={<Button variant="secondary" onClick={() => { setLoaded({ state: "loading" }); void load(); }}>Try again</Button>}
+          action={<Button variant="secondary" onClick={grants.retry}>Try again</Button>}
         />
       ) : loaded.apps.length === 0 ? (
         <EmptyState icon={<AppWindowIcon />} title="No apps yet">
           When a web app asks to use your agents and you authorize it, it shows up here.
         </EmptyState>
       ) : (
-        <ItemGroup className="gap-0">
+        <ItemGroup className="gap-0 border-y border-border">
           {loaded.apps.map((app) => (
             <Item
               key={app.clientId}
@@ -81,16 +92,17 @@ export function GrantsSection() {
               className="items-start gap-3 rounded-none border-x-0 border-t-0 border-border px-0 py-4 last:border-b-0"
             >
               <ItemMedia>
-                <AppIcon label={app.clientName} logoUri={app.logoUri} className="size-8 rounded-lg" />
+                <AppIcon label={app.clientName} logoUri={app.logoUri} className="size-9 rounded-lg ring-1 ring-border" />
               </ItemMedia>
               <ItemContent className="min-w-0">
                 <ItemTitle className="w-full min-w-0 line-clamp-none text-base leading-6 font-semibold wrap-anywhere">{app.clientName}</ItemTitle>
-                {app.origin ? <ItemDescription className="line-clamp-none leading-6 font-medium text-foreground wrap-anywhere">{hostOf(app.origin)}</ItemDescription> : null}
+                {app.origin ? <ItemDescription className="line-clamp-none font-mono text-[13px] leading-6 text-foreground/80 wrap-anywhere">{hostOf(app.origin)}</ItemDescription> : null}
                 <p className="text-xs leading-5 text-muted-foreground">Authorized {formatDate(app.grantedAt)}</p>
+                <InUse sessions={sessions.filter((session) => session.clientId === app.clientId)} hostnames={hostnames} />
               </ItemContent>
               <ItemActions className="shrink-0">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   loading={revoking === app.clientId}
                   disabled={revoking !== "" && revoking !== app.clientId}
@@ -104,6 +116,22 @@ export function GrantsSection() {
         </ItemGroup>
       )}
     </section>
+  );
+}
+
+/** The agents an app has open right now, each with the device it runs on. */
+function InUse({ sessions, hostnames }: { sessions: LiveSessionInfo[]; hostnames: Map<string, string> }) {
+  if (sessions.length === 0) return null;
+  return (
+    <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Agents in use">
+      {sessions.map((session, index) => (
+        <li key={index} className="flex items-center gap-1.5 rounded-full bg-success-50 py-0.5 pr-2.5 pl-1.5 text-xs leading-5 text-success-900 ring-1 ring-success-200">
+          <AgentIcon agentType={session.agentType} className="text-sm" />
+          <span className="font-medium">{session.agentName}</span>
+          <span className="text-success-800/70">on {hostnames.get(session.deviceId) ?? "a removed device"}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

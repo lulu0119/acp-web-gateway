@@ -10,7 +10,7 @@ export function SectionHeading({ id, title, as: Heading = "h2", children, action
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
-        <Heading id={id} className="text-2xl leading-8 font-semibold tracking-tight">{title}</Heading>
+        <Heading id={id} className="font-display text-2xl leading-8 font-bold">{title}</Heading>
         <p className="max-w-prose text-sm leading-6 text-muted-foreground">{children}</p>
       </div>
       {action}

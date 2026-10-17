@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beginDeviceAuthorization, fetchPublicClients, pollDeviceAuthorization } from "@exterior/client";
-import { daemonPath, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
+import { connectionsPath, daemonPath, relayWebSocketUrl, type AgentSlot, type DaemonMessage, type DevicePlatform } from "@exterior/contract";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
 import WebSocket from "ws";
@@ -45,7 +45,7 @@ const surfaces: Surface[] = [
     // The dashboard fetches its data after load, so the heading alone would capture a spinner.
     ready: async (page) => {
       await page.waitForSelector("#devices-heading");
-      await page.waitForFunction(() => document.querySelectorAll("table tbody tr").length > 0);
+      await page.getByText("studio-mac", { exact: true }).waitFor();
     },
   },
   {
@@ -89,16 +89,37 @@ const surfaces: Surface[] = [
   },
   { name: "sign-in", path: "/sign-in", ready: async (page) => await page.waitForSelector("form") },
   { name: "device-code", path: "/device", ready: async (page) => await page.waitForSelector("form") },
+  {
+    name: "device-approval",
+    path: "/",
+    // A daemon that just asked to sign in, opened from the link it printed.
+    ready: async (page) => {
+      const origin = new URL(page.url()).origin;
+      const clients = await fetchPublicClients(origin);
+      const pending = await beginDeviceAuthorization({ relayUrl: origin, clientId: clients.daemonClientId });
+      await page.goto(`${origin}/device?user_code=${encodeURIComponent(pending.userCode)}`);
+      await page.waitForSelector("text=Connect this device?");
+    },
+  },
 ];
 
 /** Example's own mark, as the inline image a registered app in this fixture sends. */
 const fixtureLogo = `data:image/png;base64,${(await readFile(join(repositoryRoot, "apps/example/public/oauth-client-logo.png"))).toString("base64")}`;
 
-/** The devices the captures show: two online, one gone under an hour, one gone nine days. */
-const fixtureDevices: { id: string; hostname: string; agents: string[]; lastSeenMinutesAgo: number }[] = [
-  { id: "device-studio", hostname: "studio-mac", agents: ["work", "research"], lastSeenMinutesAgo: 0 },
-  { id: "device-laptop", hostname: "laptop", agents: ["work"], lastSeenMinutesAgo: 0 },
-  { id: "device-server", hostname: "build-server", agents: [], lastSeenMinutesAgo: 43 },
+/**
+ * The devices the captures show: two online, one gone under an hour, one gone nine days. The last
+ * one's daemon predates platform reports, so it shows the plain computer.
+ */
+const fixtureDevices: { id: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[]; lastSeenMinutesAgo: number }[] = [
+  {
+    id: "device-studio",
+    hostname: "studio-mac",
+    platform: "macos",
+    agents: [{ name: "work", agentType: "claude-acp" }, { name: "research", agentType: "codex-acp" }, { name: "opencode", agentType: "opencode" }],
+    lastSeenMinutesAgo: 0,
+  },
+  { id: "device-laptop", hostname: "laptop", platform: "windows", agents: [{ name: "work", agentType: "gemini" }], lastSeenMinutesAgo: 0 },
+  { id: "device-server", hostname: "build-server", platform: "linux", agents: [], lastSeenMinutesAgo: 43 },
   { id: "device-old", hostname: "old-laptop", agents: [], lastSeenMinutesAgo: 60 * 24 * 9 },
 ];
 
@@ -144,9 +165,16 @@ function authorizeUrl(publicUrl: string, clientId: string, redirectUri: string):
   return url.href;
 }
 
-/** Approves each fixture app through the consent page, so Authorized apps lists them. */
-async function authorizeApps(input: { publicUrl: string; sessionCookie: string }): Promise<void> {
+/** RFC 7636's example verifier, whose challenge `authorizeUrl` sends. */
+const codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+
+/**
+ * Approves each fixture app through the consent page and redeems its code, so Authorized apps lists
+ * them and each holds an access token to open agents with. Answers the tokens by app name.
+ */
+async function authorizeApps(input: { publicUrl: string; sessionCookie: string }): Promise<Map<string, string>> {
   const headers = { cookie: input.sessionCookie };
+  const tokens = new Map<string, string>();
   for (const fixture of fixtureApps) {
     const clientId = await registerApp(input.publicUrl, fixture);
     const url = authorizeUrl(input.publicUrl, clientId, fixture.redirect_uris[0] ?? "");
@@ -162,6 +190,40 @@ async function authorizeApps(input: { publicUrl: string; sessionCookie: string }
       redirect: "manual",
     });
     if (approved.status !== 302) throw new Error(`Authorizing ${fixture.client_name} failed (HTTP ${approved.status}).`);
+    const code = new URL(approved.headers.get("location") ?? "", input.publicUrl).searchParams.get("code") ?? "";
+    const exchanged = await fetch(`${input.publicUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: fixture.redirect_uris[0] ?? "",
+        client_id: clientId,
+        code_verifier: codeVerifier,
+        resource: input.publicUrl,
+      }),
+    });
+    if (!exchanged.ok) throw new Error(`Redeeming ${fixture.client_name}'s code failed (HTTP ${exchanged.status}).`);
+    tokens.set(fixture.client_name, ((await exchanged.json()) as { access_token: string }).access_token);
+  }
+  return tokens;
+}
+
+/** Agents the fixture apps hold open while the pages are captured, so devices and apps show who uses what. */
+const fixtureSessions: { app: string; deviceId: string; agentName: string }[] = [
+  { app: "Example", deviceId: "device-studio", agentName: "work" },
+  { app: "Notes", deviceId: "device-studio", agentName: "research" },
+  { app: "Example", deviceId: "device-laptop", agentName: "work" },
+];
+
+async function openFixtureSessions(input: { publicUrl: string; tokens: Map<string, string> }): Promise<void> {
+  for (const fixture of fixtureSessions) {
+    const opened = await fetch(new URL(connectionsPath, input.publicUrl), {
+      method: "POST",
+      headers: { authorization: `Bearer ${input.tokens.get(fixture.app) ?? ""}`, "content-type": "application/json" },
+      body: JSON.stringify({ deviceId: fixture.deviceId, agentName: fixture.agentName }),
+    });
+    if (!opened.ok) throw new Error(`${fixture.app} could not open ${fixture.agentName} (HTTP ${opened.status}).`);
   }
 }
 
@@ -258,12 +320,10 @@ async function seedAccount(input: { databasePath: string; publicUrl: string }): 
   const session = await context.internalAdapter.createSession(user.id);
   const devices = openDeviceStore(database);
   for (const fixture of fixtureDevices) {
-    devices.record({
-      userId: user.id,
-      deviceId: fixture.id,
-      hostname: fixture.hostname,
-      now: Date.now() - fixture.lastSeenMinutesAgo * 60 * 1000,
-    });
+    const seen = { userId: user.id, deviceId: fixture.id, hostname: fixture.hostname, now: Date.now() - fixture.lastSeenMinutesAgo * 60 * 1000 };
+    devices.record(seen);
+    // What the relay keeps from the device's last connection.
+    devices.touch({ ...seen, platform: fixture.platform });
   }
   database.close();
   const value = signSessionToken(session.token);
@@ -425,8 +485,8 @@ async function mintDaemonToken(input: { publicUrl: string; sessionCookie: string
   return tokens.accessToken;
 }
 
-/** A daemon that announces itself and then stays connected, so the pair shows agents, not "Shown when online". */
-async function connectDaemon(input: { publicUrl: string; accessToken: string; deviceId: string; hostname: string; agents: string[] }): Promise<{ close: () => void }> {
+/** A daemon that announces itself and then stays connected, so the pair shows agents, not "Agents shown when online". */
+async function connectDaemon(input: { publicUrl: string; accessToken: string; deviceId: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[] }): Promise<{ close: () => void }> {
   const socket = new WebSocket(relayWebSocketUrl(input.publicUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
   });
@@ -439,9 +499,15 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
     hostname: input.hostname,
     deviceId: input.deviceId,
     workingDirectory: "/home/ada/.local/share/exterior/workspace",
-    agents: input.agents.map((name) => ({ name, agentType: "opencode" })),
+    agents: input.agents,
+    ...(input.platform ? { platform: input.platform } : {}),
   };
   socket.send(JSON.stringify(hello));
+  // Agrees to every session, as a running agent would; nothing reads the frames.
+  socket.on("message", (data: Buffer) => {
+    const message = JSON.parse(data.toString()) as { type: string; sessionId?: string };
+    if (message.type === "open") socket.send(JSON.stringify({ type: "opened", sessionId: message.sessionId }));
+  });
   return { close: () => socket.close() };
 }
 
@@ -456,13 +522,14 @@ async function main(): Promise<void> {
   const daemons: { close: () => void }[] = [];
   const browser = await chromium.launch();
   try {
-    await authorizeApps({ publicUrl, sessionCookie: session.cookie });
+    const tokens = await authorizeApps({ publicUrl, sessionCookie: session.cookie });
     const accessToken = await mintDaemonToken({ publicUrl, sessionCookie: session.cookie });
     for (const fixture of fixtureDevices) {
       // Only the devices the pair should show as online hold a connection.
       if (fixture.lastSeenMinutesAgo !== 0) continue;
-      daemons.push(await connectDaemon({ publicUrl, accessToken, deviceId: fixture.id, hostname: fixture.hostname, agents: fixture.agents }));
+      daemons.push(await connectDaemon({ publicUrl, accessToken, deviceId: fixture.id, hostname: fixture.hostname, platform: fixture.platform, agents: fixture.agents }));
     }
+    await openFixtureSessions({ publicUrl, tokens });
     for (const file of await capture({ browser, publicUrl, sessionValue: session.value, options })) process.stdout.write(`${file}\n`);
   } finally {
     for (const daemon of daemons) daemon.close();
