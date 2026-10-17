@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
+import { devicePlatform, parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
 
 test("a daemon hello names the device, its working directory, and its agent configurations", () => {
   const hello = {
@@ -16,6 +16,22 @@ test("a daemon hello names the device, its working directory, and its agent conf
   assert.equal(parseDaemonMessage({ ...hello, workingDirectory: "" }), undefined);
   assert.equal(parseDaemonMessage({ ...hello, deviceId: undefined }), undefined);
   assert.equal(parseDaemonMessage({ type: "hello", hostname: "studio", agents: [] }), undefined);
+});
+
+test("a hello may name the device's platform, from a short list", () => {
+  const hello = {
+    type: "hello",
+    hostname: "studio",
+    deviceId: "device-studio-1",
+    workingDirectory: "/home/person/workspace",
+    agents: [],
+  };
+  assert.deepEqual(parseDaemonMessage({ ...hello, platform: "macos" }), { ...hello, platform: "macos" });
+  assert.equal(parseDaemonMessage({ ...hello, platform: "darwin" }), undefined);
+  assert.equal(devicePlatform("darwin"), "macos");
+  assert.equal(devicePlatform("win32"), "windows");
+  assert.equal(devicePlatform("linux"), "linux");
+  assert.equal(devicePlatform("freebsd"), undefined);
 });
 
 test("frames and session ids cross the relay unchanged", () => {

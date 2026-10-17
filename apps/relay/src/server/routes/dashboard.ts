@@ -49,8 +49,8 @@ export function readDashboard(account: Account, input: { registry: Registry; dev
   const devices: DeviceView[] = input.devices.list(account.userId).map((device) => {
     const live = online.get(device.id);
     return live
-      ? { id: device.id, hostname: live.hostname, online: true, agents: live.agents, lastSeenAt: device.lastSeenAt }
-      : { id: device.id, hostname: device.hostname, online: false, agents: [], lastSeenAt: device.lastSeenAt };
+      ? { id: device.id, hostname: live.hostname, platform: live.platform, online: true, agents: live.agents, lastSeenAt: device.lastSeenAt }
+      : { id: device.id, hostname: device.hostname, platform: device.platform, online: false, agents: [], lastSeenAt: device.lastSeenAt };
   });
   return { userName: account.userName, userImage: account.userImage, devices, sessions: input.registry.listSessions(account.userId) };
 }

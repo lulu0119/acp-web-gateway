@@ -1,15 +1,19 @@
-import type { AgentSlot } from "@exterior/contract";
+import type { AgentSlot, DevicePlatform } from "@exterior/contract";
 
 export type LiveSessionInfo = {
   deviceId: string;
   agentName: string;
   agentType: string;
+  /** The web app that opened the session; Authorized apps names it. */
+  clientId: string;
 };
 
 /** A signed-in device as the dashboard shows it. `online` while its daemon is connected; `agents` only then. */
 export type DeviceView = {
   id: string;
   hostname: string;
+  /** Absent when its daemon never reported one. */
+  platform?: DevicePlatform;
   online: boolean;
   agents: readonly AgentSlot[];
   /** Milliseconds since the epoch. */

@@ -35,6 +35,21 @@ test("hello advertises configured agents and the device directory", () => {
   ]);
 });
 
+test("hello names the device's platform when it has one", () => {
+  const sent: DaemonMessage[] = [];
+  const host = createDaemonHost({
+    deviceId: "device-studio-1",
+    hostname: "studio",
+    platform: "windows",
+    workingDirectory,
+    agents: [],
+    send: (message) => sent.push(message),
+    resolveLaunch: readyLaunch,
+  });
+  host.hello();
+  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [], platform: "windows" }]);
+});
+
 test("hello advertises a custom agent only while its command is installed", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({

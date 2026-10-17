@@ -1,5 +1,5 @@
 import { StringDecoder } from "node:string_decoder";
-import type { AgentSlot, DaemonMessage, RelayMessage } from "@exterior/contract";
+import type { AgentSlot, DaemonMessage, DevicePlatform, RelayMessage } from "@exterior/contract";
 import type { AgentLaunch } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
@@ -21,6 +21,7 @@ const maxFailureLength = 500;
 
 export function createDaemonHost(input: {
   hostname: string;
+  platform?: DevicePlatform;
   deviceId: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
@@ -51,6 +52,7 @@ export function createDaemonHost(input: {
         deviceId: input.deviceId,
         workingDirectory,
         agents,
+        ...(input.platform ? { platform: input.platform } : {}),
       });
     },
     setAgents(agents: readonly StoredAgent[]) {

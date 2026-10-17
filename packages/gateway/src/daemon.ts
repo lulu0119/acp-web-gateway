@@ -1,5 +1,5 @@
 import { DeviceRegistrationError } from "@exterior/client";
-import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
+import { daemonCloseCodes, daemonPath, devicePlatform, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
 import WebSocket from "ws";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import { usableWorkingDirectory, type GatewayConfig } from "./config.js";
@@ -192,6 +192,7 @@ function connectOnce(input: {
   }, input.heartbeatMs ?? defaultHeartbeatMs);
   const host = createDaemonHost({
     hostname: input.hostname,
+    platform: devicePlatform(process.platform),
     deviceId: input.deviceId,
     workingDirectory: input.config.workingDirectory,
     agents: input.config.agents,

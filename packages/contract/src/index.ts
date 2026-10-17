@@ -30,7 +30,12 @@ const namePattern = /^[^\r\n\t]{1,128}$/;
 const maxPayloadLength = 1_048_576;
 const maxFailureLength = 500;
 
+/** The operating system a device reports, so a page can show it. Absent from daemons that predate it. */
+export const devicePlatforms = ["macos", "windows", "linux"] as const;
+export type DevicePlatform = (typeof devicePlatforms)[number];
+
 const AgentTypeSchema = v.pipe(v.string(), v.regex(agentTypePattern));
+const PlatformSchema = v.picklist(devicePlatforms);
 const IdSchema = v.pipe(v.string(), v.regex(idPattern));
 const NameSchema = v.pipe(v.string(), v.regex(namePattern));
 const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
@@ -52,6 +57,7 @@ const HelloSchema = v.object({
    */
   workingDirectory: PathSchema,
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
+  platform: v.optional(PlatformSchema),
 });
 const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
 const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
@@ -77,6 +83,7 @@ export type Device = {
   hostname: string;
   workingDirectory: string;
   agents: readonly AgentSlot[];
+  platform?: DevicePlatform;
 };
 
 /** What a signed-in device tells the relay before its daemon connects. */
@@ -85,6 +92,16 @@ export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
 export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;
 
 export type RelayMessage = v.InferOutput<typeof RelayMessageSchema>;
+
+/** The platform to report for a Node.js `process.platform`, or none for a system Exterior does not name. */
+export function devicePlatform(nodePlatform: string): DevicePlatform | undefined {
+  switch (nodePlatform) {
+    case "darwin": return "macos";
+    case "win32": return "windows";
+    case "linux": return "linux";
+    default: return undefined;
+  }
+}
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
