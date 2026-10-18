@@ -14,9 +14,11 @@ A reviewer reads the body before the diff. The body states what changed, what pr
 1. Read the branch, the remotes, and the diff against the merge base with `git merge-base` and `git diff`. A branch with no commits of its own has nothing to open. Trace each changed file to its entry point, callers, and the state it owns.
 2. Run the checks `AGENTS.md` requires for what changed. Record the commands and what they printed.
 3. Compose the body from the template.
-4. When a page's appearance changed, follow [visual evidence](references/visual-evidence.md) for that page and upload with `upload-github-attachment`. A diff with no rendered change has no images.
-5. `gh pr create` with the title, base, and body. Reopen the pull request and confirm the title, base, tables, diagrams, and images.
-6. On review comments, fix the confirmed error, rerun the focused check, push, and reply with what ran.
+4. When the body has a diagram, render it with Pele and embed the pinned SVG as [diagrams](references/diagrams.md) describes. Commit and push the diagram files before composing the image URLs.
+5. When a page's appearance changed, follow [visual evidence](references/visual-evidence.md) for that page and upload with `upload-github-attachment`. A diff with no rendered change has no images.
+6. `gh pr create` with the title, base, and body. Reopen the pull request and confirm the title, base, tables, diagrams, and images.
+7. On review comments, fix the confirmed error, rerun the focused check, push, and reply with what ran.
+8. Before merge, remove `.github/pr-diagrams/<branch>/` in a last commit.
 
 ## Which sections
 
@@ -40,4 +42,4 @@ Leave "safe", "fixed", or "backward compatible" out unless the sentence names th
 
 Leave credentials and account rows out of the body. Open a screenshot before uploading it: the page shows the account's name and the devices.
 
-If `gh` cannot open the pull request, report the branch, the commit range, and the body. If the images could not be uploaded, report their local paths.
+If `gh` cannot open the pull request, report the branch, the commit range, and the body. If the images could not be uploaded or the diagrams could not be rendered, report their local paths.

@@ -16,6 +16,7 @@
     "relay": "pnpm --filter @exterior/relay... build && pnpm --filter @exterior/relay start"
   },
   "devDependencies": {
+    "pele": "^1.6.0",
     "pkg-pr-new": "^0.0.91"
   }
 }

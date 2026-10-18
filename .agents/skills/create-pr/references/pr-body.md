@@ -28,45 +28,57 @@ A small tree only when it makes the scope easier to read:
 
 ## Architecture and behavior
 
-Use a diagram when it is faster than prose. Pick one shape:
+Use a diagram when it is faster than prose. Render it to SVG with Pele and embed the image pinned to a commit, with the Mermaid source collapsed below it ([diagrams.md](diagrams.md)). Pick one shape:
 
 A cross-module change is a flowchart. Label arrows with the call or the data.
 
-```mermaid
-flowchart LR
-  Caller -->|request| Owner
-  Owner -->|persist| Store
-  Outside -->|event| Owner
-```
+![Flowchart: Caller, Outside, Owner, Store](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/flowchart.svg?sanitize=true)
+
+<details><summary>Mermaid source</summary>
+
+    flowchart LR
+      Caller -->|request| Owner
+      Owner -->|persist| Store
+      Outside -->|event| Owner
+
+</details>
 
 Ordering, async work, or cleanup is a sequence. Match each `alt` branch to a branch in the code.
 
-```mermaid
-sequenceDiagram
-  participant C as Caller
-  participant O as Owner
-  participant X as Outside
+![Sequence: Caller, Owner, Outside with a failure branch](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/sequence.svg?sanitize=true)
 
-  C->>O: request
-  O->>X: do the work
-  alt the work fails
-    X-->>O: failure
-    O-->>C: mapped error, cleanup done
-  else the work succeeds
-    X-->>O: result
-    O-->>C: result
-  end
-```
+<details><summary>Mermaid source</summary>
+
+    sequenceDiagram
+      participant C as Caller
+      participant O as Owner
+      participant X as Outside
+
+      C->>O: request
+      O->>X: do the work
+      alt the work fails
+        X-->>O: failure
+        O-->>C: mapped error, cleanup done
+      else the work succeeds
+        X-->>O: result
+        O-->>C: result
+      end
+
+</details>
 
 Changed transitions or terminal states are a state diagram. Name the event on each arrow.
 
-```mermaid
-stateDiagram-v2
-  [*] --> Pending
-  Pending --> Done: the completing event
-  Pending --> Abandoned: the giving-up event
-  Done --> [*]
-```
+![State: Pending to Done or Abandoned](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/state.svg?sanitize=true)
+
+<details><summary>Mermaid source</summary>
+
+    stateDiagram-v2
+      [*] --> Pending
+      Pending --> Done: the completing event
+      Pending --> Abandoned: the giving-up event
+      Done --> [*]
+
+</details>
 
 For a fix, show a before pair and an after pair that use the same participants, then state the step that changed. When a reviewer would expect a diagram and none applies: `Not applicable: this change does not change runtime flow.`
 
