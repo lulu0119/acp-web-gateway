@@ -1,5 +1,0 @@
-flowchart LR
-  Agent -->|writes .mmd| Script[scripts/render-diagram.mjs]
-  Script -->|pele render + inlined tokens| SVG[.svg on PR branch]
-  SVG -->|push, pin SHA| Raw[raw.githubusercontent.com ?sanitize=true]
-  Raw -->|image| Body[PR body]
