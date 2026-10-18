@@ -1,10 +1,11 @@
+import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Button } from "@exterior/ui/button";
 import { Dialog, DialogContent } from "@exterior/ui/dialog";
 import { Input } from "@exterior/ui/input";
 import { cn } from "cn";
 import { useEffect, useState } from "react";
 import { api, errorText, type RelayView, type SignInEvent } from "./api";
-import { SectionHeader } from "./app";
+import { InsetGroup, InsetRow, SectionIntro } from "./inset-group";
 import { relayHost, relayStatus, type Tone } from "./relay-status";
 
 type Load = { kind: "loading" } | { kind: "ready"; relays: RelayView[] } | { kind: "error"; message: string };
@@ -53,48 +54,49 @@ export function RelaysSection() {
   };
 
   const relays = load.kind === "ready" ? load.relays : [];
+  const icons = useAgentIcons();
   const openForm = () => setSignIn({ stage: "form", relay: "" });
   return (
-    <section aria-labelledby="relays" className="flex flex-col gap-4">
-      <SectionHeader
-        id="relays"
-        title="Relays"
-        action={relays.length > 0 && signIn.stage === "closed" ? <Button variant="outline" onClick={openForm}>Sign in to a relay</Button> : undefined}
-      >
-        Web apps reach this device's agents through the relays it is signed in to.
-      </SectionHeader>
+    <section aria-labelledby="section-title" className="flex flex-col gap-4">
+      <SectionIntro title="Relays">Web apps reach this device's agents through the relays it is signed in to.</SectionIntro>
+      {relays.length > 0 && signIn.stage === "closed" ? (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={openForm}>Sign in to a relay</Button>
+        </div>
+      ) : null}
       {signIn.stage !== "closed" ? <SignInPanel signIn={signIn} onStart={start} onCancel={cancel} onChange={(relay) => setSignIn({ stage: "form", relay })} /> : null}
       {load.kind === "loading" ? <p className="py-6 text-sm text-muted-foreground">Checking sign-ins…</p> : null}
       {load.kind === "error" ? <p className="text-sm text-danger-600 dark:text-danger-400">Could not read this device's sign-ins: {load.message}</p> : null}
       {load.kind === "ready" && relays.length === 0 && signIn.stage === "closed" ? (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border px-5 py-5">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">This device is not signed in</p>
-            <p className="text-sm text-muted-foreground">Sign in to a relay with your Exterior account, and web apps you allow can open the agents below.</p>
-          </div>
-          <Button onClick={openForm}>Sign in to a relay</Button>
-        </div>
+        <InsetGroup>
+          <InsetRow
+            title="This device is not signed in"
+            detail="Sign in to a relay with your Exterior account, and web apps you allow can open this device's agents."
+          >
+            <Button onClick={openForm}>Sign in to a relay</Button>
+          </InsetRow>
+        </InsetGroup>
       ) : null}
       {relays.length > 0 ? (
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {relays.map((relay) => <RelayRow key={relay.relayUrl} relay={relay} now={now} onSignIn={() => void start(relay.relayUrl)} />)}
-        </ul>
+        <InsetGroup>
+          {relays.map((relay) => <RelayRow key={relay.relayUrl} relay={relay} now={now} icons={icons} onSignIn={() => void start(relay.relayUrl)} />)}
+        </InsetGroup>
       ) : null}
     </section>
   );
 }
 
-function RelayRow({ relay, now, onSignIn }: { relay: RelayView; now: number; onSignIn: () => void }) {
+function RelayRow({ relay, now, icons, onSignIn }: { relay: RelayView; now: number; icons: Map<string, string | undefined>; onSignIn: () => void }) {
   const status = relayStatus(relay, now);
   const [starting, setStarting] = useState(false);
   return (
-    <li className="flex items-start gap-4 px-4 py-3.5">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <div className="flex items-start gap-4 px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="selectable truncate text-sm leading-6 font-medium">{relayHost(relay.relayUrl)}</span>
           <StatusLabel tone={status.tone}>{status.label}</StatusLabel>
         </div>
-        <p className="selectable text-sm leading-5 text-muted-foreground">{status.detail}</p>
+        {status.agents?.length ? <AgentMarks names={status.agents} icons={icons} /> : <p className="selectable text-sm leading-5 text-muted-foreground">{status.detail}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {status.action === "sign-in" ? <Button size="sm" onClick={onSignIn}>Sign in again</Button> : null}
@@ -105,8 +107,54 @@ function RelayRow({ relay, now, onSignIn }: { relay: RelayView; now: number; onS
         ) : null}
         <SignOutButton relayUrl={relay.relayUrl} />
       </div>
-    </li>
+    </div>
   );
+}
+
+const stackLimit = 5;
+
+function AgentMarks({ names, icons }: { names: string[]; icons: Map<string, string | undefined> }) {
+  const summary = names.length === 1 ? names[0] : `${names.length} agents`;
+  const hidden = names.length - stackLimit;
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
+        {names.slice(0, stackLimit).map((name) => (
+          <li key={name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={name}>
+            <AgentIcon iconUrl={icons.get(name)} className="size-4" />
+          </li>
+        ))}
+        {hidden > 0 ? (
+          <li className="relative flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
+            +{hidden}<span className="sr-only"> more agents</span>
+          </li>
+        ) : null}
+      </ul>
+      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={names.join(", ")} aria-hidden>{summary}</p>
+    </div>
+  );
+}
+
+/** Agent names from the daemon, matched to registry marks through the configurations on this device. */
+function useAgentIcons(): Map<string, string | undefined> {
+  const [icons, setIcons] = useState<Map<string, string | undefined>>(new Map());
+  useEffect(() => {
+    let gone = false;
+    const load = () => {
+      Promise.all([api.agents(), api.agentTypes()]).then(([agents, types]) => {
+        if (gone) return;
+        const byType = new Map(types.map((type) => [type.id, type.icon]));
+        setIcons(new Map(agents.map((agent) => [agent.name, byType.get(agent.agentType)])));
+      }, () => undefined);
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => {
+      gone = true;
+      window.removeEventListener("focus", load);
+    };
+  }, []);
+  return icons;
 }
 
 function StatusLabel({ tone, children }: { tone: Tone; children: string }) {
@@ -176,7 +224,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
   if (signIn.stage === "waiting") {
     const expired = now > signIn.expiresAt;
     return (
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/40 px-5 py-5">
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card px-4 py-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-medium">Approve this device on {relayHost(signIn.relay)}</p>
           <p className="text-sm text-muted-foreground">
@@ -198,7 +246,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
   const starting = signIn.stage === "starting";
   return (
     <form
-      className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 px-5 py-5"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-4"
       onSubmit={(event) => {
         event.preventDefault();
         if (signIn.relay.trim()) onStart(signIn.relay.trim());
