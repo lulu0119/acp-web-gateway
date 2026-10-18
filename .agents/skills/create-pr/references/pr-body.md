@@ -32,7 +32,7 @@ Use a diagram when it is faster than prose. Render it to SVG with Pele and embed
 
 A cross-module change is a flowchart. Label arrows with the call or the data.
 
-![Flowchart: Caller, Outside, Owner, Store](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/flowchart.svg?sanitize=true)
+![Flowchart: Caller, Outside, Owner, Store](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/flowchart.svg)
 
 <details><summary>Mermaid source</summary>
 
@@ -45,7 +45,7 @@ A cross-module change is a flowchart. Label arrows with the call or the data.
 
 Ordering, async work, or cleanup is a sequence. Match each `alt` branch to a branch in the code.
 
-![Sequence: Caller, Owner, Outside with a failure branch](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/sequence.svg?sanitize=true)
+![Sequence: Caller, Owner, Outside with a failure branch](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/sequence.svg)
 
 <details><summary>Mermaid source</summary>
 
@@ -68,7 +68,7 @@ Ordering, async work, or cleanup is a sequence. Match each `alt` branch to a bra
 
 Changed transitions or terminal states are a state diagram. Name the event on each arrow.
 
-![State: Pending to Done or Abandoned](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/state.svg?sanitize=true)
+![State: Pending to Done or Abandoned](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/state.svg)
 
 <details><summary>Mermaid source</summary>
 

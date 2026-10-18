@@ -19,7 +19,7 @@ The script also reads stdin and writes stdout when the paths are omitted. It inl
 3. Reference the image pinned to that SHA. A branch URL breaks when the branch moves or is deleted. A repo-relative path does not resolve in a pull request body.
 
 ```markdown
-![Flow from Caller through Owner to Store](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/<name>.svg?sanitize=true)
+![Flow from Caller through Owner to Store](https://raw.githubusercontent.com/<owner>/<repo>/<sha>/.github/pr-diagrams/<branch>/<name>.svg)
 
 <details><summary>Mermaid source</summary>
 
@@ -29,7 +29,7 @@ The script also reads stdin and writes stdout when the paths are omitted. It inl
 </details>
 ```
 
-`?sanitize=true` makes GitHub serve the file as `image/svg+xml`. Without it the raw host serves `text/plain` and the image does not render. Indent the source in `<details>` instead of fencing it as `mermaid`, so GitHub shows the text and not a second rendering.
+The raw host serves `.svg` as `image/svg+xml`, so GitHub shows it inline. Request the URL only after the push: a URL fetched before the commit exists stays a cached 404 for several minutes. Indent the source in `<details>` instead of fencing it as `mermaid`, so GitHub shows the text and not a second rendering.
 
 4. Reopen the pull request and confirm each image loads.
 
