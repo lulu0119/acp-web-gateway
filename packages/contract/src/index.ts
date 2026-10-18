@@ -13,6 +13,9 @@ export const clientRegistryPath = "/api/clients/register";
 export const grantsPath = "/api/grants";
 export const devicesScope = "devices offline_access";
 
+/** The ACP registry the daemon launches from and the relay reads agent icons from. */
+export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
+
 /**
  * Why the relay closed a daemon's socket. `replaced`: a newer connection announced the same device id.
  * `removed`: the device is not registered to the account, because it was removed or never registered.
@@ -30,7 +33,7 @@ const namePattern = /^[^\r\n\t]{1,128}$/;
 const maxPayloadLength = 1_048_576;
 const maxFailureLength = 500;
 
-/** The operating system a device reports, so a page can show it. Absent from daemons that predate it. */
+/** The operating system a device reports, so a page can show it. */
 export const devicePlatforms = ["macos", "windows", "linux"] as const;
 export type DevicePlatform = (typeof devicePlatforms)[number];
 
@@ -57,7 +60,7 @@ const HelloSchema = v.object({
    */
   workingDirectory: PathSchema,
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
-  platform: v.optional(PlatformSchema),
+  platform: PlatformSchema,
 });
 const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
 const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
@@ -83,7 +86,7 @@ export type Device = {
   hostname: string;
   workingDirectory: string;
   agents: readonly AgentSlot[];
-  platform?: DevicePlatform;
+  platform: DevicePlatform;
 };
 
 /** What a signed-in device tells the relay before its daemon connects. */

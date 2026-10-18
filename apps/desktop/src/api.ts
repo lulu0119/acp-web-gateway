@@ -20,7 +20,7 @@ export type RelayView = {
 
 export type AgentConfig = { name: string; agentType: string; envNames: string[]; command?: string[] };
 
-export type AgentType = { id: string; name: string; description?: string; ready: boolean; reason?: string };
+export type AgentType = { id: string; name: string; description?: string; icon?: string; ready: boolean; reason?: string };
 
 /** The directory sessions work in, and whether the person chose it. */
 export type WorkingDirectory = { workingDirectory: string; source: "chosen" | "default" };

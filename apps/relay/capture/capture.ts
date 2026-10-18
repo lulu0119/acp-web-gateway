@@ -108,7 +108,7 @@ const fixtureLogo = `data:image/png;base64,${(await readFile(join(repositoryRoot
 
 /**
  * The devices the captures show: two online, one gone under an hour, one gone nine days. The last
- * one's daemon predates platform reports, so it shows the plain computer.
+ * one never reported a platform, so its card has no operating-system icon.
  */
 const fixtureDevices: { id: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[]; lastSeenMinutesAgo: number }[] = [
   {
@@ -442,9 +442,10 @@ async function capture(input: { browser: Browser; publicUrl: string; sessionValu
       const response = await page.goto(`${input.publicUrl}${surface.path}`, { waitUntil: "domcontentloaded" });
       if (!response?.ok()) throw new Error(`${surface.path} answered ${response?.status() ?? "no response"}`);
       await surface.ready(page);
-      // Custom fonts load after the DOM settles; a capture before they land shows fallback metrics.
+      // Fonts and remote marks load after the DOM settles; a capture before they land shows fallback metrics or empty circles.
       await page.evaluate(async () => {
         await document.fonts.ready;
+        await Promise.all([...document.images].map((img) => (img.complete ? undefined : img.decode().catch(() => undefined))));
       });
       await page.mouse.move(0, 0);
       const file = join(input.options.outDir, input.options.label, `${surface.name}-${input.options.viewport}.png`);
@@ -486,7 +487,7 @@ async function mintDaemonToken(input: { publicUrl: string; sessionCookie: string
 }
 
 /** A daemon that announces itself and then stays connected, so the pair shows agents, not "Agents shown when online". */
-async function connectDaemon(input: { publicUrl: string; accessToken: string; deviceId: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[] }): Promise<{ close: () => void }> {
+async function connectDaemon(input: { publicUrl: string; accessToken: string; deviceId: string; hostname: string; platform: DevicePlatform; agents: AgentSlot[] }): Promise<{ close: () => void }> {
   const socket = new WebSocket(relayWebSocketUrl(input.publicUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
   });
@@ -500,7 +501,7 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
     deviceId: input.deviceId,
     workingDirectory: "/home/ada/.local/share/exterior/workspace",
     agents: input.agents,
-    ...(input.platform ? { platform: input.platform } : {}),
+    platform: input.platform,
   };
   socket.send(JSON.stringify(hello));
   // Agrees to every session, as a running agent would; nothing reads the frames.
@@ -527,6 +528,7 @@ async function main(): Promise<void> {
     for (const fixture of fixtureDevices) {
       // Only the devices the pair should show as online hold a connection.
       if (fixture.lastSeenMinutesAgo !== 0) continue;
+      if (!fixture.platform) throw new Error(`${fixture.hostname} is online without a platform.`);
       daemons.push(await connectDaemon({ publicUrl, accessToken, deviceId: fixture.id, hostname: fixture.hostname, platform: fixture.platform, agents: fixture.agents }));
     }
     await openFixtureSessions({ publicUrl, tokens });

@@ -2,7 +2,7 @@ import { cn } from "cn";
 import { ChevronDownIcon, CircleAlertIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { DashboardData, DeviceView, GrantedApp, LiveSessionInfo, SetupGuideData } from "../../shared/account-web.js";
-import { AgentIcon, agentTypeName } from "@exterior/ui/agent-icon";
+import { AgentIcon } from "@exterior/ui/agent-icon";
 import { DeviceIcon, platformName } from "@exterior/ui/device-icon";
 import { EmptyState } from "@exterior/ui/empty-state";
 import { AppIcon } from "../components/app-icon";
@@ -101,18 +101,15 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
           </div>
 
           {data.devices.length === 0 ? (
-            <div className="flex flex-col gap-6">
-              <EmptyState icon={<LaptopIcon />} title="No devices yet">
-                Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Follow either set of steps below.
-              </EmptyState>
-              <SetupGuide guide={guide} />
-            </div>
+            <EmptyState icon={<LaptopIcon />} title="No devices yet">
+              Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Use Add device to set one up or enter its code.
+            </EmptyState>
           ) : (
-            <DeviceList devices={data.devices} sessions={data.sessions} apps={grants.loaded.state === "ready" ? grants.loaded.apps : []} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
+            <DeviceList devices={data.devices} sessions={data.sessions} apps={grants.loaded.state === "ready" ? grants.loaded.apps : []} agentIcons={data.agentIcons} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
           )}
         </section>
 
-        <GrantsSection grants={grants} devices={data.devices} sessions={data.sessions} />
+        <GrantsSection grants={grants} devices={data.devices} sessions={data.sessions} agentIcons={data.agentIcons} />
       </main>
 
       <Dialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
@@ -185,10 +182,11 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
   );
 }
 
-function DeviceList({ devices, sessions, apps, onRemove }: {
+function DeviceList({ devices, sessions, apps, agentIcons, onRemove }: {
   devices: DeviceView[];
   sessions: DashboardData["sessions"];
   apps: GrantedApp[];
+  agentIcons: Record<string, string>;
   onRemove: (device: DeviceView) => void;
 }) {
   const appsById = new Map(apps.map((app) => [app.clientId, app]));
@@ -197,7 +195,7 @@ function DeviceList({ devices, sessions, apps, onRemove }: {
   return (
     <ul className="grid items-start gap-3 sm:grid-cols-2" aria-label="Devices">
       {sorted.map((device) => {
-        const system = platformName(device.platform);
+        const system = device.platform ? platformName(device.platform) : undefined;
         return (
           <li
             key={device.id}
@@ -207,15 +205,17 @@ function DeviceList({ devices, sessions, apps, onRemove }: {
             )}
           >
             <div className="flex items-start gap-3">
-              <span
-                className={cn(
-                  "flex size-11 shrink-0 items-center justify-center rounded-xl text-2xl",
-                  device.online ? "bg-muted text-foreground" : "bg-background text-muted-foreground",
-                )}
-                title={system}
-              >
-                <DeviceIcon platform={device.platform} />
-              </span>
+              {device.platform ? (
+                <span
+                  className={cn(
+                    "flex size-11 shrink-0 items-center justify-center rounded-xl text-2xl",
+                    device.online ? "bg-muted text-foreground" : "bg-background text-muted-foreground",
+                  )}
+                  title={system}
+                >
+                  <DeviceIcon platform={device.platform} />
+                </span>
+              ) : null}
               <div className="flex min-w-0 flex-1 flex-col">
                 <h3 className={cn("text-base leading-6 font-semibold wrap-anywhere", !device.online && "text-muted-foreground")}>{device.hostname}</h3>
                 <p className="flex flex-wrap items-center gap-x-2 text-xs leading-5 text-muted-foreground">
@@ -225,7 +225,7 @@ function DeviceList({ devices, sessions, apps, onRemove }: {
               </div>
               <Button variant="ghost" size="sm" className="-mt-0.5 -mr-1 text-muted-foreground" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
             </div>
-            <AgentStack device={device} sessions={sessions.filter((session) => session.deviceId === device.id)} apps={appsById} />
+            <AgentStack device={device} sessions={sessions.filter((session) => session.deviceId === device.id)} apps={appsById} agentIcons={agentIcons} />
           </li>
         );
       })}
@@ -235,36 +235,36 @@ function DeviceList({ devices, sessions, apps, onRemove }: {
 
 const stackLimit = 5;
 
-/** A device's agents as overlapping marks, a green dot on each in use, and the apps using them. */
-function AgentStack({ device, sessions, apps }: { device: DeviceView; sessions: LiveSessionInfo[]; apps: Map<string, GrantedApp> }) {
+/** A device's agents as overlapping marks, and the apps using the device. */
+function AgentStack({ device, sessions, apps, agentIcons }: {
+  device: DeviceView;
+  sessions: LiveSessionInfo[];
+  apps: Map<string, GrantedApp>;
+  agentIcons: Record<string, string>;
+}) {
   if (!device.online) return <p className="text-sm leading-6 text-muted-foreground">Agents shown when online</p>;
   if (device.agents.length === 0) {
     return <p className="text-sm leading-6 text-muted-foreground">No agents yet. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</p>;
   }
-  const busy = new Set(sessions.map((session) => session.agentName));
   const users = [...new Set(sessions.map((session) => session.clientId))];
+  const names = device.agents.map((agent) => agent.name);
+  const summary = names.length === 1 ? names[0] : `${names.length} agents`;
   const hidden = device.agents.length - stackLimit;
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <ul className="flex shrink-0 -space-x-2" aria-label="Agents">
-        {/* Earlier marks sit on top, so each in-use dot stays in view over its right neighbor. */}
-        {device.agents.slice(0, stackLimit).map((agent, index) => {
-          const label = `${agent.name}, ${agentTypeName(agent.agentType)}${busy.has(agent.name) ? ", in use" : ""}`;
-          return (
-            <li key={agent.name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card text-base ring-2 ring-card" style={{ zIndex: stackLimit - index }} title={label}>
-              <AgentIcon agentType={agent.agentType} />
-              <span className="sr-only">{label}</span>
-              {busy.has(agent.name) ? <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success-500 ring-2 ring-card" aria-hidden /> : null}
-            </li>
-          );
-        })}
+      <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
+        {device.agents.slice(0, stackLimit).map((agent) => (
+          <li key={agent.name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
+            <AgentIcon iconUrl={agentIcons[agent.agentType]} className="size-4" />
+          </li>
+        ))}
         {hidden > 0 ? (
           <li className="relative flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
             +{hidden}<span className="sr-only"> more agents</span>
           </li>
         ) : null}
       </ul>
-      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" aria-hidden>{device.agents.map((agent) => agent.name).join(", ")}</p>
+      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={names.join(", ")} aria-hidden>{summary}</p>
       {users.length > 0 ? <InUseBy users={users} apps={apps} /> : null}
     </div>
   );
@@ -274,7 +274,7 @@ function AgentStack({ device, sessions, apps }: { device: DeviceView; sessions: 
 function InUseBy({ users, apps }: { users: string[]; apps: Map<string, GrantedApp> }) {
   const names = users.map((clientId) => apps.get(clientId)?.clientName ?? "An app");
   return (
-    <span className="flex shrink-0 items-center gap-1.5 text-xs leading-5 text-success-800" title={`In use by ${names.join(", ")}`}>
+    <span className="flex shrink-0 items-center gap-1.5 text-xs leading-5 text-muted-foreground" title={`In use by ${names.join(", ")}`}>
       <span className="flex -space-x-1.5">
         {users.slice(0, 3).map((clientId, index) => (
           <AppIcon key={clientId} label={names[index]} logoUri={apps.get(clientId)?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />

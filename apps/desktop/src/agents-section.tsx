@@ -1,3 +1,4 @@
+import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
 import { Dialog, DialogContent } from "@exterior/ui/dialog";
@@ -75,7 +76,8 @@ export function AgentsSection() {
 function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: AgentType; onRemoved: () => void }) {
   const custom = agent.command !== undefined;
   return (
-    <li className="flex items-start gap-4 px-4 py-3.5">
+    <li className="flex items-start gap-3 px-4 py-3.5">
+      <AgentIcon iconUrl={custom ? undefined : type?.icon} className="mt-0.5 size-5" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="selectable truncate text-sm leading-6 font-medium">{agent.name}</span>

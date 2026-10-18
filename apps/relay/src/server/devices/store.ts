@@ -5,7 +5,7 @@ import type Database from "better-sqlite3";
 export type StoredDevice = {
   id: string;
   hostname: string;
-  /** The operating system its daemon last reported, if that daemon reports one. */
+  /** The operating system its daemon last reported. Absent until a daemon has connected. */
   platform?: DevicePlatform;
   createdAt: number;
   lastSeenAt: number;
@@ -14,7 +14,10 @@ export type StoredDevice = {
 export type DeviceStore = {
   /** Records a device for the account. A device id another account already holds is refused. */
   record(input: { userId: string; deviceId: string; hostname: string; now?: number }): boolean;
-  /** Notes that a registered device was seen. Answers false when the account has no such device. */
+  /**
+   * Notes that a registered device was seen. A missing platform leaves the one already stored.
+   * Answers false when the account has no such device.
+   */
   touch(input: { userId: string; deviceId: string; hostname: string; platform?: DevicePlatform; now?: number }): boolean;
   /** Answers false when the account has no such device. */
   remove(input: { userId: string; deviceId: string }): boolean;
@@ -39,7 +42,7 @@ export function openDeviceStore(database: Database.Database): DeviceStore {
     values (@deviceId, @userId, @hostname, @now, @now)
     on conflict (id) do update set hostname = excluded.hostname, last_seen_at = excluded.last_seen_at
     where exterior_device.user_id = excluded.user_id`);
-  const update = database.prepare(`update exterior_device set hostname = @hostname, platform = @platform, last_seen_at = @now
+  const update = database.prepare(`update exterior_device set hostname = @hostname, platform = coalesce(@platform, platform), last_seen_at = @now
     where id = @deviceId and user_id = @userId`);
   const forget = database.prepare("delete from exterior_device where id = @deviceId and user_id = @userId");
   const select = database.prepare<[string], Row>(

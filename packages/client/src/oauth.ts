@@ -526,6 +526,6 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 function isDevice(value: unknown): value is Device {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.hostname !== "string" || !Array.isArray(value.agents)) return false;
   if (typeof value.workingDirectory !== "string") return false;
-  if (value.platform !== undefined && !(devicePlatforms as readonly unknown[]).includes(value.platform)) return false;
+  if (!(devicePlatforms as readonly unknown[]).includes(value.platform)) return false;
   return value.agents.every((agent) => isRecord(agent) && typeof agent.name === "string" && typeof agent.agentType === "string");
 }

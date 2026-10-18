@@ -34,7 +34,12 @@ export function useGrants(): Grants {
   return { loaded, load, retry: () => { setLoaded({ state: "loading" }); void load(); } };
 }
 
-export function GrantsSection({ grants, devices, sessions }: { grants: Grants; devices: DeviceView[]; sessions: LiveSessionInfo[] }) {
+export function GrantsSection({ grants, devices, sessions, agentIcons }: {
+  grants: Grants;
+  devices: DeviceView[];
+  sessions: LiveSessionInfo[];
+  agentIcons: Record<string, string>;
+}) {
   const { loaded, load } = grants;
   const [revoking, setRevoking] = useState("");
   const [problem, setProblem] = useState("");
@@ -98,7 +103,7 @@ export function GrantsSection({ grants, devices, sessions }: { grants: Grants; d
                 <ItemTitle className="w-full min-w-0 line-clamp-none text-base leading-6 font-semibold wrap-anywhere">{app.clientName}</ItemTitle>
                 {app.origin ? <ItemDescription className="line-clamp-none font-mono text-[13px] leading-6 text-foreground/80 wrap-anywhere">{hostOf(app.origin)}</ItemDescription> : null}
                 <p className="text-xs leading-5 text-muted-foreground">Authorized {formatDate(app.grantedAt)}</p>
-                <InUse sessions={sessions.filter((session) => session.clientId === app.clientId)} hostnames={hostnames} />
+                <InUse sessions={sessions.filter((session) => session.clientId === app.clientId)} hostnames={hostnames} agentIcons={agentIcons} />
               </ItemContent>
               <ItemActions className="shrink-0">
                 <Button
@@ -120,13 +125,13 @@ export function GrantsSection({ grants, devices, sessions }: { grants: Grants; d
 }
 
 /** The agents an app has open right now, each with the device it runs on. */
-function InUse({ sessions, hostnames }: { sessions: LiveSessionInfo[]; hostnames: Map<string, string> }) {
+function InUse({ sessions, hostnames, agentIcons }: { sessions: LiveSessionInfo[]; hostnames: Map<string, string>; agentIcons: Record<string, string> }) {
   if (sessions.length === 0) return null;
   return (
     <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Agents in use">
       {sessions.map((session, index) => (
         <li key={index} className="flex items-center gap-1.5 rounded-full bg-success-50 py-0.5 pr-2.5 pl-1.5 text-xs leading-5 text-success-900 ring-1 ring-success-200">
-          <AgentIcon agentType={session.agentType} className="text-sm" />
+          <AgentIcon iconUrl={agentIcons[session.agentType]} className="size-3.5" />
           <span className="font-medium">{session.agentName}</span>
           <span className="text-success-800/70">on {hostnames.get(session.deviceId) ?? "a removed device"}</span>
         </li>

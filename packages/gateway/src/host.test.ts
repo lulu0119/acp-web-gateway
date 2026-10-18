@@ -15,6 +15,7 @@ test("hello advertises configured agents and the device directory", () => {
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [{ name: "work", agentType: "opencode", env: {} }],
     send: (message) => sent.push(message),
@@ -30,12 +31,13 @@ test("hello advertises configured agents and the device directory", () => {
       hostname: "studio",
       deviceId: "device-studio-1",
       workingDirectory,
+      platform: "linux",
       agents: [{ name: "work", agentType: "opencode" }],
     },
   ]);
 });
 
-test("hello names the device's platform when it has one", () => {
+test("hello reports the platform it was given", () => {
   const sent: DaemonMessage[] = [];
   const host = createDaemonHost({
     deviceId: "device-studio-1",
@@ -55,13 +57,14 @@ test("hello advertises a custom agent only while its command is installed", () =
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [{ name: "mine", agentType: "custom", env: {}, command: "my-agent" }],
     send: (message) => sent.push(message),
     resolveLaunch: () => undefined,
   });
   host.hello();
-  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [] }]);
+  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] }]);
 });
 
 test("open pipes one agent and the agent exiting tells the relay to close", () => {
@@ -71,6 +74,7 @@ test("open pipes one agent and the agent exiting tells the relay to close", () =
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [agent],
     send: (message) => sent.push(message),
@@ -98,6 +102,7 @@ test("an unknown agent fails without a process", () => {
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [],
     send: (message) => sent.push(message),
@@ -115,6 +120,7 @@ test("hello omits an agent the registry cannot launch", () => {
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [agent],
     send: (message) => sent.push(message),
@@ -126,7 +132,7 @@ test("hello omits an agent the registry cannot launch", () => {
   host.hello();
   host.receive({ type: "open", sessionId, agentName: "work" });
   assert.deepEqual(sent, [
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [] },
+    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] },
     { type: "open-failed", sessionId, message: "That agent is not configured." },
   ]);
 });
@@ -137,6 +143,7 @@ test("a new agent list says hello again, and an open session keeps its agent", (
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [agent],
     send: (message) => sent.push(message),
@@ -152,7 +159,7 @@ test("a new agent list says hello again, and an open session keeps its agent", (
   host.receive({ type: "open", sessionId: "session-3", agentName: "other" });
   assert.deepEqual(sent, [
     { type: "opened", sessionId },
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, agents: [{ name: "other", agentType: "opencode" }] },
+    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "other", agentType: "opencode" }] },
     { type: "open-failed", sessionId: "session-2", message: "That agent is not configured." },
     { type: "opened", sessionId: "session-3" },
   ]);
@@ -167,6 +174,7 @@ test("an argument a batch script cannot take fails the open instead of reaching 
   const host = createDaemonHost({
     deviceId: "device-studio-1",
     hostname: "studio",
+    platform: "linux",
     workingDirectory,
     agents: [agent],
     send: (message) => sent.push(message),

@@ -21,7 +21,7 @@ const maxFailureLength = 500;
 
 export function createDaemonHost(input: {
   hostname: string;
-  platform?: DevicePlatform;
+  platform: DevicePlatform;
   deviceId: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
@@ -52,7 +52,7 @@ export function createDaemonHost(input: {
         deviceId: input.deviceId,
         workingDirectory,
         agents,
-        ...(input.platform ? { platform: input.platform } : {}),
+        platform: input.platform,
       });
     },
     setAgents(agents: readonly StoredAgent[]) {

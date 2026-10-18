@@ -41,7 +41,7 @@ A redirect to `localhost` is asked every time, even for an approved app: any pro
 
 ## Devices and agents
 
-With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and, from daemons that report it, its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` returns a one-time ticket `{ url, agentType, agentName }` to use as the ACP connection. `createAgentConnector({ relayUrl, accessToken, target })` owns the ticket lifecycle for one user intent: `open()` never mints two tickets for one click, `reopen()` takes a fresh ticket, and sessions are never resumed. `parseTicketCloseReason` reads the relay's `ticket-used` / `ticket-expired` / `ticket-gone` close reasons; `needsFreshTicket` says whether a fresh ticket is the recovery.
+With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` returns a one-time ticket `{ url, agentType, agentName }` to use as the ACP connection. `createAgentConnector({ relayUrl, accessToken, target })` owns the ticket lifecycle for one user intent: `open()` never mints two tickets for one click, `reopen()` takes a fresh ticket, and sessions are never resumed. `parseTicketCloseReason` reads the relay's `ticket-used` / `ticket-expired` / `ticket-gone` close reasons; `needsFreshTicket` says whether a fresh ticket is the recovery.
 
 ## Tokens and identity
 

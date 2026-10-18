@@ -171,6 +171,11 @@ function connectOnce(input: {
   catalog: readonly RegistryAgent[];
   heartbeatMs?: number;
 }): Promise<"failed" | "disconnected" | "replaced" | "removed" | "unauthorized" | "forbidden"> {
+  const platform = devicePlatform(process.platform);
+  if (!platform) {
+    input.inform("This operating system is not one Exterior reports.");
+    return Promise.resolve("failed");
+  }
   const socket = new WebSocket(relayWebSocketUrl(input.relayUrl, daemonPath), {
     headers: { authorization: `Bearer ${input.accessToken}` },
     handshakeTimeout: 10_000,
@@ -192,7 +197,7 @@ function connectOnce(input: {
   }, input.heartbeatMs ?? defaultHeartbeatMs);
   const host = createDaemonHost({
     hostname: input.hostname,
-    platform: devicePlatform(process.platform),
+    platform,
     deviceId: input.deviceId,
     workingDirectory: input.config.workingDirectory,
     agents: input.config.agents,

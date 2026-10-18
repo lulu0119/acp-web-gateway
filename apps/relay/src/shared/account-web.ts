@@ -28,6 +28,8 @@ export type DashboardData = {
   userImage?: string;
   devices: DeviceView[];
   sessions: LiveSessionInfo[];
+  /** Registry icon addresses keyed by agent type. Absent types have no mark. */
+  agentIcons: Record<string, string>;
 };
 
 /** Code highlighted on the server, so pages ship HTML instead of a highlighter. */

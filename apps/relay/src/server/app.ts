@@ -4,6 +4,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { useLogg } from "@guiiai/logg";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createAgentCatalog, type AgentCatalog } from "./agents/catalog.js";
 import type { Registry } from "./connections/registry.js";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
@@ -31,6 +32,7 @@ export function createRelayApp(input: {
   readAccess?: ReadAccess;
   /** How often sockets are pinged; tests shorten it. */
   heartbeatMs?: number;
+  catalog?: AgentCatalog;
 }) {
   const app = new Hono<RelayEnv>();
   const sockets = createNodeWebSocket({ app });
@@ -72,7 +74,8 @@ export function createRelayApp(input: {
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get(publicClientsPath, (c) => c.json(input.clients));
   mountAccountPages(app, input.exterior, input.githubConfigured, render);
-  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, daemonClientId, render });
+  const catalog = input.catalog ?? createAgentCatalog();
+  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, daemonClientId, render, catalog });
   mountClients(app, input.exterior);
   mountConnections(app, {
     exterior: input.exterior,

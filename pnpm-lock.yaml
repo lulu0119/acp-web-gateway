@@ -358,9 +358,6 @@ importers:
       '@iconify/tailwind4':
         specifier: ^1.2.3
         version: 1.2.3(tailwindcss@4.3.3)
-      '@proj-airi/lobe-icons':
-        specifier: ^1.0.19
-        version: 1.0.19
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1165,9 +1162,6 @@ packages:
 
   '@proj-airi/chromatic@1.1.5':
     resolution: {integrity: sha512-Ho+Za7Na8glOAe6OPOtbm376c/Y2gswCy1YyP13fGD5f5gI7WYq+/AJnDAFOQoE0NGhdTCoqFFsRpagq5W7S4w==}
-
-  '@proj-airi/lobe-icons@1.0.19':
-    resolution: {integrity: sha512-hBB/MUYqzckzMXYDLZ7/4HRuldqEvLKhMzTcVPLUOdXR0sn9y4vk+k14tynwgeePCrUKSUTP/bnPdETqvWJzqw==}
 
   '@quansync/fs@1.1.0':
     resolution: {integrity: sha512-qAPG/t3HqML1TlN7sY/pTbEjzFVAKsMjNNMGheyDosro+kT4iw2KCUoHcVdmliwWjorm4elZbgNQyU2eD97eDg==}
@@ -5804,10 +5798,6 @@ snapshots:
   '@proj-airi/chromatic@1.1.5':
     dependencies:
       culori: 4.0.2
-
-  '@proj-airi/lobe-icons@1.0.19':
-    dependencies:
-      '@iconify/types': 2.0.0
 
   '@quansync/fs@1.1.0':
     dependencies:

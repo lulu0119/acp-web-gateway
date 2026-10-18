@@ -25,7 +25,7 @@ const permissions = [{ scope: "devices", title: "Use agents on your devices", de
 test("all pages use the shared stylesheet and each loads only its own script", () => {
   const render = createPageRenderer(readWebAssets(publicDir));
   const account = render.account({ kind: "sign-in", query: "", configured: true });
-  const dashboard = render.dashboard({ userName: "Ada", devices: [], sessions: [] }, guide);
+  const dashboard = render.dashboard({ userName: "Ada", devices: [], sessions: [], agentIcons: {} }, guide);
   for (const html of [account, dashboard]) assert.match(html, /href="\/assets\/styles-abc\.css"/);
   assert.doesNotMatch(account, /dashboard-abc\.js/);
   assert.match(account, /src="\/assets\/account-abc\.js"/);
@@ -68,7 +68,7 @@ test("account pages show the signed-in person's avatar, or their initial without
 });
 
 test("the dashboard escapes embedded props", () => {
-  const html = createPageRenderer({ stylesheets: [] }).dashboard({ userName: '</script><script>alert("x")</script>', devices: [], sessions: [] }, guide);
+  const html = createPageRenderer({ stylesheets: [] }).dashboard({ userName: '</script><script>alert("x")</script>', devices: [], sessions: [], agentIcons: {} }, guide);
   assert.match(html, /id="props"/);
   assert.doesNotMatch(html, /<\/script><script>/);
 });
@@ -82,7 +82,7 @@ test("account pages keep rendering without a web build", () => {
 
 test("development pages use Vite assets without a production manifest", () => {
   const render = createPageRenderer(readWebAssets(join(publicDir, "missing"), "http://127.0.0.1:47102"));
-  const html = render.dashboard({ userName: "Ada", devices: [], sessions: [] }, guide);
+  const html = render.dashboard({ userName: "Ada", devices: [], sessions: [], agentIcons: {} }, guide);
   assert.match(html, /href="http:\/\/127.0.0.1:47102\/styles.css"/);
   assert.match(html, /src="http:\/\/127.0.0.1:47102\/main.tsx"/);
   assert.match(html, /src="http:\/\/127.0.0.1:47102\/@vite\/client"/);

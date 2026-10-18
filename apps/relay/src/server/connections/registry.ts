@@ -25,7 +25,7 @@ type LiveDaemon = {
   userId: string;
   deviceId: string;
   hostname: string;
-  platform?: DevicePlatform;
+  platform: DevicePlatform;
   workingDirectory: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
@@ -59,7 +59,7 @@ export type DaemonCloseReason = "replaced" | "removed";
  * Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept.
  * Answers false when the account has no such device, and the daemon is turned away.
  */
-export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform?: DevicePlatform }) => boolean;
+export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform: DevicePlatform }) => boolean;
 
 export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: "used" | "expired" | "gone" };
 
@@ -254,7 +254,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           hostname: daemon.hostname,
           agents: daemon.agents,
           workingDirectory: daemon.workingDirectory,
-          ...(daemon.platform ? { platform: daemon.platform } : {}),
+          platform: daemon.platform,
         }));
     },
     listSessions(userId) {

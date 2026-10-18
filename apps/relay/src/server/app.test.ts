@@ -26,11 +26,11 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
     await once(daemon, "open");
     const denied = await fetch(`${base}/api/devices`);
     assert.equal(denied.status, 401);
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const listed = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
     assert.deepEqual(await listed.json(), {
-      devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }],
+      devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }], platform: "linux" }],
     });
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/connections`, {
@@ -80,7 +80,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/connections`, {
@@ -129,7 +129,7 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/connections`, {
@@ -210,7 +210,7 @@ test("a reconnecting device closes its old socket as replaced, and a socket that
   const base = `http://127.0.0.1:${port}`;
   const daemonUrl = `ws://127.0.0.1:${port}/api/daemon`;
   const headers = { "x-user-id": "ada", "x-client-id": daemonClientId };
-  const hello = JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [] });
+  const hello = JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [] });
   const old = new WebSocket(daemonUrl, { headers });
   let silent: WebSocket | undefined;
   try {
@@ -248,7 +248,7 @@ test("a daemon for a device the account has not registered is closed as removed"
   try {
     await once(daemon, "open");
     const closed = once(daemon, "close");
-    daemon.send(JSON.stringify({ type: "hello", hostname: "studio", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] }));
+    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] }));
     const [code] = (await closed) as [number];
     assert.equal(code, daemonCloseCodes.removed);
   } finally {

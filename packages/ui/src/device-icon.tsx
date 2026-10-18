@@ -10,11 +10,11 @@ const platformIcons: Record<DevicePlatform, string> = {
 
 const platformNames: Record<DevicePlatform, string> = { macos: "macOS", windows: "Windows", linux: "Linux" };
 
-/** A device's operating system, or a plain computer when its daemon did not say. Sized by font size. */
-export function DeviceIcon({ platform, className }: { platform?: DevicePlatform; className?: string }) {
-  return <span className={cn(platform ? platformIcons[platform] : "icon-[mingcute--computer-line]", "shrink-0", className)} aria-hidden />;
+/** A device's operating system. Sized by font size. */
+export function DeviceIcon({ platform, className }: { platform: DevicePlatform; className?: string }) {
+  return <span className={cn(platformIcons[platform], "shrink-0", className)} aria-hidden />;
 }
 
-export function platformName(platform: DevicePlatform | undefined): string | undefined {
-  return platform ? platformNames[platform] : undefined;
+export function platformName(platform: DevicePlatform): string {
+  return platformNames[platform];
 }

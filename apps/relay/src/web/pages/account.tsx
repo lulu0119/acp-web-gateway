@@ -57,11 +57,11 @@ function AccountContent({ page }: { page: AccountPageData }) {
   }
 }
 
-function Shell({ header, children, footer, wide }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+function Shell({ header, children, footer, wide, framed = true }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean; framed?: boolean }) {
   return (
     <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
       <div className="flex flex-col items-center gap-5 text-center">{header}</div>
-      <div className="flex w-full flex-col gap-6 sm:rounded-2xl sm:bg-card sm:p-8 sm:ring-1 sm:ring-border">{children}</div>
+      <div className={cn("flex w-full flex-col gap-6", framed && "sm:rounded-2xl sm:bg-card sm:p-8 sm:ring-1 sm:ring-border")}>{children}</div>
       {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
     </div>
   );
@@ -80,6 +80,7 @@ function SignedInAs({ account }: { account: AccountView }) {
 function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> }) {
   return (
     <Shell
+      framed={page.configured}
       header={(
         <>
           <ExteriorMark className="size-14" />

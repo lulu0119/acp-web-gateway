@@ -6,13 +6,14 @@ import { createRegistry, type BrowserSocket } from "./registry.js";
 test("a device is online only for the account that connected it, under its device id", () => {
   const registry = createRegistry();
   const ada = registry.connectDaemon({ userId: "ada", close: () => undefined, send: () => undefined });
-  ada.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  ada.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   assert.deepEqual(registry.listDevices("ada"), [
     {
       id: "device-studio-1",
       hostname: "studio",
       agents: [{ name: "work", agentType: "opencode" }],
       workingDirectory: "/home/ada/work",
+      platform: "linux",
     },
   ]);
   assert.deepEqual(registry.listDevices("bea"), []);
@@ -24,7 +25,7 @@ test("a daemon for a device the account has not registered is turned away", () =
   const registry = createRegistry({ seen: ({ deviceId }) => deviceId === "device-studio-1" });
   const closed: string[] = [];
   const stranger = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  stranger.receive({ type: "hello", hostname: "elsewhere", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] });
+  stranger.receive({ type: "hello", platform: "linux", hostname: "elsewhere", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] });
   assert.deepEqual(closed, ["removed"]);
   assert.deepEqual(registry.listDevices("ada"), []);
 });
@@ -33,7 +34,7 @@ test("disconnecting a removed device ends its connection and its sessions", asyn
   const registry = createRegistry({ openTimeoutMs: 1_000 });
   const closed: string[] = [];
   const daemon = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
   registry.disconnectDevice({ userId: "bea", deviceId: "device-studio-1" });
   assert.deepEqual(closed, []);
@@ -46,7 +47,7 @@ test("disconnecting a removed device ends its connection and its sessions", asyn
 test("a device lists the working directory its daemon reported", () => {
   const registry = createRegistry();
   const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: () => undefined });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/.local/share/exterior/workspace", agents: [] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/.local/share/exterior/workspace", agents: [] });
   assert.equal(registry.listDevices("ada")[0]?.workingDirectory, "/home/ada/.local/share/exterior/workspace");
 });
 
@@ -54,7 +55,7 @@ test("a newer connection with the same device id takes the place of the old one"
   const registry = createRegistry({ openTimeoutMs: 1_000 });
   const closed: string[] = [];
   const old = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  const hello: DaemonMessage = { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] };
+  const hello: DaemonMessage = { type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] };
   old.receive(hello);
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
   const bea = registry.connectDaemon({ userId: "bea", close: () => assert.fail("another account's connection was closed"), send: () => undefined });
@@ -80,7 +81,7 @@ test("opening a session waits until the device starts the agent, then the ticket
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const deviceId = registry.listDevices("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId, agentName: "work" });
@@ -113,7 +114,7 @@ test("a ticket that nobody claims ends the session", async () => {
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ now: () => clock, openTimeoutMs: 50, ticketTtlMs: 10 });
   const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const deviceId = registry.listDevices("ada")[0]?.id ?? "";
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId, agentName: "work" });
   const open = sent[0];
@@ -131,7 +132,7 @@ test("a socket that dies before any frame does not burn the ticket", async () =>
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const deviceId = registry.listDevices("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId, agentName: "work" });
@@ -168,7 +169,7 @@ test("a second infant take supersedes the first, keeping one live socket", async
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const deviceId = registry.listDevices("ada")[0]?.id ?? "";
 
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId, agentName: "work" });
@@ -202,9 +203,9 @@ test("live sessions are listed per account without reading ACP payloads", async 
   const sent: RelayMessage[] = [];
   const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000 });
   const ada = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  ada.receive({ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  ada.receive({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   const bea = registry.connectDaemon({ userId: "bea", close: () => undefined, send: () => undefined });
-  bea.receive({ type: "hello", hostname: "field", deviceId: "device-field-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
+  bea.receive({ type: "hello", platform: "linux", hostname: "field", deviceId: "device-field-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] });
   assert.deepEqual(registry.listSessions("ada"), []);
   const deviceId = registry.listDevices("ada")[0]?.id ?? "";
   const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId, agentName: "work" });
