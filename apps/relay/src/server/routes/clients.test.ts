@@ -111,6 +111,52 @@ test("an app named by its metadata document is one client, and its own origin vo
   );
 });
 
+test("a browser sees a page when the app's description cannot be downloaded", async () => {
+  const documentUrl = "https://app.example.test/oauth-client.json";
+  const { app } = await openRegistry({
+    fetchClientMetadataResource: () => {
+      throw new Error("offline");
+    },
+  });
+  const authorize = authorizeRequest(documentUrl);
+  const shown = await app.request(authorize, { headers: { accept: "text/html" } });
+  assert.equal(shown.status, 400);
+  assert.match(shown.headers.get("content-type") ?? "", /text\/html/);
+  assert.equal(shown.headers.get("x-frame-options"), "DENY");
+  const page = await shown.text();
+  assert.match(page, /Exterior could not reach this app/);
+  assert.match(page, /The app's description could not be downloaded/);
+  assert.match(page, /Try again/);
+  assert.doesNotMatch(page, /invalid_client/);
+
+  const { app: rawApp } = await openRegistry({
+    fetchClientMetadataResource: () => {
+      throw new Error("offline");
+    },
+  });
+  const raw = await rawApp.request(authorize, { headers: { accept: "application/json" } });
+  assert.equal(raw.status, 400);
+  assert.match(raw.headers.get("content-type") ?? "", /json/);
+  assert.equal(((await raw.json()) as { error: string }).error, "invalid_client");
+});
+
+test("a browser sees that the app's description did not download in time", async () => {
+  const documentUrl = "https://app.example.test/oauth-client.json";
+  const { app } = await openRegistry({
+    fetchClientMetadataResource: (_input, init) => new Promise((_resolve, reject) => {
+      const abort = () => reject(new DOMException("The operation was aborted", "AbortError"));
+      if (init?.signal?.aborted) abort();
+      else init?.signal?.addEventListener("abort", abort, { once: true });
+    }),
+  });
+  const shown = await app.request(authorizeRequest(documentUrl), { headers: { accept: "text/html" } });
+  assert.equal(shown.status, 400);
+  const page = await shown.text();
+  assert.match(page, /did not download in time/);
+  assert.match(page, new RegExp(`href="${authorizeRequest(documentUrl).pathname}\\?[^"]*oauth-client\\.json`));
+  assert.doesNotMatch(page, /5000ms/);
+}, 15_000);
+
 test("an app on this computer is asked every time, and so is one that asks for consent", async () => {
   const { app, cookie } = await openRegistry();
   const local = "http://localhost:5173/callback";
@@ -244,16 +290,22 @@ async function approveQuery(app: Hono<RelayEnv>, cookie: string, query: string):
   assert.match(approved.headers.get("location") ?? "", /[?&]code=/);
 }
 
-async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: string, redirectUri: string, prompt?: string): Promise<string> {
+function authorizeRequest(clientId: string): URL {
   const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
   authorize.searchParams.set("client_id", clientId);
-  authorize.searchParams.set("redirect_uri", redirectUri);
+  authorize.searchParams.set("redirect_uri", "https://app.example.test/callback");
   authorize.searchParams.set("response_type", "code");
   authorize.searchParams.set("scope", "devices offline_access");
   authorize.searchParams.set("state", "browser-state");
   authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   authorize.searchParams.set("code_challenge_method", "S256");
   authorize.searchParams.set("resource", publicUrl);
+  return authorize;
+}
+
+async function authorizeLocation(app: Hono<RelayEnv>, cookie: string, clientId: string, redirectUri: string, prompt?: string): Promise<string> {
+  const authorize = authorizeRequest(clientId);
+  authorize.searchParams.set("redirect_uri", redirectUri);
   if (prompt) authorize.searchParams.set("prompt", prompt);
   const prompted = await app.request(authorize, { headers: { cookie } });
   assert.equal(prompted.status, 302, await prompted.clone().text());

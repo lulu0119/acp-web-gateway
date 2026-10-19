@@ -9,6 +9,7 @@ import type { Registry } from "./connections/registry.js";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
+import { readBrowserAuthorizeError } from "./identity/authorize-error.js";
 import { guardAuthRequest } from "./identity/clients.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
@@ -95,7 +96,15 @@ export function createRelayApp(input: {
   app.use("/assets/*", serveStatic({ root: publicDir }));
   app.all("/api/auth/*", async (c) => {
     const guarded = await guardAuthRequest(input.exterior, c.req.raw);
-    return guarded instanceof Response ? guarded : input.exterior.auth.handler(guarded);
+    if (guarded instanceof Response) return guarded;
+    const response = await input.exterior.auth.handler(guarded);
+    const page = await readBrowserAuthorizeError(c.req.raw, response);
+    if (!page) return response;
+    const status = response.status === 401 || response.status === 403 || response.status === 429 ? response.status : 400;
+    return c.html(render.account(page), status, {
+      "X-Frame-Options": "DENY",
+      "Content-Security-Policy": "frame-ancestors 'none'",
+    });
   });
 
   return { app, injectWebSocket: sockets.injectWebSocket };
