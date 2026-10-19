@@ -254,12 +254,12 @@ function AgentStack({ device, sessions, apps, agentIcons }: {
     <div className="flex min-w-0 items-center gap-3">
       <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
         {device.agents.slice(0, stackLimit).map((agent) => (
-          <li key={agent.name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
+          <li key={agent.name} className="flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
             <AgentIcon iconUrl={agentIcons[agent.agentType]} className="size-4" />
           </li>
         ))}
         {hidden > 0 ? (
-          <li className="relative flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
+          <li className="flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
             +{hidden}<span className="sr-only"> more agents</span>
           </li>
         ) : null}
@@ -276,9 +276,10 @@ function InUseBy({ users, apps }: { users: string[]; apps: Map<string, GrantedAp
   return (
     <span className="flex shrink-0 items-center gap-2 text-xs leading-5 text-muted-foreground" title={`In use by ${names.join(", ")}`}>
       <span className="flex -space-x-2">
-        {users.slice(0, 3).map((clientId, index) => (
-          <AppIcon key={clientId} label={names[index]} logoUri={apps.get(clientId)?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />
-        ))}
+        {users.slice(0, 3).map((clientId) => {
+          const app = apps.get(clientId);
+          return <AppIcon key={clientId} label={app?.clientName ?? "An app"} logoUri={app?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />;
+        })}
       </span>
       <span className="font-medium">{users.length === 1 ? names[0] : `${users.length} apps`}</span>
     </span>

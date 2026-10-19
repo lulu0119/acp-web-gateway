@@ -120,12 +120,12 @@ function AgentMarks({ names, icons }: { names: string[]; icons: Map<string, stri
     <div className="flex min-w-0 items-center gap-3">
       <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
         {names.slice(0, stackLimit).map((name) => (
-          <li key={name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={name}>
+          <li key={name} className="flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={name}>
             <AgentIcon iconUrl={icons.get(name)} className="size-4" />
           </li>
         ))}
         {hidden > 0 ? (
-          <li className="relative flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
+          <li className="flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
             +{hidden}<span className="sr-only"> more agents</span>
           </li>
         ) : null}

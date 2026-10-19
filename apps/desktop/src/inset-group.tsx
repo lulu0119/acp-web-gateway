@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 
 /** The section's explanation, in its own card above the groups. */
-export function SectionIntro({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
+export function SectionIntro({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex gap-3 rounded-lg border border-border bg-card p-4">
-      {icon ? <div className="mt-1 shrink-0 text-foreground">{icon}</div> : null}
       <div className="min-w-0">
         <p className="text-sm leading-5 font-medium text-foreground">{title}</p>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">{children}</p>

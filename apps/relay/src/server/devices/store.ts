@@ -31,13 +31,11 @@ export function openDeviceStore(database: Database.Database): DeviceStore {
     id text primary key,
     user_id text not null,
     hostname text not null,
+    platform text,
     created_at integer not null,
     last_seen_at integer not null
   )`);
   database.exec("create index if not exists exterior_device_user on exterior_device (user_id)");
-  // Added after the table first shipped; a relay that already has the table gains the column here.
-  const columns = database.prepare<[], { name: string }>("pragma table_info(exterior_device)").all();
-  if (!columns.some((column) => column.name === "platform")) database.exec("alter table exterior_device add column platform text");
   const upsert = database.prepare(`insert into exterior_device (id, user_id, hostname, created_at, last_seen_at)
     values (@deviceId, @userId, @hostname, @now, @now)
     on conflict (id) do update set hostname = excluded.hostname, last_seen_at = excluded.last_seen_at
