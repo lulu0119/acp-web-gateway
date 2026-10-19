@@ -20,7 +20,7 @@ export type RelayView = {
 
 export type AgentConfig = { name: string; agentType: string; envNames: string[]; command?: string[] };
 
-export type AgentType = { id: string; name: string; description?: string; ready: boolean; reason?: string };
+export type AgentType = { id: string; name: string; description?: string; icon?: string; ready: boolean; reason?: string };
 
 /** The directory sessions work in, and whether the person chose it. */
 export type WorkingDirectory = { workingDirectory: string; source: "chosen" | "default" };
@@ -47,6 +47,7 @@ export const api = {
   signOut: (relay: string) => invoke<void>("sign_out", { relay }),
   startDaemon: (relay: string) => invoke<void>("start_daemon", { relay }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  dragWindow: () => invoke<void>("drag_window"),
   onRelays: (handler: (views: RelayView[]) => void): Promise<UnlistenFn> =>
     listen<RelayView[]>("relays-changed", (event) => handler(event.payload)),
   onSignIn: (handler: (event: SignInEvent) => void): Promise<UnlistenFn> =>

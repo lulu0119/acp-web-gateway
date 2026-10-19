@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./button.js";
@@ -27,9 +26,9 @@ export function CopyButton({ text, label, iconOnly, className }: { text: string;
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       size={iconOnly ? "icon-sm" : "sm"}
-      className={cn(iconOnly && "text-muted-foreground hover:bg-background/80", className)}
+      className={className}
       onClick={() => void copy()}
       aria-label={iconOnly ? status : undefined}
       title={iconOnly ? status : undefined}

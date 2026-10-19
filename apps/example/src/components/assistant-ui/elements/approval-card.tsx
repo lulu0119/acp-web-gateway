@@ -82,7 +82,7 @@ export function ApprovalCard({
       aria-describedby={description ? descriptionId : undefined}
       className={cn(
         paper,
-        "flex w-full max-w-sm flex-col gap-3.5 rounded-[20px] p-4",
+        "flex w-full max-w-sm flex-col gap-4 rounded-[20px] p-4",
         className,
       )}
     >
@@ -116,7 +116,7 @@ export function ApprovalCard({
         <div
           className={cn(
             field,
-            "text-foreground/70 rounded-xl px-3.5 py-2.5 font-mono text-xs",
+            "text-foreground/70 rounded-xl p-4 font-mono text-xs",
           )}
         >
           {command}
@@ -125,7 +125,7 @@ export function ApprovalCard({
 
       {details?.length ? (
         <dl
-          className={cn(field, "flex flex-col gap-2 rounded-xl px-3.5 py-2.5")}
+          className={cn(field, "flex flex-col gap-2 rounded-xl p-4")}
         >
           {details.map((detail, index) => (
             <div
@@ -151,7 +151,7 @@ export function ApprovalCard({
                 onClick={onDeny}
                 className={cn(
                   ghostButton,
-                  "h-8 px-3.5 text-xs font-medium whitespace-nowrap",
+                  "h-8 px-4 text-xs font-medium whitespace-nowrap",
                 )}
               >
                 {denyLabel}
@@ -164,7 +164,7 @@ export function ApprovalCard({
                 onClick={onAlwaysAllow}
                 className={cn(
                   ghostButton,
-                  "h-8 px-3.5 text-xs font-medium whitespace-nowrap",
+                  "h-8 px-4 text-xs font-medium whitespace-nowrap",
                 )}
               >
                 {alwaysAllowLabel}
@@ -179,7 +179,7 @@ export function ApprovalCard({
                   variant === "destructive"
                     ? "text-background bg-red-600 transition-[background-color,scale] duration-150 hover:bg-red-600/90 active:scale-[0.96] motion-reduce:transition-none dark:bg-red-400 dark:text-red-950 dark:hover:bg-red-400/90"
                     : inkButton,
-                  "flex h-8 items-center rounded-full px-3.5 text-xs font-medium whitespace-nowrap",
+                  "flex h-8 items-center rounded-full px-4 text-xs font-medium whitespace-nowrap",
                 )}
               >
                 {allowOnceLabel}

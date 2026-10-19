@@ -127,7 +127,7 @@ export function ManageAgentsLink({ className }: { className?: string }) {
       href={exteriorRelayUrl()}
       target="_blank"
       rel="noreferrer"
-      className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "justify-start gap-2 px-2", className)}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-start gap-2 px-2", className)}
     >
       <BotIcon className="size-4" aria-hidden />
       Agents

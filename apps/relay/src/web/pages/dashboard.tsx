@@ -1,13 +1,16 @@
+import { cn } from "cn";
 import { ChevronDownIcon, CircleAlertIcon, KeyRoundIcon, LaptopIcon, PlusIcon, TerminalIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { DashboardData, DeviceView, SetupGuideData } from "../../shared/account-web.js";
+import type { DashboardData, DeviceView, GrantedApp, LiveSessionInfo, SetupGuideData } from "../../shared/account-web.js";
+import { AgentIcon } from "@exterior/ui/agent-icon";
+import { DeviceIcon, platformName } from "@exterior/ui/device-icon";
 import { EmptyState } from "@exterior/ui/empty-state";
-import { GrantsSection } from "../components/grants-section";
+import { AppIcon } from "../components/app-icon";
+import { GrantsSection, useGrants } from "../components/grants-section";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { SectionHeading } from "@exterior/ui/section-heading";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
-import { Badge } from "@exterior/ui/badge";
 import { Button, buttonVariants } from "@exterior/ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "@exterior/ui/button-group";
 import { Dialog, DialogContent } from "@exterior/ui/dialog";
@@ -23,6 +26,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const [removing, setRemoving] = useState<DeviceView | undefined>();
   const [removePending, setRemovePending] = useState(false);
   const [problem, setProblem] = useState("");
+  const grants = useGrants();
 
   const load = useCallback(async () => {
     try {
@@ -68,46 +72,45 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const online = data.devices.filter((device) => device.online).length;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
+    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-8 px-4 pt-6 pb-12 sm:gap-12 sm:px-6">
       <header className="flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
+        <a href="/" className="flex items-center gap-2">
           <ExteriorMark className="size-7" />
-          Exterior
+          <span className="font-display text-lg font-bold">Exterior</span>
         </a>
         <UserMenu userName={data.userName} userImage={data.userImage} />
       </header>
 
-      <section className="flex flex-col gap-6" aria-labelledby="devices-heading">
-        <SectionHeading id="devices-heading" title="Devices" as="h1" action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}>
-          Computers signed in to your account. Web apps you authorize open agents on the online ones.
-        </SectionHeading>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-6 text-muted-foreground">
-          <span><span className="font-medium text-foreground">{data.devices.length}</span> {data.devices.length === 1 ? "device" : "devices"}</span>
-          <span className="inline-flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-success-500" />
-            <span><span className="font-medium text-foreground">{online}</span> online</span>
-          </span>
-          <span><span className="font-medium text-foreground">{data.sessions.length}</span> live {data.sessions.length === 1 ? "connection" : "connections"}</span>
-          {stale ? (
-            <span className="basis-full" role="status">
-              Couldn't refresh. Showing data from {new Date(refreshedAt).toLocaleTimeString()}; retrying.
+      <main className="flex min-w-0 flex-col gap-12">
+        <section className="flex flex-col gap-6" aria-labelledby="devices-heading">
+          <SectionHeading id="devices-heading" title="Devices" as="h1" action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}>
+            Computers signed in to your account. Web apps you authorize open agents on the online ones.
+          </SectionHeading>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm leading-6 text-muted-foreground">
+            <span><span className="font-medium text-foreground">{data.devices.length}</span> {data.devices.length === 1 ? "device" : "devices"}</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="size-1.5 rounded-full bg-success-500" />
+              <span><span className="font-medium text-foreground">{online}</span> online</span>
             </span>
-          ) : null}
-        </div>
-
-        {data.devices.length === 0 ? (
-          <div className="flex flex-col gap-6">
-            <EmptyState icon={<LaptopIcon />} title="No devices yet">
-              Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Follow either set of steps below.
-            </EmptyState>
-            <SetupGuide guide={guide} />
+            <span><span className="font-medium text-foreground">{data.sessions.length}</span> live {data.sessions.length === 1 ? "connection" : "connections"}</span>
+            {stale ? (
+              <span className="basis-full" role="status">
+                Couldn't refresh. Showing data from {new Date(refreshedAt).toLocaleTimeString()}; retrying.
+              </span>
+            ) : null}
           </div>
-        ) : (
-          <DeviceTable devices={data.devices} sessions={data.sessions} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
-        )}
-      </section>
 
-      <GrantsSection />
+          {data.devices.length === 0 ? (
+            <EmptyState icon={<LaptopIcon />} title="No devices yet">
+              Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Use Add device to set one up or enter its code.
+            </EmptyState>
+          ) : (
+            <DeviceList devices={data.devices} sessions={data.sessions} apps={grants.loaded.state === "ready" ? grants.loaded.apps : []} agentIcons={data.agentIcons} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
+          )}
+        </section>
+
+        <GrantsSection grants={grants} devices={data.devices} sessions={data.sessions} agentIcons={data.agentIcons} />
+      </main>
 
       <Dialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
         {removing ? (
@@ -159,15 +162,15 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
           <ChevronDownIcon aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuItem onClick={onSetUp} className="items-start gap-2.5 py-2">
-            <TerminalIcon className="mt-0.5" />
+          <DropdownMenuItem onClick={onSetUp} className="items-start gap-2 py-2">
+            <TerminalIcon className="mt-1" />
             <span className="flex flex-col">
               <span className="font-medium">Set up a new device</span>
               <span className="text-xs text-muted-foreground">The desktop app, an AI assistant, or a terminal</span>
             </span>
           </DropdownMenuItem>
-          <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2.5 py-2">
-            <KeyRoundIcon className="mt-0.5" />
+          <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2 py-2">
+            <KeyRoundIcon className="mt-1" />
             <span className="flex flex-col">
               <span className="font-medium">Enter a device code</span>
               <span className="text-xs text-muted-foreground">The code the app or <code className="font-mono">exterior login</code> shows</span>
@@ -179,67 +182,50 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
   );
 }
 
-function DeviceTable({ devices, sessions, onRemove }: { devices: DeviceView[]; sessions: DashboardData["sessions"]; onRemove: (device: DeviceView) => void }) {
-  const live = new Map<string, number>();
-  for (const session of sessions) {
-    const key = `${session.deviceId}\t${session.agentName}`;
-    live.set(key, (live.get(key) ?? 0) + 1);
-  }
+function DeviceList({ devices, sessions, apps, agentIcons, onRemove }: {
+  devices: DeviceView[];
+  sessions: DashboardData["sessions"];
+  apps: GrantedApp[];
+  agentIcons: Record<string, string>;
+  onRemove: (device: DeviceView) => void;
+}) {
+  const appsById = new Map(apps.map((app) => [app.clientId, app]));
   const sorted = [...devices].sort((a, b) => Number(b.online) - Number(a.online) || b.lastSeenAt - a.lastSeenAt);
 
   return (
-    <div>
-      <table className="w-full text-sm leading-6 sm:table-fixed">
-        <thead className="hidden border-b border-border text-left text-xs leading-5 text-muted-foreground sm:table-header-group">
-          <tr>
-            <th scope="col" className="w-2/5 py-3 pr-4 font-medium">Device</th>
-            <th scope="col" className="w-2/5 px-4 py-3 font-medium">Agents</th>
-            <th scope="col" className="w-1/5 px-4 py-3 font-medium">Last seen</th>
-            <th scope="col" className="w-24 py-3 pl-4"><span className="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {sorted.map((device) => (
-            <tr key={device.id} className="flex flex-col gap-1 py-4 sm:table-row sm:p-0">
-              <td className="sm:py-4 sm:pr-4 sm:align-top">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><LaptopIcon className="size-4" /></span>
-                  <span className="min-w-0 text-base leading-6 font-semibold wrap-anywhere">{device.hostname}</span>
-                </div>
-              </td>
-              <td className="pl-11 sm:px-4 sm:py-4 sm:align-top">
-                <AgentList device={device} live={live} />
-              </td>
-              <td className="pl-11 text-xs leading-5 whitespace-nowrap sm:px-4 sm:py-4 sm:align-top">
-                <Presence device={device} />
-              </td>
-              <td className="pt-1 pl-11 sm:py-3 sm:pl-4 sm:text-right sm:align-top">
-                <Button variant="secondary" size="sm" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AgentList({ device, live }: { device: DeviceView; live: Map<string, number> }) {
-  if (!device.online) return <span className="text-muted-foreground">Shown when online</span>;
-  if (device.agents.length === 0) {
-    return <span className="text-muted-foreground">None configured. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</span>;
-  }
-  return (
-    <ul className="flex flex-wrap gap-1.5">
-      {device.agents.map((agent) => {
-        const count = live.get(`${device.id}\t${agent.name}`) ?? 0;
+    <ul className="grid items-start gap-3 sm:grid-cols-2" aria-label="Devices">
+      {sorted.map((device) => {
+        const system = device.platform ? platformName(device.platform) : undefined;
         return (
-          <li key={agent.name}>
-            <Badge variant="secondary" className="h-6 gap-1.5 px-2" title={agent.agentType}>
-              {agent.name}
-              {agent.name !== agent.agentType ? <span className="font-mono text-muted-foreground">{agent.agentType}</span> : null}
-              {count > 0 ? <span className="rounded-full bg-success-100 px-1.5 text-success-800">{count} live</span> : null}
-            </Badge>
+          <li
+            key={device.id}
+            className={cn(
+              "flex min-w-0 flex-col gap-4 rounded-2xl p-4",
+              device.online ? "bg-card ring-1 ring-border" : "bg-muted/40 ring-1 ring-border/60",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              {device.platform ? (
+                <span
+                  className={cn(
+                    "flex size-11 shrink-0 items-center justify-center rounded-xl text-2xl",
+                    device.online ? "bg-muted text-foreground" : "bg-background text-muted-foreground",
+                  )}
+                  title={system}
+                >
+                  <DeviceIcon platform={device.platform} />
+                </span>
+              ) : null}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <h3 className={cn("text-base leading-6 font-semibold wrap-anywhere", !device.online && "text-muted-foreground")}>{device.hostname}</h3>
+                <p className="flex flex-wrap items-center gap-x-2 text-xs leading-5 text-muted-foreground">
+                  <Presence device={device} />
+                  {system ? <><span aria-hidden>·</span><span>{system}</span></> : null}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
+            </div>
+            <AgentStack device={device} sessions={sessions.filter((session) => session.deviceId === device.id)} apps={appsById} agentIcons={agentIcons} />
           </li>
         );
       })}
@@ -247,18 +233,71 @@ function AgentList({ device, live }: { device: DeviceView; live: Map<string, num
   );
 }
 
+const stackLimit = 5;
+
+/** A device's agents as overlapping marks, and the apps using the device. */
+function AgentStack({ device, sessions, apps, agentIcons }: {
+  device: DeviceView;
+  sessions: LiveSessionInfo[];
+  apps: Map<string, GrantedApp>;
+  agentIcons: Record<string, string>;
+}) {
+  if (!device.online) return <p className="text-sm leading-6 text-muted-foreground">Agents shown when online</p>;
+  if (device.agents.length === 0) {
+    return <p className="text-sm leading-6 text-muted-foreground">No agents yet. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</p>;
+  }
+  const users = [...new Set(sessions.map((session) => session.clientId))];
+  const names = device.agents.map((agent) => agent.name);
+  const summary = names.length === 1 ? names[0] : `${names.length} agents`;
+  const hidden = device.agents.length - stackLimit;
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
+        {device.agents.slice(0, stackLimit).map((agent) => (
+          <li key={agent.name} className="flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
+            <AgentIcon iconUrl={agentIcons[agent.agentType]} className="size-4" />
+          </li>
+        ))}
+        {hidden > 0 ? (
+          <li className="flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
+            +{hidden}<span className="sr-only"> more agents</span>
+          </li>
+        ) : null}
+      </ul>
+      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={names.join(", ")} aria-hidden>{summary}</p>
+      {users.length > 0 ? <InUseBy users={users} apps={apps} /> : null}
+    </div>
+  );
+}
+
+/** The apps with a session open on the device: their icons, and the name when there is one. */
+function InUseBy({ users, apps }: { users: string[]; apps: Map<string, GrantedApp> }) {
+  const names = users.map((clientId) => apps.get(clientId)?.clientName ?? "An app");
+  return (
+    <span className="flex shrink-0 items-center gap-2 text-xs leading-5 text-muted-foreground" title={`In use by ${names.join(", ")}`}>
+      <span className="flex -space-x-2">
+        {users.slice(0, 3).map((clientId) => {
+          const app = apps.get(clientId);
+          return <AppIcon key={clientId} label={app?.clientName ?? "An app"} logoUri={app?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />;
+        })}
+      </span>
+      <span className="font-medium">{users.length === 1 ? names[0] : `${users.length} apps`}</span>
+    </span>
+  );
+}
+
 function Presence({ device }: { device: DeviceView }) {
   if (device.online) {
     return (
-      <span className="inline-flex items-center gap-2">
-        <span className="size-2 rounded-full bg-success-500" />
+      <span className="inline-flex items-center gap-2 font-medium text-success-700 dark:text-success-400">
+        <span className="size-1.5 rounded-full bg-success-500" />
         Connected
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-2 text-muted-foreground" title={new Date(device.lastSeenAt).toLocaleString()}>
-      <span className="size-2 rounded-full bg-muted-foreground/40" />
+    <span className="inline-flex items-center gap-2" title={new Date(device.lastSeenAt).toLocaleString()}>
+      <span className="size-1.5 rounded-full bg-muted-foreground/40" />
       {relativeTime(device.lastSeenAt)}
     </span>
   );

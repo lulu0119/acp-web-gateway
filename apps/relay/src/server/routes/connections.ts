@@ -18,14 +18,14 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
   const daemon = accessAccount(input.readAccess, (clientId) => clientId === input.daemonClientId);
 
   app.get(devicesPath, webApps, (c) => c.json({
-    devices: input.registry.listDevices(c.get("userId")).map(({ id, hostname, workingDirectory, agents }) => ({ id, hostname, workingDirectory, agents })),
+    devices: input.registry.listDevices(c.get("userId")).map(({ id, hostname, workingDirectory, agents, platform }) => ({ id, hostname, workingDirectory, agents, platform })),
   }));
   app.post(connectionsPath, webApps, async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);
     const deviceId = recordString(body, "deviceId");
     const agentName = recordString(body, "agentName");
     if (!deviceId || !agentName) return c.json({ message: "Choose a device and an agent." }, 400);
-    const result = await input.registry.openSession({ userId: c.get("userId"), deviceId, agentName });
+    const result = await input.registry.openSession({ userId: c.get("userId"), clientId: c.get("clientId"), deviceId, agentName });
     if (!result.ok) return c.json({ message: result.message }, result.status);
     return c.json({
       url: sessionSocketUrl(input.publicUrl, result.ticket),

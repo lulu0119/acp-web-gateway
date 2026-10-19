@@ -1,10 +1,11 @@
+import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
 import { Dialog, DialogContent } from "@exterior/ui/dialog";
 import { useCallback, useEffect, useState } from "react";
 import { AddAgentDialog } from "./add-agent-dialog";
 import { api, errorText, type AgentConfig, type AgentType } from "./api";
-import { SectionHeader } from "./app";
+import { InsetGroup, InsetRow, SectionIntro } from "./inset-group";
 
 type Load<T> = { kind: "loading" } | { kind: "ready"; value: T } | { kind: "error"; message: string };
 
@@ -35,25 +36,22 @@ export function AgentsSection() {
   const list = agents.kind === "ready" ? agents.value : [];
   const addButton = <Button variant="outline" onClick={() => setAdding(true)}>Add agent</Button>;
   return (
-    <section aria-labelledby="agents" className="flex flex-col gap-4">
-      <SectionHeader id="agents" title="Agents" action={list.length > 0 ? addButton : undefined}>
-        What web apps can open on this device. Changes reach the relays at once.
-      </SectionHeader>
+    <section aria-labelledby="section-title" className="flex flex-col gap-4">
+      <SectionIntro title="Agents">What web apps can open on this device. Changes reach the relays at once.</SectionIntro>
+      {list.length > 0 ? <div className="flex justify-end">{addButton}</div> : null}
       {agents.kind === "loading" ? <p className="py-6 text-sm text-muted-foreground">Reading agent configurations…</p> : null}
       {agents.kind === "error" ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">Could not read agent configurations: {agents.message}</p> : null}
       {agents.kind === "ready" && list.length === 0 ? (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border px-5 py-5">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">No agents yet</p>
-            <p className="text-sm text-muted-foreground">Add an agent from the ACP Registry, or any command that speaks ACP over stdio.</p>
-          </div>
-          <Button onClick={() => setAdding(true)}>Add agent</Button>
-        </div>
+        <InsetGroup>
+          <InsetRow title="No agents yet" detail="Add an agent from the ACP Registry, or any command that speaks ACP over stdio.">
+            <Button onClick={() => setAdding(true)}>Add agent</Button>
+          </InsetRow>
+        </InsetGroup>
       ) : null}
       {list.length > 0 ? (
-        <ul className="divide-y divide-border rounded-xl border border-border">
+        <InsetGroup>
           {list.map((agent) => <AgentRow key={agent.name} agent={agent} type={typeById.get(agent.agentType)} onRemoved={reload} />)}
-        </ul>
+        </InsetGroup>
       ) : null}
       {types.kind === "error" && list.length > 0 ? (
         <p className="text-xs text-muted-foreground">Could not load the ACP Registry, so agent types show by id. {types.message}</p>
@@ -75,8 +73,9 @@ export function AgentsSection() {
 function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: AgentType; onRemoved: () => void }) {
   const custom = agent.command !== undefined;
   return (
-    <li className="flex items-start gap-4 px-4 py-3.5">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <div className="flex items-start gap-3 p-4">
+      <AgentIcon iconUrl={custom ? undefined : type?.icon} className="mt-1 size-5" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="selectable truncate text-sm leading-6 font-medium">{agent.name}</span>
           {!custom ? <span className="truncate text-xs text-muted-foreground">{type?.name ?? agent.agentType}</span> : null}
@@ -90,7 +89,7 @@ function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: Agent
         ) : null}
       </div>
       <RemoveButton name={agent.name} onRemoved={onRemoved} />
-    </li>
+    </div>
   );
 }
 
@@ -113,7 +112,7 @@ function RemoveButton({ name, onRemoved }: { name: string; onRemoved: () => void
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" onClick={() => setOpen(true)}>Remove</Button>
+      <Button size="sm" variant="outline" className="shrink-0" onClick={() => setOpen(true)}>Remove</Button>
       <DialogContent title={`Remove ${name}?`} description="Web apps can no longer open it. Sessions already open keep running until they end." className="max-w-md">
         {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">

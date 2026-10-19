@@ -1,15 +1,19 @@
-import type { AgentSlot } from "@exterior/contract";
+import type { AgentSlot, DevicePlatform } from "@exterior/contract";
 
 export type LiveSessionInfo = {
   deviceId: string;
   agentName: string;
   agentType: string;
+  /** The web app that opened the session; Authorized apps names it. */
+  clientId: string;
 };
 
 /** A signed-in device as the dashboard shows it. `online` while its daemon is connected; `agents` only then. */
 export type DeviceView = {
   id: string;
   hostname: string;
+  /** Absent when its daemon never reported one. */
+  platform?: DevicePlatform;
   online: boolean;
   agents: readonly AgentSlot[];
   /** Milliseconds since the epoch. */
@@ -24,13 +28,15 @@ export type DashboardData = {
   userImage?: string;
   devices: DeviceView[];
   sessions: LiveSessionInfo[];
+  /** Registry icon addresses keyed by agent type. Absent types have no mark. */
+  agentIcons: Record<string, string>;
 };
 
 /** Code highlighted on the server, so pages ship HTML instead of a highlighter. */
 export type HighlightedCode = { code: string; html: string };
 
 /** A desktop app installer from the latest release. */
-export type DesktopDownload = { platform: string; detail: string; href: string };
+export type DesktopDownload = { platform: string; href: string };
 
 /**
  * How to connect a device: the desktop app, a prompt for an AI assistant, the same steps as shell

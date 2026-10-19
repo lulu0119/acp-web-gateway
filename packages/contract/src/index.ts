@@ -13,6 +13,9 @@ export const clientRegistryPath = "/api/clients/register";
 export const grantsPath = "/api/grants";
 export const devicesScope = "devices offline_access";
 
+/** The ACP registry the daemon launches from and the relay reads agent icons from. */
+export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
+
 /**
  * Why the relay closed a daemon's socket. `replaced`: a newer connection announced the same device id.
  * `removed`: the device is not registered to the account, because it was removed or never registered.
@@ -30,7 +33,12 @@ const namePattern = /^[^\r\n\t]{1,128}$/;
 const maxPayloadLength = 1_048_576;
 const maxFailureLength = 500;
 
+/** The operating system a device reports, so a page can show it. */
+export const devicePlatforms = ["macos", "windows", "linux"] as const;
+export type DevicePlatform = (typeof devicePlatforms)[number];
+
 const AgentTypeSchema = v.pipe(v.string(), v.regex(agentTypePattern));
+const PlatformSchema = v.picklist(devicePlatforms);
 const IdSchema = v.pipe(v.string(), v.regex(idPattern));
 const NameSchema = v.pipe(v.string(), v.regex(namePattern));
 const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
@@ -52,6 +60,7 @@ const HelloSchema = v.object({
    */
   workingDirectory: PathSchema,
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
+  platform: PlatformSchema,
 });
 const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
 const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
@@ -77,6 +86,7 @@ export type Device = {
   hostname: string;
   workingDirectory: string;
   agents: readonly AgentSlot[];
+  platform: DevicePlatform;
 };
 
 /** What a signed-in device tells the relay before its daemon connects. */
@@ -85,6 +95,28 @@ export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
 export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;
 
 export type RelayMessage = v.InferOutput<typeof RelayMessageSchema>;
+
+/** The platform to report for a Node.js `process.platform`, or none for a system Exterior does not name. */
+export function devicePlatform(nodePlatform: string): DevicePlatform | undefined {
+  switch (nodePlatform) {
+    case "darwin": return "macos";
+    case "win32": return "windows";
+    case "linux": return "linux";
+    default: return undefined;
+  }
+}
+
+/** The registry icon address to show for an agent, or undefined when it is not a usable https address. */
+export function registryIconUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);

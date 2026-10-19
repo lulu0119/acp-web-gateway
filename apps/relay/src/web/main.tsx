@@ -12,7 +12,7 @@ const props = readProps<{ data: DashboardData; guide: SetupGuideData } | undefin
 createRoot(root).render(
   <StrictMode>
     <Dashboard
-      initialData={props?.data ?? { userName: "", devices: [], sessions: [] }}
+      initialData={props?.data ?? { userName: "", devices: [], sessions: [], agentIcons: {} }}
       guide={props?.guide ?? { relayUrl: window.location.origin, releaseUrl: "https://github.com/lulu0119/exterior/releases/latest", prompt: blank, commands: blank, afterLogin: blank }}
     />
   </StrictMode>,

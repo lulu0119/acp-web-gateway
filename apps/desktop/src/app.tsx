@@ -1,45 +1,91 @@
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
-import { Button } from "@exterior/ui/button";
-import { SettingsIcon } from "lucide-react";
+import { cn } from "cn";
+import { BotIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AgentsSection } from "./agents-section";
 import { api } from "./api";
 import { RelaysSection } from "./relays-section";
-import { SettingsDialog } from "./settings-dialog";
+import { SettingsSection } from "./settings-section";
+
+const sections = [
+  { id: "relays", label: "Relays", icon: RadioTowerIcon },
+  { id: "agents", label: "Agents", icon: BotIcon },
+  { id: "settings", label: "Settings", icon: SettingsIcon },
+] as const;
+
+type SectionId = (typeof sections)[number]["id"];
+
+// The real window hides the macOS title. The browser preview has no traffic lights to clear.
+const overlayTitleBar = "__TAURI_INTERNALS__" in window && /\bMac/.test(navigator.userAgent);
 
 export function App() {
+  const [section, setSection] = useState<SectionId>("relays");
   const [device, setDevice] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     void api.deviceName().then(setDevice, () => undefined);
   }, []);
+  useEffect(() => {
+    if (!overlayTitleBar) return;
+    const onDown = (event: MouseEvent) => {
+      if (event.button !== 0 || event.detail !== 1) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const region = target?.closest("[data-tauri-drag-region]");
+      if (!region || region.getAttribute("data-tauri-drag-region") === "false") return;
+      event.preventDefault();
+      event.stopPropagation();
+      void api.dragWindow();
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, []);
+  const current = sections.find((item) => item.id === section) ?? sections[0];
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-10 px-8 pt-7 pb-10">
-      <header className="flex items-center gap-3">
-        <ExteriorMark className="size-7" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="text-sm leading-5 font-semibold">Exterior</h1>
-          {device ? <p className="truncate text-xs leading-4 text-muted-foreground">{device}</p> : null}
+    <div className="flex h-dvh overflow-hidden bg-background">
+      <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-muted">
+        {overlayTitleBar ? <div data-tauri-drag-region className="h-12 shrink-0" /> : null}
+        <div data-tauri-drag-region className="flex items-center gap-2 p-3">
+          <ExteriorMark className="size-8" />
+          <div className="min-w-0">
+            <p className="truncate text-sm leading-5 font-semibold">Exterior</p>
+            {device ? <p className="truncate text-xs leading-4 text-muted-foreground">{device}</p> : null}
+          </div>
         </div>
-        <Button variant="ghost" size="icon" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
-          <SettingsIcon />
-        </Button>
-      </header>
-      <RelaysSection />
-      <AgentsSection />
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-    </main>
+        <nav aria-label="Sections" className="flex flex-col gap-1 px-3">
+          {sections.map((item) => {
+            const Icon = item.icon;
+            const selected = item.id === section;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setSection(item.id)}
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded-md px-3 text-left text-sm",
+                  selected ? "bg-primary font-medium text-primary-foreground" : "text-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header data-tauri-drag-region className="flex h-12 shrink-0 items-center border-b border-border px-8">
+          <h1 id="section-title" className="text-sm font-semibold">{current.label}</h1>
+        </header>
+        <SectionPane open={section === "relays"}><RelaysSection /></SectionPane>
+        <SectionPane open={section === "agents"}><AgentsSection /></SectionPane>
+        <SectionPane open={section === "settings"}><SettingsSection /></SectionPane>
+      </div>
+    </div>
   );
 }
 
-export function SectionHeader({ id, title, children, action }: { id: string; title: string; children: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 id={id} className="text-lg leading-7 font-semibold tracking-tight">{title}</h2>
-        <p className="text-sm leading-5 text-muted-foreground">{children}</p>
-      </div>
-      {action}
-    </div>
-  );
+/** Keeps a section mounted, so a sign-in in progress survives switching away and back. */
+function SectionPane({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return <div className={cn("min-h-0 flex-1 overflow-y-auto p-4", !open && "hidden")}>{children}</div>;
 }

@@ -23,6 +23,7 @@ export const types = defineCommand({
         id: entry.id,
         name: entry.name,
         ...(entry.description ? { description: entry.description } : {}),
+        ...(entry.icon ? { icon: entry.icon } : {}),
         ...(launch.ok ? { ready: true } : { ready: false, reason: launch.message }),
       };
     });

@@ -1,11 +1,9 @@
-import { isEnvName, isRecord } from "@exterior/contract";
+import { acpRegistryUrl, isEnvName, isRecord, registryIconUrl } from "@exterior/contract";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { StoredAgent } from "./config.js";
 import { resolveCommand, type Executable } from "./launch.js";
-
-export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 
 const cacheMaxAgeMs = 60 * 60 * 1000;
 
@@ -22,6 +20,8 @@ export type RegistryAgent = {
   id: string;
   name: string;
   description?: string;
+  /** An https address of the mark the registry publishes for this agent. */
+  icon?: string;
   npx?: PackageDistribution;
   uvx?: PackageDistribution;
   binary?: Readonly<Record<string, BinaryDistribution>>;
@@ -209,7 +209,8 @@ function parseAgent(value: unknown): RegistryAgent | undefined {
   const uvx = parsePackage(distribution.uvx);
   const binary = parseBinary(distribution.binary);
   const description = typeof value.description === "string" && value.description.length > 0 ? { description: value.description } : {};
-  return { id: value.id, name, ...description, npx, uvx, binary };
+  const icon = registryIconUrl(value.icon);
+  return { id: value.id, name, ...description, ...(icon ? { icon } : {}), npx, uvx, binary };
 }
 
 function parsePackage(value: unknown): PackageDistribution | undefined {

@@ -20,6 +20,7 @@ const registryText = JSON.stringify({
     {
       id: "claude-acp",
       name: "Claude Agent",
+      icon: "https://cdn.agentclientprotocol.com/registry/v1/latest/claude-acp.svg",
       distribution: {
         npx: { package: "@agentclientprotocol/claude-agent-acp@0.89.1" },
         binary: { "darwin-aarch64": { cmd: "./claude", args: ["acp"] } },
@@ -35,6 +36,7 @@ const registryText = JSON.stringify({
     {
       id: "opencode",
       name: "OpenCode",
+      icon: "http://cdn.agentclientprotocol.com/opencode.svg",
       distribution: {
         binary: {
           "darwin-aarch64": { cmd: "./opencode", args: ["acp"], env: { OPENCODE_CONFIG: "registry" } },
@@ -89,6 +91,8 @@ test("registry entries prefer npx, then uvx, then a binary command already on PA
     message: 'Agent type "cursor" has no build for this platform.',
   });
   assert.equal(agents.some((agent) => agent.id === ""), false);
+  assert.equal(claude.icon, "https://cdn.agentclientprotocol.com/registry/v1/latest/claude-acp.svg");
+  assert.equal(opencode.icon, undefined);
   assert.equal(formatRegistryAgents(agents).split("\n")[0], "claude-acp\tClaude Agent");
 });
 

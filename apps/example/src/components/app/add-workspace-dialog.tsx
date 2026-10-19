@@ -64,7 +64,7 @@ export function AddWorkspaceDialog({
                 <li key={path}>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="h-auto w-full justify-start gap-2 py-2 font-normal"
                     onClick={() => submit(path)}
                   >

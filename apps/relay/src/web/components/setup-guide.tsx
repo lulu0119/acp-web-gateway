@@ -18,7 +18,7 @@ export function SetupGuide({ guide }: { guide: SetupGuideData }) {
         <TabsTab value="assistant" className={tab}><BotIcon /><TabLabel short="Assistant" full="AI assistant" /></TabsTab>
         <TabsTab value="terminal" className={tab}><TerminalIcon />Terminal</TabsTab>
       </TabsList>
-      <TabsPanel value="desktop" className="flex flex-col gap-5">
+      <TabsPanel value="desktop" className="flex flex-col gap-4">
         <DesktopApp guide={guide} />
       </TabsPanel>
       <TabsPanel value="assistant" className="flex flex-col gap-3">
@@ -61,9 +61,7 @@ function DesktopApp({ guide }: { guide: SetupGuideData }) {
               <DownloadIcon data-icon="inline-start" aria-hidden />
               Download for {guide.download.platform}
             </a>
-            <span className="text-sm text-muted-foreground">
-              {guide.download.detail} · <a href={guide.releaseUrl} className={link}>Other platforms</a>
-            </span>
+            <a href={guide.releaseUrl} className={link}>Other platforms</a>
           </>
         ) : (
           <a href={guide.releaseUrl} className={buttonVariants({ size: "lg" })}>
@@ -75,7 +73,7 @@ function DesktopApp({ guide }: { guide: SetupGuideData }) {
       <ol className="flex flex-col gap-4">
         <Step n={1} title="Sign in to this relay">
           Open the app, choose Sign in to a relay, and enter this address.
-          <div className="mt-1.5 flex items-center gap-1 rounded-[6px] bg-muted py-1 pr-1 pl-3">
+          <div className="mt-2 flex items-center gap-1 rounded-[6px] bg-muted py-1 pr-1 pl-3">
             <code className="min-w-0 flex-1 truncate font-mono text-foreground">{guide.relayUrl}</code>
             <CopyButton text={guide.relayUrl} label="Copy address" iconOnly />
           </div>

@@ -1,3 +1,5 @@
+import { AgentIcon } from "@exterior/ui/agent-icon";
+import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
 import { Dialog, DialogContent } from "@exterior/ui/dialog";
 import { Input } from "@exterior/ui/input";
@@ -63,7 +65,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Add an agent" className="max-w-xl">
         <form
-          className="flex flex-col gap-5"
+          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             if (ready && !pending) void submit();
@@ -104,6 +106,11 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   );
 }
 
+function installChip(reason: string | undefined): string {
+  if (!reason || /not installed/i.test(reason)) return "Not installed";
+  return reason.replace(/\.$/, "");
+}
+
 function TypeList({ types, search, chosen, onChoose }: {
   types: Load<AgentType[]>;
   search: string;
@@ -131,17 +138,16 @@ function TypeList({ types, search, chosen, onChoose }: {
           disabled={!type.ready}
           onClick={() => onChoose(type.id)}
           className={cn(
-            "flex flex-col gap-0.5 rounded-md px-3 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            "flex items-center gap-2 rounded-md p-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
             type.ready && "hover:bg-muted",
             chosen === type.id && "bg-muted ring-1 ring-border",
-            !type.ready && "cursor-default opacity-60",
+            !type.ready && "cursor-default text-muted-foreground",
           )}
         >
-          <span className="flex items-baseline justify-between gap-3">
-            <span className="truncate text-sm font-medium">{type.name}</span>
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">{type.id}</span>
-          </span>
-          <span className="line-clamp-1 text-xs text-muted-foreground">{type.ready ? (type.description ?? "") : type.reason}</span>
+          <AgentIcon iconUrl={type.icon} className="size-4" />
+          <span className="truncate text-sm font-medium">{type.name}</span>
+          {type.ready ? null : <Badge variant="outline">{installChip(type.reason)}</Badge>}
+          <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{type.id}</span>
         </button>
       ))}
     </div>
@@ -154,14 +160,14 @@ function EnvironmentFields({ env, onChange }: { env: [string, string][]; onChang
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium">Environment</span>
-        <Button type="button" size="xs" variant="ghost" onClick={() => onChange([...env, ["", ""]])}>Add variable</Button>
+        <Button type="button" size="xs" variant="outline" onClick={() => onChange([...env, ["", ""]])}>Add variable</Button>
       </div>
       {env.length === 0 ? <p className="text-xs text-muted-foreground">Keys and settings this agent needs, such as an API key. They stay on this device.</p> : null}
       {env.map(([key, value], index) => (
         <div key={index} className="flex gap-2">
           <Input aria-label="Variable name" placeholder="NAME" className="w-2/5 font-mono" spellCheck={false} value={key} onChange={(event) => set(index, [event.target.value, value])} />
           <Input aria-label="Variable value" placeholder="value" type="password" className="flex-1 font-mono" spellCheck={false} value={value} onChange={(event) => set(index, [key, event.target.value])} />
-          <Button type="button" size="icon" variant="ghost" aria-label="Remove variable" onClick={() => onChange(env.filter((_, at) => at !== index))}>
+          <Button type="button" size="icon" variant="outline" aria-label="Remove variable" onClick={() => onChange(env.filter((_, at) => at !== index))}>
             <XIcon />
           </Button>
         </div>

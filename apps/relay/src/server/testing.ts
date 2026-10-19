@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { createAgentCatalog } from "./agents/catalog.js";
 import { createRelayApp } from "./app.js";
 import { createRegistry, type Registry } from "./connections/registry.js";
 import { openDeviceStore } from "./devices/store.js";
@@ -10,7 +11,16 @@ export async function createTestApp(exterior: ExteriorAuth, registry?: Registry,
   const devices = openDeviceStore(exterior.options.database);
   const live = registry ?? createRegistry({ seen: (device) => devices.touch(device) });
   const daemonClientId = await ensureDaemonClient(exterior);
-  const relay = createRelayApp({ exterior, registry: live, devices, clients: { daemonClientId }, githubConfigured: true, readAccess, heartbeatMs });
+  const relay = createRelayApp({
+    exterior,
+    registry: live,
+    devices,
+    clients: { daemonClientId },
+    githubConfigured: true,
+    readAccess,
+    heartbeatMs,
+    catalog: createAgentCatalog({ fetchText: async () => "{\"agents\":[]}" }),
+  });
   return { ...relay, registry: live, devices, daemonClientId };
 }
 

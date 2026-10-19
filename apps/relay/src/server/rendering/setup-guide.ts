@@ -24,11 +24,11 @@ export function setupGuide(relayUrl: string, userAgent = ""): SetupGuideData {
 export function desktopDownload(userAgent: string): DesktopDownload | undefined {
   const file = (name: string) => `${latestRelease}/download/${name}`;
   if (/Android|iPhone/.test(userAgent)) return undefined;
-  if (/Macintosh/.test(userAgent)) return { platform: "macOS", detail: "Apple silicon", href: file("Exterior-macos-arm64.dmg") };
-  if (/Windows/.test(userAgent)) return { platform: "Windows", detail: "x64", href: file("Exterior-windows-x64-setup.exe") };
+  if (/Macintosh/.test(userAgent)) return { platform: "macOS", href: file("Exterior-macos-arm64.dmg") };
+  if (/Windows/.test(userAgent)) return { platform: "Windows", href: file("Exterior-windows-x64-setup.exe") };
   if (/Linux/.test(userAgent)) {
     const arm = /aarch64|arm64/i.test(userAgent);
-    return { platform: "Linux", detail: `${arm ? "Arm" : "x64"}, AppImage`, href: file(`Exterior-linux-${arm ? "arm64" : "x64"}.AppImage`) };
+    return { platform: "Linux", href: file(`Exterior-linux-${arm ? "arm64" : "x64"}.AppImage`) };
   }
   return undefined;
 }

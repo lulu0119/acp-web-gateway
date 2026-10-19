@@ -260,7 +260,7 @@ function SidebarTrigger({
     <Button
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
-      variant="ghost"
+      variant="outline"
       size="icon-sm"
       className={cn(className)}
       onClick={(event) => {
@@ -639,7 +639,7 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
       className={cn(
-        "ml-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border py-0.5 pl-2.5 group-data-[collapsible=icon]:hidden",
+        "ml-4 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border py-1 pl-3 group-data-[collapsible=icon]:hidden",
         className
       )}
       {...props}

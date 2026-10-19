@@ -1,15 +1,12 @@
 import { Button } from "@exterior/ui/button";
-import { Dialog, DialogContent } from "@exterior/ui/dialog";
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText, type WorkingDirectory } from "./api";
+import { InsetGroup, InsetRow, SectionIntro } from "./inset-group";
 
 type Load<T> = { kind: "loading" } | { kind: "ready"; value: T } | { kind: "error"; message: string };
 
-export function SettingsDialog({ open, onOpenChange }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function SettingsSection() {
   const [load, setLoad] = useState<Load<WorkingDirectory>>({ kind: "loading" });
   const [choosing, setChoosing] = useState(false);
   const [error, setError] = useState<string>();
@@ -21,8 +18,8 @@ export function SettingsDialog({ open, onOpenChange }: {
     );
   }, []);
   useEffect(() => {
-    if (open) reload();
-  }, [open, reload]);
+    reload();
+  }, [reload]);
 
   const choose = async () => {
     setChoosing(true);
@@ -55,33 +52,32 @@ export function SettingsDialog({ open, onOpenChange }: {
   };
 
   const chosen = load.kind === "ready" && load.value.source === "chosen";
+  const directory = load.kind === "loading"
+    ? "Reading the working directory…"
+    : load.kind === "error"
+      ? <span className="selectable text-danger-600 dark:text-danger-400">Could not read the working directory: {load.message}</span>
+      : <span title={load.value.workingDirectory} className="selectable block truncate font-mono">{load.value.workingDirectory}</span>;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Settings" className="max-w-md">
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">Working directory</p>
-          {load.kind === "loading" ? <p className="text-sm text-muted-foreground">Reading the working directory…</p> : null}
-          {load.kind === "error" ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">Could not read the working directory: {load.message}</p> : null}
+    <section aria-labelledby="section-title" className="flex flex-col gap-4">
+      <SectionIntro title="Settings">How this device runs. These settings stay on this computer.</SectionIntro>
+      <InsetGroup>
+        <InsetRow title="Working directory" detail={directory}>
           {load.kind === "ready" ? (
             <>
-              <p title={load.value.workingDirectory} className="selectable truncate rounded-md border border-input bg-muted/50 px-2.5 py-1.5 font-mono text-sm">
-                {load.value.workingDirectory}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" loading={choosing} onClick={() => void choose()}>
-                  {chosen ? "Change folder" : "Choose folder"}
+              <Button variant="outline" size="sm" loading={choosing} onClick={() => void choose()}>
+                {chosen ? "Change folder" : "Choose folder"}
+              </Button>
+              {chosen ? (
+                <Button size="sm" variant="outline" loading={choosing} onClick={() => void reset()}>
+                  Use the default
                 </Button>
-                {chosen ? (
-                  <Button size="sm" variant="ghost" className="text-muted-foreground" loading={choosing} onClick={() => void reset()}>
-                    Use the default
-                  </Button>
-                ) : null}
-              </div>
+              ) : null}
             </>
           ) : null}
-          {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </InsetRow>
+      </InsetGroup>
+      {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
+    </section>
   );
 }

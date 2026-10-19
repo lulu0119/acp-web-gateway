@@ -8,7 +8,7 @@ const state = (status: "connecting" | "connected" | "waiting", agents: string[] 
 
 test("a connected daemon names the agents it offers", () => {
   expect(relayStatus({ ...base, state: state("connected", ["work", "home"]) }, 0)).toEqual({
-    tone: "ok", label: "Connected", detail: "Offering work, home.",
+    tone: "ok", label: "Connected", detail: "", agents: ["work", "home"],
   });
   expect(relayStatus({ ...base, state: state("connected") }, 0).detail).toBe("Offering no agents yet.");
 });
