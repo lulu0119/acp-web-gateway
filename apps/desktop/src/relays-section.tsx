@@ -90,15 +90,15 @@ function RelayRow({ relay, now, icons, onSignIn }: { relay: RelayView; now: numb
   const status = relayStatus(relay, now);
   const [starting, setStarting] = useState(false);
   return (
-    <div className="flex items-start gap-4 px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+    <div className="flex items-start gap-4 p-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="selectable truncate text-sm leading-6 font-medium">{relayHost(relay.relayUrl)}</span>
           <StatusLabel tone={status.tone}>{status.label}</StatusLabel>
         </div>
         {status.agents?.length ? <AgentMarks names={status.agents} icons={icons} /> : <p className="selectable text-sm leading-5 text-muted-foreground">{status.detail}</p>}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-2">
         {status.action === "sign-in" ? <Button size="sm" onClick={onSignIn}>Sign in again</Button> : null}
         {status.action === "start" ? (
           <Button size="sm" variant="outline" loading={starting} onClick={() => { setStarting(true); void api.startDaemon(relay.relayUrl).finally(() => setStarting(false)); }}>
@@ -161,7 +161,7 @@ function StatusLabel({ tone, children }: { tone: Tone; children: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 text-xs leading-5 font-medium",
+        "inline-flex shrink-0 items-center gap-2 text-xs leading-5 font-medium",
         tone === "ok" && "text-success-700 dark:text-success-400",
         tone === "busy" && "text-muted-foreground",
         tone === "attention" && "text-warning-700 dark:text-warning-400",
@@ -224,7 +224,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
   if (signIn.stage === "waiting") {
     const expired = now > signIn.expiresAt;
     return (
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card px-4 py-4">
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-medium">Approve this device on {relayHost(signIn.relay)}</p>
           <p className="text-sm text-muted-foreground">
@@ -246,7 +246,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
   const starting = signIn.stage === "starting";
   return (
     <form
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-4"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
       onSubmit={(event) => {
         event.preventDefault();
         if (signIn.relay.trim()) onStart(signIn.relay.trim());

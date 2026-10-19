@@ -40,7 +40,7 @@ export function accountPageTitle(page: AccountPageData): string {
 
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center px-4 pt-14 pb-20 sm:pt-20">
+    <main className="flex min-h-dvh w-full flex-col items-center px-4 py-12">
       <AccountContent page={page} />
     </main>
   );
@@ -60,7 +60,7 @@ function AccountContent({ page }: { page: AccountPageData }) {
 function Shell({ header, children, footer, wide, framed = true }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean; framed?: boolean }) {
   return (
     <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
-      <div className="flex flex-col items-center gap-5 text-center">{header}</div>
+      <div className="flex flex-col items-center gap-4 text-center">{header}</div>
       <div className={cn("flex w-full flex-col gap-6", framed && "sm:rounded-2xl sm:bg-card sm:p-8 sm:ring-1 sm:ring-border")}>{children}</div>
       {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
     </div>
@@ -121,9 +121,9 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
       footer="Only enter a code your own device shows. Exterior never sends you a code."
     >
       <p className="text-center text-sm text-muted-foreground">
-        Enter the code the desktop app shows, or the one <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">exterior login</code> printed.
+        Enter the code the desktop app shows, or the one <code className="rounded bg-muted px-2 py-1 font-mono text-foreground">exterior login</code> printed.
       </p>
-      <PendingForm method="get" action="/device" className="flex flex-col gap-5">
+      <PendingForm method="get" action="/device" className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor="user-code" className="sr-only">Device code</label>
           <OTPField
@@ -140,7 +140,7 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
           />
           {page.problem ? (
             <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
-              <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <CircleAlertIcon className="mt-1 size-4 shrink-0" aria-hidden />
               <span>
                 {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or sign in again there for a new one.
               </span>
@@ -214,7 +214,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
           <TabsTab value="user"><UserIcon />I'm setting it up</TabsTab>
           <TabsTab value="developer"><CodeIcon />I'm a developer</TabsTab>
         </TabsList>
-        <TabsPanel value="user" className="flex flex-col gap-5">
+        <TabsPanel value="user" className="flex flex-col gap-4">
           <ol className="flex flex-col gap-4">
             <Step n={1} title="Add its agents">
               In the desktop app, add them under Agents. An AI assistant setting the device up does this by itself, then keeps the device online.
@@ -345,7 +345,7 @@ function Permission({ permission }: { permission: PermissionView }) {
   return (
     <li className="flex gap-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground [&_svg]:size-4">{icon}</span>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         <span className="text-sm font-semibold">{permission.title}</span>
         <span className="text-sm text-muted-foreground">{permission.detail}</span>
       </div>
@@ -356,7 +356,7 @@ function Permission({ permission }: { permission: PermissionView }) {
 function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 text-gold-ink [&_svg]:size-4">{icon}</span>
+      <span className="mt-1 text-gold-ink [&_svg]:size-4">{icon}</span>
       <span>{children}</span>
     </li>
   );
@@ -371,8 +371,8 @@ function Notice({ tone, title, children }: { tone: "warning" | "error"; title: s
         tone === "warning" ? "bg-muted/60 ring-border" : "bg-danger-50 text-danger-900 ring-danger-200/70",
       )}
     >
-      <ShieldAlertIcon className={cn("mt-0.5 size-4 shrink-0", tone === "warning" && "text-gold-ink")} aria-hidden />
-      <div className="flex flex-col gap-0.5">
+      <ShieldAlertIcon className={cn("mt-1 size-4 shrink-0", tone === "warning" && "text-gold-ink")} aria-hidden />
+      <div className="flex flex-col gap-1">
         <span className={cn("font-semibold", tone === "warning" && "text-gold-ink")}>{title}</span>
         <span className={tone === "warning" ? "text-muted-foreground" : "opacity-90"}>{children}</span>
       </div>
@@ -383,7 +383,7 @@ function Notice({ tone, title, children }: { tone: "warning" | "error"; title: s
 function CodeDisplay({ code }: { code: string }) {
   const characters = normalizeCode(code).split("");
   return (
-    <div className="flex items-center gap-1.5 font-mono text-2xl font-semibold" aria-label={`Code ${code}`}>
+    <div className="flex items-center gap-2 font-mono text-2xl font-semibold" aria-label={`Code ${code}`}>
       {characters.map((character, index) => (
         <span key={index} className="contents">
           {index === userCodeGroups[0] ? <span className="px-1 text-muted-foreground" aria-hidden>-</span> : null}

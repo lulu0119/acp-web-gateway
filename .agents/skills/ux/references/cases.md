@@ -29,6 +29,11 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 - ✅ `feat/relay-ux`: an expired approval offers "Start again", which re-sends the original authorize request for a fresh link; any other unhandled error renders a full page with Try again. `server/identity/account.ts` (`expiredApproval`), `server/app.ts` (`onError`)
 - ✅ `feat/relay-ux`: device approval ends on a check mark with next steps for the person setting up and the commands for a developer. `web/pages/account.tsx` (`DeviceApproved`)
 
+## no-arbitrary-space
+
+- ❌ before the spacing scale: list rows used `px-4 py-3`, the empty state used `px-6 py-10`, and the dashboard separated regions with `gap-14` and `pb-24`. `apps/desktop/src/relays-section.tsx`, `packages/ui/src/empty-state.tsx`, `apps/relay/src/web/pages/dashboard.tsx`
+- ✅ spacing scale: those surfaces use one padding step on every side. Same paths.
+
 ## no-flat-hierarchy
 
 - ❌ `c94dada`: the consent heading printed the full app URL at display size and wrapped. `web/pages/account.tsx`

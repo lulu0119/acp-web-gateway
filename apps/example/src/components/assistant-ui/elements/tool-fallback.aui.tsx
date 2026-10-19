@@ -166,7 +166,7 @@ function ToolFallbackTrigger({
     <CollapsibleTrigger
       data-slot="tool-fallback-trigger"
       className={cn(
-        "aui-tool-fallback-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit max-w-full origin-left items-center gap-2 py-1.5 text-sm transition-[color,scale] active:scale-[0.98]",
+        "aui-tool-fallback-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit max-w-full origin-left items-center gap-2 py-2 text-sm transition-[color,scale] active:scale-[0.98]",
         className,
       )}
       {...props}
@@ -253,7 +253,7 @@ function ToolFallbackArgs({
       className={cn("aui-tool-fallback-args", className)}
       {...props}
     >
-      <pre className="aui-tool-fallback-args-value bg-muted/50 text-foreground/90 rounded-md p-2.5 text-xs break-words whitespace-pre-wrap">
+      <pre className="aui-tool-fallback-args-value bg-muted/50 text-foreground/90 rounded-md p-3 text-xs break-words whitespace-pre-wrap">
         {argsText}
       </pre>
     </div>
@@ -295,7 +295,7 @@ function ToolFallbackResult({
       <p className="aui-tool-fallback-result-header text-muted-foreground text-xs font-medium">
         Result:
       </p>
-      <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-2.5 text-xs break-words whitespace-pre-wrap">
+      <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-3 text-xs break-words whitespace-pre-wrap">
         {formatUnknownValue(result, 2)}
       </pre>
     </div>
@@ -475,7 +475,7 @@ function ToolFallbackApprovalReceipt({
       data-outcome={receipt.outcome}
       tabIndex={-1}
       className={cn(
-        "aui-tool-fallback-approval-receipt flex flex-col gap-1.5 pt-1",
+        "aui-tool-fallback-approval-receipt flex flex-col gap-2 pt-1",
         className,
       )}
       {...props}
@@ -485,7 +485,7 @@ function ToolFallbackApprovalReceipt({
           {approval.prompt}
         </p>
       ) : null}
-      <p className="aui-tool-fallback-approval-receipt-label flex items-center gap-1.5">
+      <p className="aui-tool-fallback-approval-receipt-label flex items-center gap-2">
         <Icon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
         <span className="font-medium">{receipt.label}</span>
         {receipt.option !== undefined ? (
@@ -598,7 +598,7 @@ function ToolFallbackApprovalQuestions({
           >
             <p className="aui-tool-fallback-approval-question-prompt text-foreground whitespace-pre-line">
               {question.header ? (
-                <span className="text-muted-foreground me-1.5 text-xs font-medium uppercase">
+                <span className="text-muted-foreground me-2 text-xs font-medium uppercase">
                   {question.header}
                 </span>
               ) : null}
@@ -623,7 +623,7 @@ function ToolFallbackApprovalQuestions({
                       className={cn(
                         pressable,
                         described &&
-                          "h-auto flex-col items-start gap-0.5 py-2 text-start whitespace-normal",
+                          "h-auto flex-col items-start gap-1 py-2 text-start whitespace-normal",
                       )}
                       aria-pressed={pressed}
                       onClick={() => toggle(question, option.id)}
@@ -1044,7 +1044,7 @@ function ToolFallbackApprovalImpl({
           <ul className="aui-tool-fallback-approval-confirm-grants flex flex-col gap-1">
             {confirming.grants.map((grant) => (
               <li key={grant}>
-                <code className="aui-tool-fallback-approval-confirm-grant bg-muted rounded px-1.5 py-0.5 text-xs">
+                <code className="aui-tool-fallback-approval-confirm-grant bg-muted rounded px-2 py-1 text-xs">
                   {grant}
                 </code>
               </li>

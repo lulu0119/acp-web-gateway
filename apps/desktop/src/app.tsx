@@ -44,14 +44,14 @@ export function App() {
     <div className="flex h-dvh overflow-hidden bg-background">
       <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-muted">
         {overlayTitleBar ? <div data-tauri-drag-region className="h-12 shrink-0" /> : null}
-        <div data-tauri-drag-region className="flex items-center gap-2.5 px-3 pt-3 pb-4">
+        <div data-tauri-drag-region className="flex items-center gap-2 p-3">
           <ExteriorMark className="size-8" />
           <div className="min-w-0">
             <p className="truncate text-sm leading-5 font-semibold">Exterior</p>
             {device ? <p className="truncate text-xs leading-4 text-muted-foreground">{device}</p> : null}
           </div>
         </div>
-        <nav aria-label="Sections" className="flex flex-col gap-0.5 px-3">
+        <nav aria-label="Sections" className="flex flex-col gap-1 px-3">
           {sections.map((item) => {
             const Icon = item.icon;
             const selected = item.id === section;
@@ -62,7 +62,7 @@ export function App() {
                 aria-current={selected ? "page" : undefined}
                 onClick={() => setSection(item.id)}
                 className={cn(
-                  "flex h-8 items-center gap-2 rounded-md px-2.5 text-left text-sm",
+                  "flex h-8 items-center gap-2 rounded-md px-3 text-left text-sm",
                   selected ? "bg-primary font-medium text-primary-foreground" : "text-foreground",
                 )}
               >

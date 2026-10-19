@@ -9,7 +9,7 @@ export function EmptyState({ icon, title, children, action, className }: {
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center gap-3 rounded-2xl bg-muted/50 px-6 py-10 text-center", className)}>
+    <div className={cn("flex flex-col items-center gap-3 rounded-2xl bg-muted/50 p-4 text-center", className)}>
       <div className="flex size-11 items-center justify-center rounded-full bg-background text-foreground/70 [&_svg]:size-5">{icon}</div>
       <div className="flex max-w-md flex-col gap-1">
         <p className="font-semibold">{title}</p>

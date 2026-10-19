@@ -166,10 +166,10 @@ export function AudioPlayer({
         {playing ? (
           <PauseIcon aria-hidden className="size-4" />
         ) : (
-          <PlayIcon aria-hidden className="ml-0.5 size-4" />
+          <PlayIcon aria-hidden className="ml-1 size-4" />
         )}
       </button>
-      <div className="flex min-w-0 grow basis-16 flex-col gap-1.5">
+      <div className="flex min-w-0 grow basis-16 flex-col gap-2">
         <span className="truncate text-[13.5px] font-medium">
           {displayTitle}
         </span>

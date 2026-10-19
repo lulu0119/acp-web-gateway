@@ -134,8 +134,8 @@ export const modelSelectorTriggerVariants = cva(
       },
       size: {
         default: "h-9 px-3 py-2",
-        sm: "h-8 px-2.5 py-1.5 text-xs",
-        lg: "h-10 px-4 py-2.5",
+        sm: "h-8 px-3 py-2 text-xs",
+        lg: "h-10 px-4 py-3",
       },
     },
     defaultVariants: {
@@ -433,7 +433,7 @@ function ModelSelectorItem({
         onSelect?.(selectedValue);
       }}
       className={cn(
-        "relative items-start gap-2 rounded-lg py-2 ps-3 pe-9 [&_svg:not([class*='size-'])]:size-3.5",
+        "relative items-start gap-2 rounded-lg py-2 ps-3 pe-8 [&_svg:not([class*='size-'])]:size-3.5",
         className,
       )}
       {...props}
@@ -441,7 +441,7 @@ function ModelSelectorItem({
       {children ?? (
         <>
           {model.icon && (
-            <ModelIcon className="mt-[3px]">{model.icon}</ModelIcon>
+            <ModelIcon className="mt-1">{model.icon}</ModelIcon>
           )}
           <span className="flex min-w-0 flex-col">
             <span className="font-medium">{model.name}</span>
@@ -508,7 +508,7 @@ function ModelSelectorEffort({
         onValueChange={setEffort}
         orientation="horizontal"
         aria-label={typeof label === "string" ? label : "Reasoning effort"}
-        className="flex items-center gap-0.5"
+        className="flex items-center gap-1"
       >
         {efforts.map((option) => (
           <RadioGroupPrimitive.Item

@@ -25,9 +25,9 @@ const fileVariants = cva(
         muted: "bg-muted/50 hover:bg-muted/70",
       },
       size: {
-        sm: "px-2.5 py-1.5 text-xs",
-        default: "px-3 py-2 text-sm",
-        lg: "px-4 py-3 text-base",
+        sm: "p-2 text-xs",
+        default: "p-3 text-sm",
+        lg: "p-4 text-base",
       },
     },
     defaultVariants: {
@@ -360,7 +360,7 @@ const FileImpl: FileMessagePartComponent = ({
   return (
     <FileRoot>
       <FileIconDisplay mimeType={mimeType} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <FileName>{filename || getFileLabel(mimeType)}</FileName>
         {showSize && (
           <FileSize

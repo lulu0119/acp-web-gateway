@@ -95,7 +95,7 @@ function PaneHeader({ label }: { label: string }) {
           </BreadcrumbList>
         </Breadcrumb>
         {status !== "ready" && (
-          <span className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs">
             <StatusDot status={status} />
             {connectionLabels[status]}
           </span>

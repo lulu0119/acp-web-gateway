@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export function SectionIntro({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex gap-3 rounded-lg border border-border bg-card p-4">
-      {icon ? <div className="mt-0.5 shrink-0 text-foreground">{icon}</div> : null}
+      {icon ? <div className="mt-1 shrink-0 text-foreground">{icon}</div> : null}
       <div className="min-w-0">
         <p className="text-sm leading-5 font-medium text-foreground">{title}</p>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">{children}</p>
@@ -23,7 +23,7 @@ export function InsetRow({ title, detail, children }: { title: string; detail?: 
     <div className="flex items-start justify-between gap-4 p-4">
       <div className="min-w-0">
         <p className="text-sm leading-5 font-medium">{title}</p>
-        {detail ? <div className="mt-0.5 text-sm leading-5 text-muted-foreground">{detail}</div> : null}
+        {detail ? <div className="mt-1 text-sm leading-5 text-muted-foreground">{detail}</div> : null}
       </div>
       {children ? <div className="flex shrink-0 items-center gap-2">{children}</div> : null}
     </div>

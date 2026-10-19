@@ -73,9 +73,9 @@ export function AgentsSection() {
 function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: AgentType; onRemoved: () => void }) {
   const custom = agent.command !== undefined;
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
-      <AgentIcon iconUrl={custom ? undefined : type?.icon} className="mt-0.5 size-5" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <div className="flex items-start gap-3 p-4">
+      <AgentIcon iconUrl={custom ? undefined : type?.icon} className="mt-1 size-5" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="selectable truncate text-sm leading-6 font-medium">{agent.name}</span>
           {!custom ? <span className="truncate text-xs text-muted-foreground">{type?.name ?? agent.agentType}</span> : null}

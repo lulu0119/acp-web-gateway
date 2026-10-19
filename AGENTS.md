@@ -20,7 +20,7 @@ When the task matches, read the skill before acting.
 - A domain term crystallizes, or a durable choice needs an ADR → `domain-modeling`
 - Something is broken, throwing, or slow → `diagnosing-bugs`
 - Gathering sources into a dated research note → `research`
-- Building or changing a relay page or web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
+- Building or changing a relay page, the desktop window, or a web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
 - A screenshot of a relay or web page → `use-vishot`
 - Opening a PR → `create-pr`. A before/after image is for each page whose appearance this diff changes. Putting that image in the body → `upload-github-attachment`
 

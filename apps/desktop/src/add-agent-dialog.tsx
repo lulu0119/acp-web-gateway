@@ -65,7 +65,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Add an agent" className="max-w-xl">
         <form
-          className="flex flex-col gap-5"
+          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             if (ready && !pending) void submit();
@@ -138,7 +138,7 @@ function TypeList({ types, search, chosen, onChoose }: {
           disabled={!type.ready}
           onClick={() => onChoose(type.id)}
           className={cn(
-            "flex items-center gap-2 rounded-md px-3 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            "flex items-center gap-2 rounded-md p-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
             type.ready && "hover:bg-muted",
             chosen === type.id && "bg-muted ring-1 ring-border",
             !type.ready && "cursor-default text-muted-foreground",

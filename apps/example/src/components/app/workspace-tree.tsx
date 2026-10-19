@@ -154,7 +154,7 @@ function SessionRow({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   return (
     <SidebarMenuSubItem>
-      <SidebarMenuSubButton isActive={active} onClick={onSelect} className={canDelete ? "pe-7" : undefined}>
+      <SidebarMenuSubButton isActive={active} onClick={onSelect} className={canDelete ? "pe-6" : undefined}>
         <span>{title}</span>
       </SidebarMenuSubButton>
       {canDelete && (

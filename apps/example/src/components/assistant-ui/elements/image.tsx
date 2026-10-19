@@ -326,7 +326,7 @@ function ImageSource({
     <div
       data-slot="image-source"
       className={cn(
-        "text-muted-foreground flex items-center gap-2 border-t px-2 py-1.5 text-xs",
+        "text-muted-foreground flex items-center gap-2 border-t px-2 py-2 text-xs",
         className,
       )}
       {...props}
@@ -379,7 +379,7 @@ function ImageFilename({
     <span
       data-slot="image-filename"
       className={cn(
-        "text-muted-foreground block truncate px-2 py-1.5 text-xs",
+        "text-muted-foreground block truncate px-2 py-2 text-xs",
         className,
       )}
       {...props}

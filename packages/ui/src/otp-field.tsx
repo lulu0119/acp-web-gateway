@@ -14,7 +14,7 @@ export function OTPField({
   const length = groups.reduce((sum, size) => sum + size, 0);
   let index = 0;
   return (
-    <OTPFieldPrimitive.Root length={length} className={cn("flex w-full items-center gap-1.5 sm:gap-2", className)} {...props}>
+    <OTPFieldPrimitive.Root length={length} className={cn("flex w-full items-center gap-2", className)} {...props}>
       {groups.map((size, group) => (
         <Fragment key={group}>
           {group > 0 ? <OTPFieldPrimitive.Separator className="w-3 shrink-0 text-center text-muted-foreground">-</OTPFieldPrimitive.Separator> : null}
