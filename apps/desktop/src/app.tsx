@@ -51,7 +51,7 @@ export function App() {
             {device ? <p className="truncate text-xs leading-4 text-muted-foreground">{device}</p> : null}
           </div>
         </div>
-        <nav aria-label="Sections" className="flex flex-col gap-0.5 px-2">
+        <nav aria-label="Sections" className="flex flex-col gap-0.5 px-3">
           {sections.map((item) => {
             const Icon = item.icon;
             const selected = item.id === section;

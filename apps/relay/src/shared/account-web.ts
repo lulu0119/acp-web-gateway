@@ -36,7 +36,7 @@ export type DashboardData = {
 export type HighlightedCode = { code: string; html: string };
 
 /** A desktop app installer from the latest release. */
-export type DesktopDownload = { platform: string; detail: string; href: string };
+export type DesktopDownload = { platform: string; href: string };
 
 /**
  * How to connect a device: the desktop app, a prompt for an AI assistant, the same steps as shell

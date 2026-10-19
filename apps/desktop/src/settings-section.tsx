@@ -52,7 +52,7 @@ export function SettingsSection() {
   };
 
   const chosen = load.kind === "ready" && load.value.source === "chosen";
-  const detail = load.kind === "loading"
+  const directory = load.kind === "loading"
     ? "Reading the working directory…"
     : load.kind === "error"
       ? <span className="selectable text-danger-600 dark:text-danger-400">Could not read the working directory: {load.message}</span>
@@ -60,16 +60,16 @@ export function SettingsSection() {
 
   return (
     <section aria-labelledby="section-title" className="flex flex-col gap-4">
-      <SectionIntro title="Settings">Agents start in this directory when a web app has not chosen one.</SectionIntro>
+      <SectionIntro title="Settings">How this device runs. These settings stay on this computer.</SectionIntro>
       <InsetGroup>
-        <InsetRow title="Working directory" detail={detail}>
+        <InsetRow title="Working directory" detail={directory}>
           {load.kind === "ready" ? (
             <>
               <Button variant="outline" size="sm" loading={choosing} onClick={() => void choose()}>
                 {chosen ? "Change folder" : "Choose folder"}
               </Button>
               {chosen ? (
-                <Button size="sm" variant="ghost" className="text-muted-foreground" loading={choosing} onClick={() => void reset()}>
+                <Button size="sm" variant="outline" loading={choosing} onClick={() => void reset()}>
                   Use the default
                 </Button>
               ) : null}

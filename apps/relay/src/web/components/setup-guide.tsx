@@ -60,7 +60,6 @@ function DesktopApp({ guide }: { guide: SetupGuideData }) {
             <a href={guide.download.href} className={buttonVariants({ size: "lg" })}>
               <DownloadIcon data-icon="inline-start" aria-hidden />
               Download for {guide.download.platform}
-              <span className="font-normal opacity-70">{guide.download.detail}</span>
             </a>
             <a href={guide.releaseUrl} className={link}>Other platforms</a>
           </>

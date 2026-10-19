@@ -112,7 +112,7 @@ function RemoveButton({ name, onRemoved }: { name: string; onRemoved: () => void
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" onClick={() => setOpen(true)}>Remove</Button>
+      <Button size="sm" variant="outline" className="shrink-0" onClick={() => setOpen(true)}>Remove</Button>
       <DialogContent title={`Remove ${name}?`} description="Web apps can no longer open it. Sessions already open keep running until they end." className="max-w-md">
         {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">

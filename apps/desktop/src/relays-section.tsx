@@ -202,7 +202,7 @@ function SignOutButton({ relayUrl }: { relayUrl: string }) {
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setOpen(true)}>Sign out</Button>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Sign out</Button>
       <DialogContent title={`Sign out of ${host}?`} description="Web apps can no longer reach this device through this relay. Signing in again needs a new approval." className="max-w-md">
         {error ? <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">
@@ -238,7 +238,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
           ) : (
             <Button variant="outline" onClick={() => void api.openUrl(signIn.url)}>Open the page again</Button>
           )}
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="outline" onClick={onCancel}>Cancel</Button>
         </div>
       </div>
     );
@@ -265,7 +265,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
           className="bg-background font-mono"
         />
         <Button type="submit" loading={starting} disabled={!signIn.relay.trim()}>Continue</Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
       {signIn.stage === "form" && signIn.error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{signIn.error}</p> : null}
     </form>

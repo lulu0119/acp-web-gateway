@@ -160,14 +160,14 @@ function EnvironmentFields({ env, onChange }: { env: [string, string][]; onChang
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium">Environment</span>
-        <Button type="button" size="xs" variant="ghost" onClick={() => onChange([...env, ["", ""]])}>Add variable</Button>
+        <Button type="button" size="xs" variant="outline" onClick={() => onChange([...env, ["", ""]])}>Add variable</Button>
       </div>
       {env.length === 0 ? <p className="text-xs text-muted-foreground">Keys and settings this agent needs, such as an API key. They stay on this device.</p> : null}
       {env.map(([key, value], index) => (
         <div key={index} className="flex gap-2">
           <Input aria-label="Variable name" placeholder="NAME" className="w-2/5 font-mono" spellCheck={false} value={key} onChange={(event) => set(index, [event.target.value, value])} />
           <Input aria-label="Variable value" placeholder="value" type="password" className="flex-1 font-mono" spellCheck={false} value={value} onChange={(event) => set(index, [key, event.target.value])} />
-          <Button type="button" size="icon" variant="ghost" aria-label="Remove variable" onClick={() => onChange(env.filter((_, at) => at !== index))}>
+          <Button type="button" size="icon" variant="outline" aria-label="Remove variable" onClick={() => onChange(env.filter((_, at) => at !== index))}>
             <XIcon />
           </Button>
         </div>

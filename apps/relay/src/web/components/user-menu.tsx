@@ -29,7 +29,7 @@ export function UserMenu({ userName, userImage }: { userName: string; userImage?
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" />}>
+      <DropdownMenuTrigger render={<Button variant="outline" />}>
         <Avatar name={userName} image={userImage} />
         {userName || "Account"}
       </DropdownMenuTrigger>

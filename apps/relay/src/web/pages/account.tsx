@@ -334,7 +334,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
             {page.action.label}
           </a>
         ) : null}
-        <a href="/" className={cn(buttonVariants({ variant: page.action ? "ghost" : "secondary", size: "lg" }), "w-full")}>Back to Exterior</a>
+        <a href="/" className={cn(buttonVariants({ variant: page.action ? "outline" : "default", size: "lg" }), "w-full")}>Back to Exterior</a>
       </div>
     </Shell>
   );

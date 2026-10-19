@@ -120,7 +120,7 @@ export function App() {
                     </span>
                     Signed in
                   </span>
-                  <Button variant="ghost" size="sm" className="px-2" onClick={handleSignOut}>
+                  <Button variant="outline" size="sm" className="px-2" onClick={handleSignOut}>
                     Sign out
                   </Button>
                 </div>
@@ -128,7 +128,7 @@ export function App() {
             ) : (
               <div>
                 <Button
-                  variant="ghost"
+                  variant="default"
                   size="sm"
                   className="w-full justify-start px-2"
                   disabled={session.busy || session.account.phase === "checking"}

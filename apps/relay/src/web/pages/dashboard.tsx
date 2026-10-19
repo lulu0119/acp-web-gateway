@@ -223,7 +223,7 @@ function DeviceList({ devices, sessions, apps, agentIcons, onRemove }: {
                   {system ? <><span aria-hidden>·</span><span>{system}</span></> : null}
                 </p>
               </div>
-              <Button variant="ghost" size="sm" className="-mt-0.5 -mr-1 text-muted-foreground" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
+              <Button variant="outline" size="sm" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
             </div>
             <AgentStack device={device} sessions={sessions.filter((session) => session.deviceId === device.id)} apps={appsById} agentIcons={agentIcons} />
           </li>
