@@ -106,6 +106,18 @@ export function devicePlatform(nodePlatform: string): DevicePlatform | undefined
   }
 }
 
+/** The registry icon address to show for an agent, or undefined when it is not a usable https address. */
+export function registryIconUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
 }

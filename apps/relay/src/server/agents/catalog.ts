@@ -1,4 +1,4 @@
-import { acpRegistryUrl, isRecord } from "@exterior/contract";
+import { acpRegistryUrl, isRecord, registryIconUrl } from "@exterior/contract";
 
 const cacheMaxAgeMs = 60 * 60 * 1000;
 
@@ -40,21 +40,10 @@ export function parseAgentIcons(text: string): ReadonlyMap<string, string> | und
     const icons = new Map<string, string>();
     for (const item of value.agents) {
       if (!isRecord(item) || typeof item.id !== "string" || item.id.length === 0) continue;
-      const icon = httpsIcon(item.icon);
+      const icon = registryIconUrl(item.icon);
       if (icon && !icons.has(item.id)) icons.set(item.id, icon);
     }
     return icons;
-  } catch {
-    return undefined;
-  }
-}
-
-function httpsIcon(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return undefined;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:") return undefined;
-    return url.href;
   } catch {
     return undefined;
   }

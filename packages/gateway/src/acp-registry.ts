@@ -1,4 +1,4 @@
-import { acpRegistryUrl, isEnvName, isRecord } from "@exterior/contract";
+import { acpRegistryUrl, isEnvName, isRecord, registryIconUrl } from "@exterior/contract";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -209,19 +209,8 @@ function parseAgent(value: unknown): RegistryAgent | undefined {
   const uvx = parsePackage(distribution.uvx);
   const binary = parseBinary(distribution.binary);
   const description = typeof value.description === "string" && value.description.length > 0 ? { description: value.description } : {};
-  const icon = registryIcon(value.icon);
+  const icon = registryIconUrl(value.icon);
   return { id: value.id, name, ...description, ...(icon ? { icon } : {}), npx, uvx, binary };
-}
-
-function registryIcon(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return undefined;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:") return undefined;
-    return url.href;
-  } catch {
-    return undefined;
-  }
 }
 
 function parsePackage(value: unknown): PackageDistribution | undefined {
