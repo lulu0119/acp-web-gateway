@@ -134,9 +134,7 @@ function PaneBody() {
         <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/50">
           <BotIcon className="size-6" strokeWidth={1.5} aria-hidden />
         </div>
-        <div className="space-y-2 text-center">
-          <EmptyStateGreeting>Your agent is ready</EmptyStateGreeting>
-        </div>
+        <EmptyStateGreeting>Your agent is ready</EmptyStateGreeting>
         <StartConversationButton />
       </EmptyState>
     );
@@ -211,16 +209,14 @@ function ChatWelcome() {
       <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/50">
         <BotIcon className="size-6" strokeWidth={1.5} aria-hidden />
       </div>
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">What shall we work on?</h1>
-      </div>
+      <h1 className="text-3xl font-semibold tracking-tight">What shall we work on?</h1>
       <AuiIf condition={(s) => s.composer.isEmpty}>
         <div className="grid gap-2 sm:grid-cols-3">
           {starters.map(({ icon: Icon, title, prompt }) => (
             <button
               type="button"
               key={title}
-              className="group flex flex-col items-start gap-3 rounded-xl border p-4 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+              className="flex flex-col items-start gap-3 rounded-xl border p-4 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
               onClick={(event) => {
                 aui.composer().setText(prompt);
                 event.currentTarget.closest(".aui-thread-root")?.querySelector("textarea")?.focus();

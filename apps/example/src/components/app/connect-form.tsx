@@ -95,11 +95,9 @@ export function ConnectForm({
       <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/50">
         <BotIcon className="size-6" strokeWidth={1.5} aria-hidden />
       </div>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          {accessToken ? "Choose your agent" : "Connect your first agent"}
-        </h2>
-      </div>
+      <h2 className="text-2xl font-semibold tracking-tight">
+        {accessToken ? "Choose your agent" : "Connect your first agent"}
+      </h2>
       {session.account.phase === "checking" && (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
           <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" /> Checking your sign-in…

@@ -148,17 +148,15 @@ export function App() {
                 </Button>
               </>
             ) : (
-              <div>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="w-full justify-start px-2"
-                  disabled={session.busy || session.account.phase === "checking"}
-                  onClick={session.signIn}
-                >
-                  {session.account.phase === "checking" ? "Checking…" : "Sign in"}
-                </Button>
-              </div>
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full justify-start px-2"
+                disabled={session.busy || session.account.phase === "checking"}
+                onClick={session.signIn}
+              >
+                {session.account.phase === "checking" ? "Checking…" : "Sign in"}
+              </Button>
             )}
           </SidebarFooter>
           <SidebarRail />
