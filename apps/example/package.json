@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "start": "vite",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "node capture/verify.mjs"
   },
   "dependencies": {
     "@exterior/client": "workspace:*",
@@ -37,6 +38,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "playwright": "^1.64.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.9",
     "vitest": "^3.2.7"

@@ -43,6 +43,8 @@ A redirect to `localhost` is asked every time, even for an approved app: any pro
 
 With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` returns a one-time ticket `{ url, agentType, agentName }` to use as the ACP connection. `createAgentConnector({ relayUrl, accessToken, target })` owns the ticket lifecycle for one user intent: `open()` never mints two tickets for one click, `reopen()` takes a fresh ticket, and sessions are never resumed. `parseTicketCloseReason` reads the relay's `ticket-used` / `ticket-expired` / `ticket-gone` close reasons; `needsFreshTicket` says whether a fresh ticket is the recovery.
 
+`listDevices` and `openConnection` accept an optional `AbortSignal` as their last argument. Use it to time out a request or cancel it when the person leaves the connection form.
+
 ## Tokens and identity
 
 `refreshExteriorAccessToken` rotates a refresh token and throws `RefreshTokenRejectedError` when the sign-in is gone. `revokeRefreshToken` revokes one. `fetchExteriorUser({ relayUrl, accessToken })` returns the account id. `fetchPublicClients(relayUrl)` returns the relay's daemon client id.

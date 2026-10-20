@@ -4,12 +4,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { SidebarMenuAction } from "@/components/ui/sidebar";
 
 /** The per-row "more" menu. It is always visible, so actions are discoverable without hover. */
-export function RowMenu({ label, children }: { label: string; children: ReactNode }) {
+export function RowMenu({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <SidebarMenuAction title={label}>
+          <SidebarMenuAction title={label} className={className}>
             <MoreHorizontalIcon />
             <span className="sr-only">{label}</span>
           </SidebarMenuAction>

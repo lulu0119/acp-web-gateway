@@ -1,18 +1,18 @@
 import type { AcpConnectionStatus } from "@hafbit/react-acp";
-import { PlusIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { LogOutIcon, PlusIcon } from "lucide-react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { ConnectForm, ManageAgentsLink, type ConnectedAgent } from "@/components/app/connect-form";
 import { ExteriorMark } from "@/components/exterior-mark";
-import { ConnectionPane, type Connection } from "@/components/app/connection-pane";
+import type { Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
-import type { AccountSession } from "@exterior/client/react";
+import { WelcomePage } from "@/components/app/welcome-page";
 import { useAccount } from "@exterior/client/react";
 import { Button } from "@/components/ui/button";
 import { accountPaths } from "@/lib/account-paths";
 import { exampleClientId, exampleLogoUri } from "@/lib/client-id";
 import { exteriorRelayUrl } from "@/lib/relay-url";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
@@ -29,8 +29,13 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+const ConnectionPane = lazy(() =>
+  import("@/components/app/connection-pane").then((module) => ({ default: module.ConnectionPane })),
+);
 
 export function App() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -54,6 +59,11 @@ export function App() {
     const remaining = connections.filter((connection) => connection.id !== id);
     setConnections(remaining);
     setActiveId((current) => (current === id ? remaining[0]?.id : current));
+    setStatuses((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   }
 
   const pageOrigin = window.location.origin;
@@ -70,31 +80,46 @@ export function App() {
     setConnections([]);
     setActiveId(undefined);
     setStatuses({});
+    setAdding(false);
   }, [session.signOut]);
+
+  const connectSession = { ...session, signOut: handleSignOut };
+  if (connections.length === 0) {
+    return (
+      <TooltipProvider>
+        <WelcomePage session={connectSession} onConnected={addConnection} />
+      </TooltipProvider>
+    );
+  }
 
   return (
     <TooltipProvider>
       <SidebarProvider>
         <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
-              <ExteriorMark className="size-5" />
-              Exterior
+          <SidebarHeader className="p-4">
+            <div className="flex items-center gap-3">
+              <ExteriorMark className="size-8" />
+              <div>
+                <p className="text-sm font-semibold">Exterior</p>
+                <p className="text-xs text-muted-foreground">Playground</p>
+              </div>
             </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel>Connections</SidebarGroupLabel>
-              <SidebarGroupAction title="Add a connection" onClick={() => setAdding(true)}>
-                <PlusIcon />
-                <span className="sr-only">Add a connection</span>
-              </SidebarGroupAction>
+              <AddConnectionAction onAdd={() => setAdding(true)} />
               <SidebarGroupContent>
                 <SidebarMenu>
                   {connections.map((connection) => (
                     <SidebarMenuItem key={connection.id}>
-                      <SidebarMenuButton isActive={connection.id === activeId} onClick={() => setActiveId(connection.id)}>
-                        <StatusDot status={statuses[connection.id] ?? "idle"} />
+                      <SidebarMenuButton
+                        isActive={connection.id === activeId}
+                        onClick={() => setActiveId(connection.id)}
+                      >
+                        <span className="flex size-4 shrink-0 items-center justify-center">
+                          <StatusDot status={statuses[connection.id] ?? "idle"} />
+                        </span>
                         <span>{connection.label}</span>
                       </SidebarMenuButton>
                       <RowMenu label={`Actions for ${connection.label}`}>
@@ -109,22 +134,19 @@ export function App() {
             </SidebarGroup>
             <div ref={setTreeSlot} />
           </SidebarContent>
-          <SidebarFooter>
+          <SidebarFooter className="gap-1 border-t">
             {session.account.phase === "signed-in" ? (
-              <div className="flex flex-col gap-1">
+              <>
                 <ManageAgentsLink className="w-full" />
-                <div className="flex h-7 items-center justify-between gap-2 pl-2 pr-1">
-                  <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-                    <span className="flex size-4 shrink-0 items-center justify-center">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
-                    </span>
-                    Signed in
-                  </span>
-                  <Button variant="outline" size="sm" className="px-2" onClick={handleSignOut}>
-                    Sign out
-                  </Button>
-                </div>
-              </div>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2 border-0 px-2 font-normal text-muted-foreground"
+                  onClick={handleSignOut}
+                >
+                  <LogOutIcon className="size-4" aria-hidden />
+                  <span>Sign out</span>
+                </Button>
+              </>
             ) : (
               <div>
                 <Button
@@ -142,30 +164,50 @@ export function App() {
           <SidebarRail />
         </Sidebar>
         <SidebarInset className="min-h-0">
-          {connections.length === 0 && (
-            <div className="flex flex-1 items-center justify-center p-6">
-              <ConnectForm session={session} onConnected={addConnection} />
-            </div>
-          )}
-          {connections.map((connection) => (
-            <ConnectionPane
-              key={connection.id}
-              connection={connection}
-              active={connection.id === activeId}
-              treeSlot={treeSlot}
-              onStatusChange={reportStatus}
-            />
-          ))}
+          <Suspense
+            fallback={
+              <p role="status" className="m-auto p-6 text-sm text-muted-foreground">
+                Opening your agent…
+              </p>
+            }
+          >
+            {connections.map((connection) => (
+              <ConnectionPane
+                key={connection.id}
+                connection={connection}
+                active={connection.id === activeId}
+                treeSlot={treeSlot}
+                onStatusChange={reportStatus}
+              />
+            ))}
+          </Suspense>
         </SidebarInset>
       </SidebarProvider>
       <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-md">
           <DialogHeader className="sr-only">
             <DialogTitle>Add a connection</DialogTitle>
+            <DialogDescription>Choose another agent on an online device.</DialogDescription>
           </DialogHeader>
-          <ConnectForm session={session} onConnected={addConnection} />
+          {adding && <ConnectForm session={connectSession} onConnected={addConnection} />}
         </DialogContent>
       </Dialog>
     </TooltipProvider>
+  );
+}
+
+function AddConnectionAction({ onAdd }: { onAdd: () => void }) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <SidebarGroupAction
+      title="Add a connection"
+      onClick={() => {
+        setOpenMobile(false);
+        onAdd();
+      }}
+    >
+      <PlusIcon />
+      <span className="sr-only">Add a connection</span>
+    </SidebarGroupAction>
   );
 }

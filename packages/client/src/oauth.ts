@@ -227,10 +227,11 @@ export async function registerDevice(relayUrl: string, accessToken: string, devi
   }
 }
 
-export async function listDevices(relayUrl: string, accessToken: string): Promise<Device[]> {
+export async function listDevices(relayUrl: string, accessToken: string, signal?: AbortSignal): Promise<Device[]> {
   const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
     headers: { authorization: `Bearer ${accessToken}` },
     credentials: "omit",
+    signal,
   });
   if (response.status === 401) throw new Error("Sign in again.");
   if (!response.ok) throw new Error("Exterior did not list devices.");
@@ -243,12 +244,14 @@ export async function openConnection(
   relayUrl: string,
   accessToken: string,
   input: { deviceId: string; agentName: string },
+  signal?: AbortSignal,
 ): Promise<{ url: string; agentType: string; agentName: string }> {
   const response = await fetch(new URL(connectionsPath, originOf(relayUrl)), {
     method: "POST",
     credentials: "omit",
     headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
     body: JSON.stringify(input),
+    signal,
   });
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
