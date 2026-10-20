@@ -339,7 +339,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
       </div>
       {page.details ? (
         <details className="text-sm text-muted-foreground">
-          <summary className="cursor-pointer select-none hover:text-foreground">Technical details</summary>
+          <summary className="cursor-pointer select-none hover:text-foreground">Details</summary>
           <p className="mt-3 whitespace-pre-wrap break-words font-mono text-xs">{page.details}</p>
         </details>
       ) : null}

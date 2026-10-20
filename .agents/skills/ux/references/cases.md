@@ -49,7 +49,7 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-equal-weight-noise
 
-- ✅ PR #30 (L2/L3, 1440×900 and 390×844): sign-in and error pages use the unframed shell; a single sign-in button no longer gets its own card. The error title and recovery action read first; protocol diagnostics stay in a closed Technical details disclosure that also opens and closes from the keyboard. `web/pages/account.tsx` (`SignIn`, `Message`)
+- ✅ PR #30 (L2/L3, 1440×900 and 390×844): sign-in and error pages use the unframed shell; a single sign-in button no longer gets its own card. The error title and recovery action read first; protocol diagnostics stay in a closed Details disclosure that also opens and closes from the keyboard. `web/pages/account.tsx` (`SignIn`, `Message`)
 
 ## no-indistinct-identity
 
