@@ -2,7 +2,7 @@
 
 import { useId, type ComponentProps, type ReactNode } from "react";
 import { CheckIcon, Loader2Icon, TerminalIcon, XIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { field, ghostButton, inkButton, mono, paper } from "./surfaces";
 import { useReceiptFocus } from "./receipt-focus";
 

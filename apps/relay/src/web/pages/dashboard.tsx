@@ -13,7 +13,7 @@ import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
 import { Button, buttonVariants } from "@exterior/ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "@exterior/ui/button-group";
-import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@exterior/ui/dropdown-menu";
 
 const refreshMs = 5000;
@@ -114,13 +114,15 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
 
       <Dialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
         {removing ? (
-          <DialogContent
-            title={`Remove ${removing.hostname}?`}
-            description={removing.online
-              ? "It goes offline now, its open sessions end, and it is signed out. To use it again, sign it in again."
-              : "It is signed out and leaves this list. To use it again, sign it in again."}
-            className="max-w-md"
-          >
+          <DialogContent className="max-w-md">
+            <DialogHeader className="gap-1 pr-8">
+              <DialogTitle className="font-display text-xl font-bold">{`Remove ${removing.hostname}?`}</DialogTitle>
+              <DialogDescription>
+                {removing.online
+                  ? "It goes offline now, its open sessions end, and it is signed out. To use it again, sign it in again."
+                  : "It is signed out and leaves this list. To use it again, sign it in again."}
+              </DialogDescription>
+            </DialogHeader>
             {problem ? (
               <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
                 <CircleAlertIcon className="size-4" aria-hidden />
@@ -138,7 +140,13 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
       </Dialog>
 
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
-        <DialogContent title="Set up a new device" description="Sign the computer in, configure its agents, and keep it online.">
+        <DialogContent>
+          <DialogHeader className="gap-1 pr-8">
+            <DialogTitle className="font-display text-xl font-bold">Set up a new device</DialogTitle>
+            <DialogDescription>
+              Sign the computer in, configure its agents, and keep it online.
+            </DialogDescription>
+          </DialogHeader>
           <SetupGuide guide={guide} />
         </DialogContent>
       </Dialog>

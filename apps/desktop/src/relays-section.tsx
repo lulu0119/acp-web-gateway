@@ -1,6 +1,6 @@
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Button } from "@exterior/ui/button";
-import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
 import { Input } from "@exterior/ui/input";
 import { cn } from "cn";
 import { useEffect, useState } from "react";
@@ -203,7 +203,13 @@ function SignOutButton({ relayUrl }: { relayUrl: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Sign out</Button>
-      <DialogContent title={`Sign out of ${host}?`} description="Web apps can no longer reach this device through this relay. Signing in again needs a new approval." className="max-w-md">
+      <DialogContent className="max-w-md">
+        <DialogHeader className="gap-1 pr-8">
+          <DialogTitle className="font-display text-xl font-bold">{`Sign out of ${host}?`}</DialogTitle>
+          <DialogDescription>
+            Web apps can no longer reach this device through this relay. Signing in again needs a new approval.
+          </DialogDescription>
+        </DialogHeader>
         {error ? <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

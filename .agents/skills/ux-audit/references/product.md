@@ -25,6 +25,8 @@ Example is an agent chat playground. Compare with assistant-ui's interactive thr
 
 Example calls ACP sessions conversations in the interface and groups them by working directory.
 
+Relay, Desktop, and Example share basic controls through `@exterior/ui`; each app owns its pages and theme. Changes to a shared control need verification in its affected consumers. Example owns its assistant-ui chat components and ACP integration; the client SDK has no UI dependency. See [ADR 0012](../../../../docs/adr/0012-relay-page-rendering.md).
+
 ## Surfaces and their main questions
 
 | Surface | Main question |

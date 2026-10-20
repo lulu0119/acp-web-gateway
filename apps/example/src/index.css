@@ -4,6 +4,8 @@
 @import "@fontsource-variable/geist";
 @import "tw-shimmer";
 
+@source "../../../packages/ui/src";
+
 @custom-variant dark (&:is(.dark *));
 
 .welcome-page {

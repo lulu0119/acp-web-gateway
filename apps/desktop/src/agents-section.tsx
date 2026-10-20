@@ -1,7 +1,7 @@
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
-import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
 import { useCallback, useEffect, useState } from "react";
 import { AddAgentDialog } from "./add-agent-dialog";
 import { api, errorText, type AgentConfig, type AgentType } from "./api";
@@ -113,7 +113,13 @@ function RemoveButton({ name, onRemoved }: { name: string; onRemoved: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" variant="outline" className="shrink-0" onClick={() => setOpen(true)}>Remove</Button>
-      <DialogContent title={`Remove ${name}?`} description="Web apps can no longer open it. Sessions already open keep running until they end." className="max-w-md">
+      <DialogContent className="max-w-md">
+        <DialogHeader className="gap-1 pr-8">
+          <DialogTitle className="font-display text-xl font-bold">{`Remove ${name}?`}</DialogTitle>
+          <DialogDescription>
+            Web apps can no longer open it. Sessions already open keep running until they end.
+          </DialogDescription>
+        </DialogHeader>
         {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

@@ -1,7 +1,7 @@
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
-import { Dialog, DialogContent } from "@exterior/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@exterior/ui/dialog";
 import { Input } from "@exterior/ui/input";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
 import { cn } from "cn";
@@ -63,7 +63,10 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Add an agent" className="max-w-xl">
+      <DialogContent className="max-w-xl">
+        <DialogHeader className="gap-1 pr-8">
+          <DialogTitle className="font-display text-xl font-bold">Add an agent</DialogTitle>
+        </DialogHeader>
         <form
           className="flex flex-col gap-4"
           onSubmit={(event) => {

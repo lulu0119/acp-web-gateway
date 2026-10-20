@@ -23,9 +23,9 @@ import {
   ToolGroupTrigger,
 } from "@/components/assistant-ui/elements/tool-group.aui";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Button } from "@exterior/ui/button";
+import { Skeleton } from "@exterior/ui/skeleton";
+import { cn } from "cn";
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,

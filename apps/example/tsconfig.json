@@ -15,7 +15,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "@exterior/ui": ["../../packages/ui/src"],
+      "@exterior/ui/*": ["../../packages/ui/src/*"]
+    }
   },
   "include": ["src"]
 }

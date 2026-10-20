@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { ArrowUpIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { inkButton, paper } from "./surfaces";
 
 export function EmptyState({ className, ...props }: ComponentProps<"div">) {

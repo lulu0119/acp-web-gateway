@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { CheckIcon, Loader2Icon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { mono } from "./surfaces";
 import { announced, pct, progressOf } from "../utils/range";
 

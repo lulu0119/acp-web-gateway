@@ -2,18 +2,18 @@ import type { AcpConnectionStatus } from "@hafbit/react-acp";
 import { LogOutIcon, PlusIcon } from "lucide-react";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { ConnectForm, ManageAgentsLink, type ConnectedAgent } from "@/components/app/connect-form";
-import { ExteriorMark } from "@/components/exterior-mark";
+import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import type { Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
 import { WelcomePage } from "@/components/app/welcome-page";
 import { useAccount } from "@exterior/client/react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@exterior/ui/button";
 import { accountPaths } from "@/lib/account-paths";
 import { exampleClientId, exampleLogoUri } from "@/lib/client-id";
 import { exteriorRelayUrl } from "@/lib/relay-url";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@exterior/ui/dialog";
+import { DropdownMenuItem } from "@exterior/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -30,8 +30,8 @@ import {
   SidebarProvider,
   SidebarRail,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
+} from "@exterior/ui/sidebar";
+import { TooltipProvider } from "@exterior/ui/tooltip";
 
 const ConnectionPane = lazy(() =>
   import("@/components/app/connection-pane").then((module) => ({ default: module.ConnectionPane })),
@@ -98,7 +98,7 @@ export function App() {
         <Sidebar>
           <SidebarHeader className="p-4">
             <div className="flex items-center gap-3">
-              <ExteriorMark className="size-8" />
+              <ExteriorMark variant="tile" className="size-8" />
               <div>
                 <p className="text-sm font-semibold">Exterior</p>
                 <p className="text-xs text-muted-foreground">Playground</p>

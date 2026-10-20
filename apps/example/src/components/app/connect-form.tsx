@@ -1,17 +1,10 @@
 import { listDevices, openConnection } from "@exterior/client";
 import type { Device } from "@exterior/contract";
 import type { AccountSession } from "@exterior/client/react";
-import {
-  ArrowRightIcon,
-  ArrowUpRightIcon,
-  BotIcon,
-  LaptopIcon,
-  LoaderCircleIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, BotIcon, LaptopIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button, buttonVariants } from "@exterior/ui/button";
+import { cn } from "cn";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 
 export type ConnectedAgent = { agentType: string; url: string; label: string; workingDirectory: string };
@@ -256,22 +249,21 @@ export function ConnectForm({
           )}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
-        <a
-          href={relayUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 hover:text-foreground"
-        >
-          {accessToken ? "Manage devices & agents" : "Need to set up a device?"}{" "}
-          <ArrowUpRightIcon className="size-3" aria-hidden />
-        </a>
-        {accessToken && (
+      {accessToken && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
+          <a
+            href={relayUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 hover:text-foreground"
+          >
+            Manage devices & agents <ArrowUpRightIcon className="size-3" aria-hidden />
+          </a>
           <Button variant="link" size="xs" disabled={busy} onClick={session.signOut}>
             Sign out
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

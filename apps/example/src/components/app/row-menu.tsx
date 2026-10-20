@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { MoreHorizontalIcon } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { SidebarMenuAction } from "@/components/ui/sidebar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@exterior/ui/dropdown-menu";
+import { SidebarMenuAction } from "@exterior/ui/sidebar";
 
 /** The per-row "more" menu. It is always visible, so actions are discoverable without hover. */
 export function RowMenu({ label, children, className }: { label: string; children: ReactNode; className?: string }) {

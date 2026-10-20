@@ -14,10 +14,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+} from "@exterior/ui/alert-dialog";
+import { DropdownMenuItem } from "@exterior/ui/dropdown-menu";
+import { Button } from "@exterior/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@exterior/ui/tooltip";
 import {
   SidebarGroup,
   SidebarGroupAction,
@@ -28,7 +28,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
+} from "@exterior/ui/sidebar";
 import { folderName, useWorkspaces } from "@/lib/workspaces";
 
 /** Working directories of one connection, each with its sessions. */

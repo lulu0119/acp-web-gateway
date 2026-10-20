@@ -5,7 +5,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist",
     "rootDir": "src",
-    "types": []
+    "types": [],
+    "paths": {
+      "@exterior/ui": ["./src"],
+      "@exterior/ui/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }

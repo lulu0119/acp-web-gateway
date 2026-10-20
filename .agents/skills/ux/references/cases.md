@@ -47,6 +47,9 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-equal-weight-noise
 
+- ❌ `3cdf4fe` (2026-10-20; L2, 1440×900): consent painted the connector, the Unverified badge, the warning, and the permission icons gold, so the warning did not stand out. `web/pages/account.tsx` (`Consent`)
+- ✅ `3cdf4fe` + consent emphasis (2026-10-20; L2, 1440×900 and 390×844): gold stays on the unverified warning. The connector and permission marks use neutral ink, and Unverified stays an outline next to the origin. `web/pages/account.tsx` (`Consent`)
+
 ## no-indistinct-identity
 
 - ❌ `c94dada`: the consent card's subject was the client id ("mIBRx… is asking for machines offline_access"). `web/pages/account.tsx`
@@ -67,5 +70,7 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 - ✅ `feat/relay-ux`: revoking reports a failure instead of silently reloading. `web/components/grants-section.tsx`
 
 ## no-input-hijack
+
+- ✅ `3cdf4fe` + shared controls (2026-10-20; L1/L2/L3): Example imports sidebar and dialogs from `@exterior/ui`; Ctrl+B in the composer leaves the sidebar open, a directory plus creates through Enter, and closing the mobile picker restores a single navigation surface. Relay dialog labels and Desktop dialog Cancel/Escape behavior survive the same shared primitives. `packages/ui/src/sidebar.tsx`, `packages/ui/src/dialog.tsx`, `apps/example/capture/verify.mjs`
 
 - ✅ `feat/relay-ux`: the device-code field accepts typing and paste, uppercases, and skips the dash. `packages/ui/src/otp-field.tsx`

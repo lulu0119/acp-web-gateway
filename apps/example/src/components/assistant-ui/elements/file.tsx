@@ -12,7 +12,7 @@ import {
   DownloadIcon,
 } from "lucide-react";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { AudioPlayer, VideoPlayer } from "./media-player";
 
 const fileVariants = cva(
