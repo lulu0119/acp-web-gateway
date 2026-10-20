@@ -28,8 +28,6 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 - ❌ `c94dada`: "Machine approved" said only "Return to the machine." with no next step. `web/pages/account.tsx`
 - ✅ `feat/relay-ux`: an expired approval offers "Start again", which re-sends the original authorize request for a fresh link; any other unhandled error renders a full page with Try again. `server/identity/account.ts` (`expiredApproval`), `server/app.ts` (`onError`)
 - ✅ `feat/relay-ux`: device approval ends on a check mark with next steps for the person setting up and the commands for a developer. `web/pages/account.tsx` (`DeviceApproved`)
-- ❌ `d9b6c35` (PR #30 baseline; L1/L2): a failed app-description download or an unexpected authorize exception leaves a browser on raw JSON with no recovery action. `server/app.ts`
-- ✅ PR #30 (L1/L2/L3, 1440×900 and 390×844): authorization failures reuse the account message page. Downloads and temporary server failures offer retry; invalid metadata directs the person back to the app; rate limiting says to wait. Driving retry after a failed download reaches sign-in with the original client and state; expired approvals keep Start again. `server/identity/authorize-error.ts`, `web/pages/account.tsx`
 
 ## no-arbitrary-space
 
@@ -49,13 +47,10 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-equal-weight-noise
 
-- ✅ PR #30 (L2/L3, 1440×900 and 390×844): sign-in and error pages use the unframed shell; a single sign-in button no longer gets its own card. The error title and recovery action read first; protocol diagnostics stay in a closed Details disclosure that also opens and closes from the keyboard. `web/pages/account.tsx` (`SignIn`, `Message`)
-
 ## no-indistinct-identity
 
 - ❌ `c94dada`: the consent card's subject was the client id ("mIBRx… is asking for machines offline_access"). `web/pages/account.tsx`
 - ✅ `feat/relay-ux`: consent leads with the app name, its origin, an Unverified pill, and permissions named for a person; the client id is under Details. `web/pages/account.tsx` (`Consent`), `server/identity/account.ts` (`describeScopes`)
-- ✅ PR #30 (L2, 1440×900 and 390×844): shared error pages retain the Exterior mark, heading scale, shell and buttons used by sign-in; a generic red status mark no longer replaces the product identity. `web/pages/account.tsx` (`Message`)
 
 ## no-lost-context
 
