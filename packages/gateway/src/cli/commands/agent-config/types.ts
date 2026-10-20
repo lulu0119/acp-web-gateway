@@ -24,16 +24,13 @@ export const types = defineCommand({
     const resolve = (command: string) => resolveCommand(command, { pathValue });
     const platform = platformTarget();
     const types = registry.agents.map((entry) => {
-      // An npx or uvx entry can be fetched at launch. Ready means the agent itself is already on this machine.
-      const installed = launchForEntry({ entry: { ...entry, npx: undefined, uvx: undefined }, platform, resolve }).ok;
-      const launch = installed ? undefined : launchForEntry({ entry, platform, resolve });
-      const reason = installed ? undefined : launch?.ok ? "Not installed." : launch?.message;
+      const launch = launchForEntry({ entry, platform, resolve });
       return {
         id: entry.id,
         name: entry.name,
         ...(entry.description ? { description: entry.description } : {}),
         ...(entry.icon ? { icon: entry.icon } : {}),
-        ...(reason ? { ready: false, reason } : { ready: true }),
+        ...(launch.ok ? { ready: true } : { ready: false, reason: launch.message }),
       };
     });
     io.stdout.write(`${JSON.stringify({ types }, null, 2)}\n`);
