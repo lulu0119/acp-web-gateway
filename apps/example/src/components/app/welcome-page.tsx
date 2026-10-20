@@ -21,7 +21,7 @@ export function WelcomePage({
     <div className="welcome-page flex min-h-svh flex-col">
       <header className="flex items-center justify-between gap-4 border-b p-6 md:px-8">
         <a href={import.meta.env.BASE_URL} className="flex items-center gap-3 font-semibold tracking-tight">
-          <ExteriorMark variant="tile" className="size-8" />
+          <ExteriorMark className="size-8" />
           <span className="text-lg">Exterior</span>
           <span className="hidden border-l pl-3 text-sm font-normal text-muted-foreground sm:inline">Playground</span>
         </a>

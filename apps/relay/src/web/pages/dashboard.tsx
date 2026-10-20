@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { DashboardData, DeviceView, GrantedApp, LiveSessionInfo, SetupGuideData } from "../../shared/account-web.js";
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { DeviceIcon, platformName } from "@exterior/ui/device-icon";
-import { EmptyState } from "@exterior/ui/empty-state";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@exterior/ui/empty";
 import { AppIcon } from "../components/app-icon";
 import { GrantsSection, useGrants } from "../components/grants-section";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
@@ -14,6 +14,16 @@ import { UserMenu } from "../components/user-menu";
 import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button, buttonVariants } from "@exterior/ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "@exterior/ui/button-group";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@exterior/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@exterior/ui/dropdown-menu";
 
@@ -102,9 +112,15 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
           </div>
 
           {data.devices.length === 0 ? (
-            <EmptyState icon={<LaptopIcon />} title="No devices yet">
-              Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Use Add device to set one up or enter its code.
-            </EmptyState>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><LaptopIcon /></EmptyMedia>
+                <EmptyTitle>No devices yet</EmptyTitle>
+                <EmptyDescription>
+                  Connect a computer that has an ACP agent installed, such as opencode or Claude Code. Use Add device to set one up or enter its code.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <DeviceList devices={data.devices} sessions={data.sessions} apps={grants.loaded.state === "ready" ? grants.loaded.apps : []} agentIcons={data.agentIcons} onRemove={(device) => { setProblem(""); setRemoving(device); }} />
           )}
@@ -113,32 +129,32 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
         <GrantsSection grants={grants} devices={data.devices} sessions={data.sessions} agentIcons={data.agentIcons} />
       </main>
 
-      <Dialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
+      <AlertDialog open={removing !== undefined} onOpenChange={(open) => !open && !removePending && setRemoving(undefined)}>
         {removing ? (
-          <DialogContent className="max-w-md">
-            <DialogHeader className="gap-1 pr-8">
-              <DialogTitle className="font-display text-xl font-bold">{`Remove ${removing.hostname}?`}</DialogTitle>
-              <DialogDescription>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-display">{`Remove ${removing.hostname}?`}</AlertDialogTitle>
+              <AlertDialogDescription>
                 {removing.online
                   ? "It goes offline now, its open sessions end, and it is signed out. To use it again, sign it in again."
                   : "It is signed out and leaves this list. To use it again, sign it in again."}
-              </DialogDescription>
-            </DialogHeader>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
             {problem ? (
               <Alert variant="destructive">
                 <CircleAlertIcon />
                 <AlertDescription>{problem}</AlertDescription>
               </Alert>
             ) : null}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" disabled={removePending} onClick={() => setRemoving(undefined)}>Cancel</Button>
-              <Button variant="destructive" loading={removePending} onClick={() => void remove(removing)}>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={removePending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" loading={removePending} onClick={() => void remove(removing)}>
                 {removePending ? "Removing" : "Remove device"}
-              </Button>
-            </div>
-          </DialogContent>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
         ) : null}
-      </Dialog>
+      </AlertDialog>
 
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
         <DialogContent>

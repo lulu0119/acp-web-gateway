@@ -183,7 +183,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
         <Allowance icon={<BotIcon />}>The device can run agents for your account when an app you approved asks for one.</Allowance>
         <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out from the device.</Allowance>
       </ul>
-      <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
+      <Alert variant="warning">
         <TriangleAlertIcon />
         <AlertTitle>Only connect a device you just started</AlertTitle>
         <AlertDescription>
@@ -286,7 +286,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
     >
       <SignedInAs account={page.account} />
       {page.unverified ? (
-        <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
+        <Alert variant="warning">
           <TriangleAlertIcon />
           <AlertTitle>Exterior has not verified this app</AlertTitle>
           <AlertDescription>

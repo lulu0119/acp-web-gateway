@@ -6,7 +6,8 @@ import { AppIcon } from "./app-icon.js";
 import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button } from "@exterior/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
-import { EmptyState } from "@exterior/ui/empty-state";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@exterior/ui/empty";
+import { Skeleton } from "@exterior/ui/skeleton";
 import { SectionHeading } from "@exterior/ui/section-heading";
 
 type Loaded = { state: "loading" } | { state: "error" } | { state: "ready"; apps: GrantedApp[] };
@@ -77,18 +78,28 @@ export function GrantsSection({ grants, devices, sessions, agentIcons }: {
       ) : null}
       {loaded.state === "loading" ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading apps">
-          {[0, 1].map((key) => <div key={key} className="h-16 animate-pulse rounded-xl bg-muted" />)}
+          {[0, 1].map((key) => <Skeleton key={key} className="h-16 rounded-xl" />)}
         </div>
       ) : loaded.state === "error" ? (
-        <EmptyState
-          icon={<CircleAlertIcon />}
-          title="Couldn't load authorized apps"
-          action={<Button variant="secondary" onClick={grants.retry}>Try again</Button>}
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><CircleAlertIcon /></EmptyMedia>
+            <EmptyTitle>Couldn't load authorized apps</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="secondary" onClick={grants.retry}>Try again</Button>
+          </EmptyContent>
+        </Empty>
       ) : loaded.apps.length === 0 ? (
-        <EmptyState icon={<AppWindowIcon />} title="No apps yet">
-          When a web app asks to use your agents and you authorize it, it shows up here.
-        </EmptyState>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><AppWindowIcon /></EmptyMedia>
+            <EmptyTitle>No apps yet</EmptyTitle>
+            <EmptyDescription>
+              When a web app asks to use your agents and you authorize it, it shows up here.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ItemGroup className="gap-0 border-y border-border">
           {loaded.apps.map((app) => (
