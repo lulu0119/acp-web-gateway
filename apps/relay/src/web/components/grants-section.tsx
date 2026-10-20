@@ -128,9 +128,9 @@ export function GrantsSection({ grants, devices, sessions, agentIcons }: {
 function InUse({ sessions, hostnames, agentIcons }: { sessions: LiveSessionInfo[]; hostnames: Map<string, string>; agentIcons: Record<string, string> }) {
   if (sessions.length === 0) return null;
   return (
-    <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Agents in use">
-      {sessions.map((session, index) => (
-        <li key={index} className="flex items-center gap-1.5 rounded-full bg-success-50 py-0.5 pr-2.5 pl-1.5 text-xs leading-5 text-success-900 ring-1 ring-success-200">
+    <ul className="mt-2 flex flex-wrap gap-2" aria-label="Agents in use">
+      {sessions.map((session) => (
+        <li key={`${session.deviceId}\t${session.agentName}\t${session.clientId}`} className="flex items-center gap-2 rounded-full bg-success-50 py-1 pr-3 pl-2 text-xs leading-5 text-success-900 ring-1 ring-success-200">
           <AgentIcon iconUrl={agentIcons[session.agentType]} className="size-3.5" />
           <span className="font-medium">{session.agentName}</span>
           <span className="text-success-800/70">on {hostnames.get(session.deviceId) ?? "a removed device"}</span>

@@ -10,7 +10,7 @@ export function EmptyState({ className, ...props }: ComponentProps<"div">) {
     <div
       data-slot="empty-state"
       className={cn(
-        "flex w-full max-w-md flex-col items-center gap-7",
+        "flex w-full max-w-md flex-col items-center gap-6",
         className,
       )}
       {...props}
@@ -84,7 +84,7 @@ export function EmptyStateComposer({
       style={{ animationDelay: "360ms", ...style }}
       className={cn(
         paper,
-        "fade-in slide-in-from-bottom-2 animate-in fill-mode-both flex h-13 w-full items-center justify-between rounded-full py-2 ps-5 pe-2.5 duration-500 motion-reduce:animate-none",
+        "fade-in slide-in-from-bottom-2 animate-in fill-mode-both flex h-13 w-full items-center justify-between rounded-full py-2 ps-4 pe-3 duration-500 motion-reduce:animate-none",
         className,
       )}
       {...props}

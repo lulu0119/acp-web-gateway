@@ -1,6 +1,6 @@
 ---
 name: ux
-description: Rules for how Exterior's web surfaces must read and behave. Each rule names one defect shape (`no-*`) with the evidence that proves it, the shapes that do not count, and the fix. Use when building, changing, or reviewing any relay page (sign-in, consent, device approval, dashboard) or a web app surface (list, dialog, empty/loading/error state, button, shortcut). A full audit of one surface is `ux-audit`.
+description: Rules for how Exterior's web surfaces must read and behave. Each rule names one defect shape (`no-*`) with the evidence that proves it, the shapes that do not count, and the fix. Use when building, changing, or reviewing any relay page (sign-in, consent, device approval, dashboard), the desktop window, or a web app surface (list, dialog, empty/loading/error state, button, shortcut). A full audit of one surface is `ux-audit`.
 ---
 
 # ux
@@ -14,7 +14,7 @@ The rules are defect shapes, not a checklist of features. A rule fires only when
 | Principle | Means | Rules |
 | --- | --- | --- |
 | **Truthful** | Unknown, missing, failed, and absent are different statements. Never print one as another. | `no-unknown-as-absent`, `no-silent-drop`, `no-shared-failure`, `no-dead-end-state` |
-| **Prioritized** | The surface answers its main question first. Space, size, weight, and color follow information value. | `no-flat-hierarchy`, `no-buried-answer`, `no-equal-weight-noise`, `no-indistinct-identity` |
+| **Prioritized** | The surface answers its main question first. Space, size, weight, and color follow information value. | `no-arbitrary-space`, `no-flat-hierarchy`, `no-buried-answer`, `no-equal-weight-noise`, `no-indistinct-identity` |
 | **Continuous** | Selection, input, and view settings survive refresh, reload, and navigation. Two surfaces never disagree about one fact. | `no-lost-context`, `no-inconsistent-readout` |
 | **Consequential** | Every affordance looks actionable, answers at once, has a durable effect, reports its real outcome, and does not steal input meant for something else. | `no-inert-action`, `no-false-feedback`, `no-input-hijack` |
 
@@ -75,6 +75,18 @@ Each rule lists its minimum layer. A rule whose minimum layer did not run is rep
 **High signal.** A plain-text "Internal Server Error" after a form post. An expired approval link with no way to start again. "Approved" with no hint of where to go.
 
 **Fix.** Time out slow reads. Offer Retry for transient failures, and a way to restart for expired ones; for deterministic ones, name the fix. A success page states the outcome with a clear mark and the next action.
+
+### no-arbitrary-space
+
+**Defect.** Padding, margin, or gap is off the spacing scale, or a card's four sides do not share one padding step.
+
+**Prove it.** L1: a spacing class outside [references/spacing.md](references/spacing.md), or `px-*` and `py-*` on a card, row, dialog, or empty state.
+
+**High signal.** `*-2.5`, `*-3.5`, `*-7`, or `px-* py-*` on a card.
+
+**Not a finding.** A control, a page's larger bottom margin, or a full-bleed row, as that reference allows.
+
+**Fix.** Use the spacing reference.
 
 ### no-flat-hierarchy
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { devicePlatform, parseDaemonMessage, parseRelayMessage, relayWebSocketUrl } from "./index.js";
+import { devicePlatform, parseDaemonMessage, parseRelayMessage, registryIconUrl, relayWebSocketUrl } from "./index.js";
 
 test("a daemon hello names the device, its working directory, its platform, and its agent configurations", () => {
   const hello = {
@@ -22,6 +22,15 @@ test("a daemon hello names the device, its working directory, its platform, and 
   assert.equal(devicePlatform("win32"), "windows");
   assert.equal(devicePlatform("linux"), "linux");
   assert.equal(devicePlatform("freebsd"), undefined);
+});
+
+test("registry icons are usable https addresses", () => {
+  assert.equal(registryIconUrl("https://cdn.agentclientprotocol.com/registry/v1/latest/claude-acp.svg"), "https://cdn.agentclientprotocol.com/registry/v1/latest/claude-acp.svg");
+  assert.equal(registryIconUrl("http://cdn.agentclientprotocol.com/opencode.svg"), undefined);
+  assert.equal(registryIconUrl("not a url"), undefined);
+  assert.equal(registryIconUrl(""), undefined);
+  assert.equal(registryIconUrl(undefined), undefined);
+  assert.equal(registryIconUrl(`https://${"x".repeat(2048)}`), undefined);
 });
 
 test("frames and session ids cross the relay unchanged", () => {

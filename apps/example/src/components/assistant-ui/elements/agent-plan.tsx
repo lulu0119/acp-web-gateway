@@ -56,7 +56,7 @@ export function AgentPlan({
           style={{ width: `${progress}%` }}
         />
       </div>
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-2">
         {steps.map((step, i) => {
           const item = typeof step === "string" ? { label: step } : step;
           const done = allDone || i < completed;
@@ -66,7 +66,7 @@ export function AgentPlan({
             <li
               key={typeof step === "string" ? i : (step.id ?? i)}
               className={cn(
-                "flex gap-2.5 text-[13.5px]",
+                "flex gap-2 text-[13.5px]",
                 active && item.description ? "items-start" : "items-center",
               )}
             >
@@ -100,7 +100,7 @@ export function AgentPlan({
                 </span>
                 <span className="sr-only">{` ${status}`}</span>
                 {active && item.description ? (
-                  <span className="text-muted-foreground mt-0.5 block text-xs">
+                  <span className="text-muted-foreground mt-1 block text-xs">
                     {item.description}
                   </span>
                 ) : null}

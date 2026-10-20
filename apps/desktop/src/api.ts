@@ -47,6 +47,7 @@ export const api = {
   signOut: (relay: string) => invoke<void>("sign_out", { relay }),
   startDaemon: (relay: string) => invoke<void>("start_daemon", { relay }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  dragWindow: () => invoke<void>("drag_window"),
   onRelays: (handler: (views: RelayView[]) => void): Promise<UnlistenFn> =>
     listen<RelayView[]>("relays-changed", (event) => handler(event.payload)),
   onSignIn: (handler: (event: SignInEvent) => void): Promise<UnlistenFn> =>

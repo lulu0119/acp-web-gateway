@@ -20,7 +20,8 @@ function RemoteIcon({ iconUrl, className }: { iconUrl: string; className?: strin
       alt=""
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
-      className={cn("shrink-0 object-contain", className)}
+      // Registry marks are drawn in black. Flatten them, then invert in dark mode so the mark is white.
+      className={cn("shrink-0 object-contain [filter:brightness(0)] dark:[filter:brightness(0)_invert(1)]", className)}
     />
   );
 }

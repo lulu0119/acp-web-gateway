@@ -17,11 +17,17 @@ pub fn open(app: &AppHandle) {
         let _ = window.set_focus();
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+    // The page draws the sidebar to the top edge. On macOS the traffic lights sit in
+    // that corner, so the title bar is an overlay and its title is hidden.
+    let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Exterior")
-        .inner_size(760.0, 640.0)
-        .min_inner_size(520.0, 480.0)
-        .build();
+        .inner_size(960.0, 680.0)
+        .min_inner_size(760.0, 520.0);
+    #[cfg(target_os = "macos")]
+    {
+        window = window.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    }
+    let _ = window.build();
 }
 
 /// The window is gone and the desktop has a tray: leave the Dock.
@@ -56,6 +62,44 @@ fn become_foreground(app: &AppHandle) {
     // activate needs macOS 14.
     #[allow(deprecated)]
     application.activateIgnoringOtherApps(true);
+}
+
+/// Starts a window drag from whatever native event is current.
+/// `performWindowDragWithEvent` ignores anything but a left mouse down, and by the time the
+/// page's click reaches here the event is often already a drag or a trackpad press.
+#[cfg(target_os = "macos")]
+pub fn drag(window: &tauri::WebviewWindow) {
+    use objc2::rc::Retained;
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSEvent, NSEventModifierFlags, NSEventType, NSWindow};
+
+    let Some(marker) = MainThreadMarker::new() else {
+        return;
+    };
+    let current = NSApplication::sharedApplication(marker).currentEvent();
+    let Ok(pointer) = window.ns_window() else {
+        return;
+    };
+    let Some(ns_window) = (unsafe { Retained::<NSWindow>::retain(pointer.cast()) }) else {
+        return;
+    };
+    // The call arrives after mouseDown has returned, so the original event no longer drags.
+    let flags = current.as_ref().map(|event| event.modifierFlags()).unwrap_or(NSEventModifierFlags(0));
+    let timestamp = current.as_ref().map(|event| event.timestamp()).unwrap_or(0.0);
+    let Some(event) = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
+        NSEventType::LeftMouseDown,
+        ns_window.convertPointFromScreen(NSEvent::mouseLocation()),
+        flags,
+        timestamp,
+        ns_window.windowNumber(),
+        None,
+        0,
+        1,
+        1.0,
+    ) else {
+        return;
+    };
+    ns_window.performWindowDragWithEvent(&event);
 }
 
 /// Whether this desktop shows tray icons. A Linux desktop may have no StatusNotifier host,

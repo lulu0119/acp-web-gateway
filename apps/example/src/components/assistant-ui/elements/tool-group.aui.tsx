@@ -23,9 +23,9 @@ const ANIMATION_DURATION = 200;
 const toolGroupVariants = cva("aui-tool-group-root group/tool-group w-full", {
   variants: {
     variant: {
-      outline: "rounded-lg border py-3",
+      outline: "rounded-lg border py-4",
       ghost: "",
-      muted: "border-muted-foreground/30 bg-muted/30 rounded-lg border py-3",
+      muted: "border-muted-foreground/30 bg-muted/30 rounded-lg border py-4",
     },
   },
   defaultVariants: { variant: "outline" },
@@ -108,7 +108,7 @@ function ToolGroupTrigger({
       data-slot="tool-group-trigger"
       className={cn(
         "aui-tool-group-trigger group/trigger flex origin-left items-center gap-2 text-sm transition-[color,scale] active:scale-[0.98]",
-        "group-data-[variant=ghost]/tool-group-root:text-muted-foreground group-data-[variant=ghost]/tool-group-root:hover:text-foreground group-data-[variant=ghost]/tool-group-root:py-1.5",
+        "group-data-[variant=ghost]/tool-group-root:text-muted-foreground group-data-[variant=ghost]/tool-group-root:hover:text-foreground group-data-[variant=ghost]/tool-group-root:py-2",
         "group-data-[variant=outline]/tool-group-root:w-full group-data-[variant=outline]/tool-group-root:px-4",
         "group-data-[variant=muted]/tool-group-root:w-full group-data-[variant=muted]/tool-group-root:px-4",
         className,

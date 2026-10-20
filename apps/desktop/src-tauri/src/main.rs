@@ -233,6 +233,14 @@ fn start_daemon(app: AppHandle, daemons: State<Daemons>, relay: String) {
 }
 
 #[tauri::command]
+fn drag_window(app: AppHandle) {
+    #[cfg(target_os = "macos")]
+    if let Some(window) = app.get_webview_window("main") {
+        window::drag(&window);
+    }
+}
+
+#[tauri::command]
 fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
         return Err("Only web addresses open from here.".into());
@@ -274,7 +282,8 @@ fn main() {
             cancel_sign_in,
             sign_out,
             start_daemon,
-            open_url
+            open_url,
+            drag_window
         ])
         .on_menu_event(|app, event| {
             if event.id().as_ref() == "app-quit" {

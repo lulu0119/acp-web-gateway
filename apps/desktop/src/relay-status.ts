@@ -3,7 +3,7 @@ import type { RelayView } from "./api";
 export type Tone = "ok" | "busy" | "attention" | "off";
 
 /** What one relay row says: a short label, the reason under it, and the action that helps. */
-export type RelayStatus = { tone: Tone; label: string; detail: string; action?: "sign-in" | "start" };
+export type RelayStatus = { tone: Tone; label: string; detail: string; agents?: string[]; action?: "sign-in" | "start" };
 
 export function relayStatus(view: RelayView, now: number): RelayStatus {
   switch (view.phase) {
@@ -19,10 +19,11 @@ export function relayStatus(view: RelayView, now: number): RelayStatus {
       return { tone: "attention", label: when, detail: view.error ?? "The daemon stopped unexpectedly." };
     }
     case "running": {
-      const offering = view.state?.agents.length ? `Offering ${view.state.agents.join(", ")}.` : "Offering no agents yet.";
-      if (view.state?.status === "connected") return { tone: "ok", label: "Connected", detail: offering };
+      const agents = view.state?.agents ?? [];
       if (view.state?.status === "waiting") return { tone: "busy", label: "Reconnecting", detail: "The relay is not answering. Trying again." };
-      return { tone: "busy", label: "Connecting", detail: offering };
+      const offering = agents.length ? { detail: "", agents } : { detail: "Offering no agents yet." };
+      if (view.state?.status === "connected") return { tone: "ok", label: "Connected", ...offering };
+      return { tone: "busy", label: "Connecting", ...offering };
     }
   }
 }

@@ -72,21 +72,21 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
   const online = data.devices.filter((device) => device.online).length;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-6 pb-24 sm:gap-12 sm:px-6">
+    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-8 px-4 pt-6 pb-12 sm:gap-12 sm:px-6">
       <header className="flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2.5">
+        <a href="/" className="flex items-center gap-2">
           <ExteriorMark className="size-7" />
           <span className="font-display text-lg font-bold">Exterior</span>
         </a>
         <UserMenu userName={data.userName} userImage={data.userImage} />
       </header>
 
-      <main className="flex min-w-0 flex-col gap-14">
+      <main className="flex min-w-0 flex-col gap-12">
         <section className="flex flex-col gap-6" aria-labelledby="devices-heading">
           <SectionHeading id="devices-heading" title="Devices" as="h1" action={<AddDeviceMenu onSetUp={() => setSetupOpen(true)} />}>
             Computers signed in to your account. Web apps you authorize open agents on the online ones.
           </SectionHeading>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-6 text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm leading-6 text-muted-foreground">
             <span><span className="font-medium text-foreground">{data.devices.length}</span> {data.devices.length === 1 ? "device" : "devices"}</span>
             <span className="inline-flex items-center gap-2">
               <span className="size-1.5 rounded-full bg-success-500" />
@@ -162,15 +162,15 @@ function AddDeviceMenu({ onSetUp }: { onSetUp: () => void }) {
           <ChevronDownIcon aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuItem onClick={onSetUp} className="items-start gap-2.5 py-2">
-            <TerminalIcon className="mt-0.5" />
+          <DropdownMenuItem onClick={onSetUp} className="items-start gap-2 py-2">
+            <TerminalIcon className="mt-1" />
             <span className="flex flex-col">
               <span className="font-medium">Set up a new device</span>
               <span className="text-xs text-muted-foreground">The desktop app, an AI assistant, or a terminal</span>
             </span>
           </DropdownMenuItem>
-          <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2.5 py-2">
-            <KeyRoundIcon className="mt-0.5" />
+          <DropdownMenuItem render={<a href="/device" />} className="items-start gap-2 py-2">
+            <KeyRoundIcon className="mt-1" />
             <span className="flex flex-col">
               <span className="font-medium">Enter a device code</span>
               <span className="text-xs text-muted-foreground">The code the app or <code className="font-mono">exterior login</code> shows</span>
@@ -223,7 +223,7 @@ function DeviceList({ devices, sessions, apps, agentIcons, onRemove }: {
                   {system ? <><span aria-hidden>·</span><span>{system}</span></> : null}
                 </p>
               </div>
-              <Button variant="ghost" size="sm" className="-mt-0.5 -mr-1 text-muted-foreground" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
+              <Button variant="outline" size="sm" onClick={() => onRemove(device)} aria-label={`Remove ${device.hostname}`}>Remove</Button>
             </div>
             <AgentStack device={device} sessions={sessions.filter((session) => session.deviceId === device.id)} apps={appsById} agentIcons={agentIcons} />
           </li>
@@ -254,12 +254,12 @@ function AgentStack({ device, sessions, apps, agentIcons }: {
     <div className="flex min-w-0 items-center gap-3">
       <ul className="flex shrink-0 -space-x-2" aria-label={summary}>
         {device.agents.slice(0, stackLimit).map((agent) => (
-          <li key={agent.name} className="relative flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
+          <li key={agent.name} className="flex size-8 items-center justify-center rounded-full border border-border bg-card ring-2 ring-card" title={agent.name}>
             <AgentIcon iconUrl={agentIcons[agent.agentType]} className="size-4" />
           </li>
         ))}
         {hidden > 0 ? (
-          <li className="relative flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
+          <li className="flex size-8 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-card">
             +{hidden}<span className="sr-only"> more agents</span>
           </li>
         ) : null}
@@ -274,11 +274,12 @@ function AgentStack({ device, sessions, apps, agentIcons }: {
 function InUseBy({ users, apps }: { users: string[]; apps: Map<string, GrantedApp> }) {
   const names = users.map((clientId) => apps.get(clientId)?.clientName ?? "An app");
   return (
-    <span className="flex shrink-0 items-center gap-1.5 text-xs leading-5 text-muted-foreground" title={`In use by ${names.join(", ")}`}>
-      <span className="flex -space-x-1.5">
-        {users.slice(0, 3).map((clientId, index) => (
-          <AppIcon key={clientId} label={names[index]} logoUri={apps.get(clientId)?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />
-        ))}
+    <span className="flex shrink-0 items-center gap-2 text-xs leading-5 text-muted-foreground" title={`In use by ${names.join(", ")}`}>
+      <span className="flex -space-x-2">
+        {users.slice(0, 3).map((clientId) => {
+          const app = apps.get(clientId);
+          return <AppIcon key={clientId} label={app?.clientName ?? "An app"} logoUri={app?.logoUri} className="size-6 rounded-md text-[10px] ring-2 ring-card" />;
+        })}
       </span>
       <span className="font-medium">{users.length === 1 ? names[0] : `${users.length} apps`}</span>
     </span>
@@ -288,14 +289,14 @@ function InUseBy({ users, apps }: { users: string[]; apps: Map<string, GrantedAp
 function Presence({ device }: { device: DeviceView }) {
   if (device.online) {
     return (
-      <span className="inline-flex items-center gap-1.5 font-medium text-success-700 dark:text-success-400">
+      <span className="inline-flex items-center gap-2 font-medium text-success-700 dark:text-success-400">
         <span className="size-1.5 rounded-full bg-success-500" />
         Connected
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5" title={new Date(device.lastSeenAt).toLocaleString()}>
+    <span className="inline-flex items-center gap-2" title={new Date(device.lastSeenAt).toLocaleString()}>
       <span className="size-1.5 rounded-full bg-muted-foreground/40" />
       {relativeTime(device.lastSeenAt)}
     </span>
