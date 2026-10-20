@@ -250,7 +250,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
             Run these on the device to configure an agent and keep it connected. <code className="font-mono">daemon</code> stays in the foreground.
           </p>
           <CodeBlock code={page.guide.afterLogin} />
-          <a href="/" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "self-start")}>
+          <a href="/" className={cn(buttonVariants({ size: "lg" }), "self-start")}>
             Open dashboard
             <ArrowRightIcon data-icon="inline-end" />
           </a>
@@ -353,7 +353,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
             {page.action.label}
           </a>
         ) : null}
-        <a href="/" className={cn(buttonVariants({ variant: page.action ? "outline" : "default", size: "lg" }), "w-full")}>Back to Exterior</a>
+        <a href="/" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full")}>Back to Exterior</a>
       </div>
       {page.details ? (
         <details className="text-sm text-muted-foreground">

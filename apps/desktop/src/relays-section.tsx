@@ -61,7 +61,7 @@ export function RelaysSection() {
       <SectionIntro title="Relays">Web apps reach this device's agents through the relays it is signed in to.</SectionIntro>
       {relays.length > 0 && signIn.stage === "closed" ? (
         <div className="flex justify-end">
-          <Button variant="outline" onClick={openForm}>Sign in to a relay</Button>
+          <Button onClick={openForm}>Sign in to a relay</Button>
         </div>
       ) : null}
       {signIn.stage !== "closed" ? <SignInPanel signIn={signIn} onStart={start} onCancel={cancel} onChange={(relay) => setSignIn({ stage: "form", relay })} /> : null}
@@ -101,7 +101,7 @@ function RelayRow({ relay, now, icons, onSignIn }: { relay: RelayView; now: numb
       <div className="flex shrink-0 items-center gap-2">
         {status.action === "sign-in" ? <Button size="sm" onClick={onSignIn}>Sign in again</Button> : null}
         {status.action === "start" ? (
-          <Button size="sm" variant="outline" loading={starting} onClick={() => { setStarting(true); void api.startDaemon(relay.relayUrl).finally(() => setStarting(false)); }}>
+          <Button size="sm" loading={starting} onClick={() => { setStarting(true); void api.startDaemon(relay.relayUrl).finally(() => setStarting(false)); }}>
             Start
           </Button>
         ) : null}
@@ -212,7 +212,7 @@ function SignOutButton({ relayUrl }: { relayUrl: string }) {
         </DialogHeader>
         {error ? <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="destructive" loading={pending} onClick={() => void confirm()}>Sign out</Button>
         </div>
       </DialogContent>
@@ -242,9 +242,9 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
           {expired ? (
             <Button onClick={() => onStart(signIn.relay)}>Get a new code</Button>
           ) : (
-            <Button variant="outline" onClick={() => void api.openUrl(signIn.url)}>Open the page again</Button>
+            <Button onClick={() => void api.openUrl(signIn.url)}>Open the page again</Button>
           )}
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
         </div>
       </div>
     );
@@ -271,7 +271,7 @@ function SignInPanel({ signIn, onStart, onCancel, onChange }: {
           className="bg-background font-mono"
         />
         <Button type="submit" loading={starting} disabled={!signIn.relay.trim()}>Continue</Button>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
       </div>
       {signIn.stage === "form" && signIn.error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{signIn.error}</p> : null}
     </form>

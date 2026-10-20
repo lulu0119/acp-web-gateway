@@ -147,7 +147,7 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
               </Alert>
             ) : null}
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={removePending}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel variant="secondary" disabled={removePending}>Cancel</AlertDialogCancel>
               <AlertDialogAction variant="destructive" loading={removePending} onClick={() => void remove(removing)}>
                 {removePending ? "Removing" : "Remove device"}
               </AlertDialogAction>

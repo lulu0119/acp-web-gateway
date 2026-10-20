@@ -14,9 +14,3 @@ Padding, margin, and gap use this scale. A larger step is a more important break
 | 48 | `12` | Regions on a page. |
 
 A button, input, menu item, or badge may pad its inline and block sides differently. A page may use a larger bottom margin than its side inset. Control height is size, not space.
-
-## Button emphasis and alignment
-
-Choose the variant for the action's importance and context: `default` for primary actions, `outline` for secondary actions, and `ghost` for quiet navigation or utility actions.
-
-Align the visible content of neighboring controls: give their icons the same slot width and their labels the same starting edge. A ghost control keeps its padded hover and focus area, while its icon and label align with adjacent text and controls. Check both the resting and hovered render; matching outer boxes alone does not prove visual alignment.

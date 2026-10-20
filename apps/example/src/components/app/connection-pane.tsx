@@ -171,7 +171,7 @@ function StartConversationButton() {
   }
   return (
     <div className="flex flex-col items-start gap-2">
-      <Button variant="outline" disabled={busy} onClick={() => void create()}>
+      <Button disabled={busy} onClick={() => void create()}>
         {busy ? <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" /> : <PlusIcon />}
         {busy ? "Starting…" : "Start a conversation"}
       </Button>

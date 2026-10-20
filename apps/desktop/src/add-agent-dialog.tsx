@@ -100,7 +100,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
 
           {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" loading={pending} disabled={!ready}>Add agent</Button>
           </div>
         </form>
