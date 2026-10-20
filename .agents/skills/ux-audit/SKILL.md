@@ -1,6 +1,6 @@
 ---
 name: ux-audit
-description: Audit one Exterior web surface against the `ux` rules and land the result. Answers "does this surface do its job?" before listing defects, and reports each rule as a finding, a pass, or not checked. Use for UX audits, "is this page readable", "why does this feel cluttered", comparing two layouts, and the required change verification before any relay page or web app UI change is declared complete. Produces a report and updates to rules or product facts, not UI changes.
+description: Audit one Exterior web surface against the `ux` rules and land the result. Answers "does this surface do its job?" before listing defects, and reports each rule as a finding, a pass, or not checked. Use for UX audits, "is this page readable", "why does this feel cluttered", comparing two layouts, and the required change verification before any relay page or web app UI change is declared complete. Produces a report and rule or case updates, not UI changes.
 ---
 
 # ux-audit
@@ -71,22 +71,22 @@ Class: <class>; compared with <tools>. Missing against the class: <list or none>
 | Rule | Missing layer | What would check it |
 
 ## Landed
-- Product facts updated: <current fact>, or "none"
+- Cases added: <rule> ← <finding>
 - Rules changed: <rule>: <what changed and why>, or "none"
 ```
 
-Keep the report and its before/after evidence outside the repository unless asked. Skills describe current requirements and product facts.
+Keep the report out of the repository unless asked. It describes one moment; what generalizes goes into the skills.
 
 ## Landing
 
 An audit is done when its result is landed:
 
-1. Record findings, strengths, baseline, and evidence in the audit report.
+1. Every finding and strength becomes an entry under its rule in `ux/references/cases.md`, with baseline and evidence.
 2. A defect no rule covers: first try widening an existing rule's high-signal shapes. Add a new rule only if the shape generalizes beyond this surface; follow the rule format in `ux`.
 3. A rule that produced a wrong finding: tighten its **Prove it** or **Not a finding**. A wrong "missing" costs more than a missed finding.
 4. Product facts that changed (main question, class, objects): update [references/product.md](references/product.md).
 
-Update requirements and product facts in place. If nothing generalized, write "rules changed: none" in the report; an empty landing must be stated, not implied.
+If nothing generalized, write "rules changed: none" in the report; an empty landing must be stated, not implied.
 
 ## Traps
 

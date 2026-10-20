@@ -7,7 +7,7 @@ description: Rules for how Exterior's web surfaces must read and behave. Each ru
 
 Exterior's pages ask a person to trust something: approve a device, let a web app reach an agent, revoke an app. They act on what the screen says. So the bar is not "looks fine". The bar is: **what the screen says is true, the important part reads first, every action answers, and the context the user built survives.**
 
-The rules are defect shapes, not a checklist of features. A rule fires only when its evidence is in hand. Keep rules about current requirements; audit evidence belongs in the report outside the repository.
+The rules are defect shapes, not a checklist of features. A rule fires only when its evidence is in hand. Instances from this repository live in [references/cases.md](references/cases.md), keyed by rule name; the rules themselves stay free of file names.
 
 ## Principles
 
@@ -182,4 +182,4 @@ Each rule lists its minimum layer. A rule whose minimum layer did not run is rep
 
 Add a rule only when a defect generalizes beyond one surface **and** no existing rule covers it. Prefer widening an existing rule's high-signal shapes. Keep the set small enough to read in one pass; merge before adding.
 
-A rule must keep this shape: **Defect** (one sentence), **Prove it** (minimum layer and the evidence), **High signal**, optional **Not a finding**, **Fix**. Keep file paths and observations in the audit report.
+A rule must keep this shape: **Defect** (one sentence), **Prove it** (minimum layer and the evidence), **High signal**, optional **Not a finding**, **Fix**. Keep file paths out of rules; put them in [references/cases.md](references/cases.md) under the rule's name.
