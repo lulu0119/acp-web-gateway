@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
+import { platformTarget } from "../acp-registry.js";
 import { writeDaemonState } from "../daemon-state.js";
 import { readDeviceId, writeDeviceId } from "../device-ids.js";
 import { writeSignIn } from "../sign-ins.js";
@@ -259,6 +260,58 @@ test("a second daemon for a relay whose daemon is running exits with 4", async (
   const second = await run(["daemon"], { home });
   assert.equal(second.code, 4);
   assert.equal(second.stderr, `A daemon for https://exterior.example is already running (process ${process.ppid}).\n`);
+});
+
+test.skipIf(process.platform === "win32")("agent types find a command the login shell has and this process does not", async () => {
+  const target = platformTarget();
+  assert.ok(target);
+  const home = await mkdtemp(join(tmpdir(), "exterior-cli-"));
+  const bin = join(home, "bin");
+  await mkdir(bin);
+  await writeFile(join(bin, "opencode"), "#!/bin/sh\n");
+  await writeFile(join(bin, "npx"), "#!/bin/sh\n");
+  await chmod(join(bin, "opencode"), 0o755);
+  await chmod(join(bin, "npx"), 0o755);
+  const shell = join(home, "shell");
+  await writeFile(shell, `#!/bin/sh\nprintf '%s' "__EXTERIOR_PATH__${bin}__EXTERIOR_PATH__"\n`);
+  await chmod(shell, 0o755);
+  await mkdir(join(home, ".config", "exterior"), { recursive: true });
+  await writeFile(join(home, ".config", "exterior", "acp-registry.json"), JSON.stringify({
+    agents: [
+      { id: "opencode", name: "OpenCode", distribution: { binary: { [target]: { cmd: "./opencode", args: ["acp"] } } } },
+      { id: "claude-acp", name: "Claude Agent", distribution: { npx: { package: "@agentclientprotocol/claude-agent-acp@1.0.0" } } },
+    ],
+  }));
+  const listed = await run(["agent-config", "types", "--json"], { home, env: { PATH: "/usr/bin:/bin", SHELL: shell } });
+  assert.equal(listed.code, 0);
+  const types = JSON.parse(listed.stdout) as { types: { id: string; ready: boolean; reason?: string }[] };
+  assert.equal(types.types.find((type) => type.id === "opencode")?.ready, true);
+  const claude = types.types.find((type) => type.id === "claude-acp");
+  assert.equal(claude?.ready, true);
+  assert.equal(claude?.reason, undefined);
+});
+
+test.each(["npx", "uvx"] as const)("agent types using %s are ready when their runner is installed", async (command) => {
+  const home = await mkdtemp(join(tmpdir(), "exterior-cli-"));
+  const bin = join(home, "bin");
+  await mkdir(bin);
+  const executable = join(bin, `${command}${process.platform === "win32" ? ".cmd" : ""}`);
+  await writeFile(executable, "#!/bin/sh\n");
+  await chmod(executable, 0o755);
+  await mkdir(join(home, ".config", "exterior"), { recursive: true });
+  await writeFile(join(home, ".config", "exterior", "acp-registry.json"), JSON.stringify({
+    agents: [{ id: "example-agent", name: "Example Agent", distribution: { [command]: { package: "example-agent@1.0.0" } } }],
+  }));
+  const env = { PATH: bin, SHELL: join(home, "missing-shell") };
+  const listed = await run(["agent-config", "types", "--json"], { home, env });
+  assert.equal(listed.code, 0);
+  assert.deepEqual(JSON.parse(listed.stdout), { types: [{ id: "example-agent", name: "Example Agent", ready: true }] });
+
+  const missing = await run(["agent-config", "types", "--json"], { home, env: { ...env, PATH: home } });
+  assert.equal(missing.code, 0);
+  assert.deepEqual(JSON.parse(missing.stdout), {
+    types: [{ id: "example-agent", name: "Example Agent", ready: false, reason: `"${command}" is not installed.` }],
+  });
 });
 
 test("a relay address may leave out the scheme", () => {

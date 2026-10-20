@@ -1,4 +1,6 @@
 import { acpRegistryCachePath, formatRegistryAgents, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
+import { resolveCommand } from "../../../launch.js";
+import { loginShellPath } from "../../../shell-path.js";
 import { defineCommand } from "../../command.js";
 
 export const types = defineCommand({
@@ -16,9 +18,13 @@ export const types = defineCommand({
       io.stdout.write(formatRegistryAgents(registry.agents));
       return 0;
     }
+    // The desktop app's PATH is the system's, so a command the login shell can see looks missing.
+    const shellPath = await loginShellPath({ env: io.env });
+    const pathValue = shellPath ?? io.env.PATH;
+    const resolve = (command: string) => resolveCommand(command, { pathValue });
     const platform = platformTarget();
     const types = registry.agents.map((entry) => {
-      const launch = launchForEntry({ entry, platform });
+      const launch = launchForEntry({ entry, platform, resolve });
       return {
         id: entry.id,
         name: entry.name,
