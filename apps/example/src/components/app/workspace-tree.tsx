@@ -192,9 +192,10 @@ function SessionRow({
     <SidebarMenuSubItem>
       <SidebarMenuSubButton
         render={<button type="button" />}
+        size="sm"
         isActive={active}
         onClick={onSelect}
-        className={canDelete ? "pe-6" : undefined}
+        className={`w-full${canDelete ? " pe-6" : ""}`}
       >
         <span>{title}</span>
       </SidebarMenuSubButton>

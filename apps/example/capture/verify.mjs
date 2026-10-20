@@ -155,6 +155,17 @@ async function shot(page, name) {
   );
   await page.screenshot({ path: resolve(output, `${name}.png`), fullPage: true });
   if (name === "chat-empty-desktop") {
+    const title = await page.getByRole("button", { name: "Untitled conversation", exact: true }).evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        size: style.fontSize,
+        weight: style.fontWeight,
+        fillsRow: el.getBoundingClientRect().width >= el.parentElement.getBoundingClientRect().width - 1,
+      };
+    });
+    assert.equal(title.size, "12px", "A conversation title is smaller than the directory name");
+    assert.equal(title.weight, "400");
+    assert.equal(title.fillsRow, true);
     await page
       .locator('[data-slot="sidebar-group"]')
       .filter({ has: page.getByText("Working directories", { exact: true }) })
@@ -231,6 +242,41 @@ async function shot(page, name) {
   });
 }
 
+async function sidebarWidth(page) {
+  return page.locator('[data-slot="sidebar-container"]').evaluate((el) => el.getBoundingClientRect().width);
+}
+
+async function dragRail(page, deltaX) {
+  const rail = page.locator('[data-sidebar="rail"]');
+  const box = await rail.boundingBox();
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + deltaX, y, { steps: 12 });
+  await page.mouse.up();
+}
+
+async function assertSidebarResizes(page) {
+  const before = await sidebarWidth(page);
+  await dragRail(page, 160);
+  const widened = await sidebarWidth(page);
+  assert.ok(widened >= before + 120, `dragging the rail widens the sidebar (${before} -> ${widened})`);
+  assert.equal(
+    await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"),
+    "expanded",
+    "A drag must not collapse the sidebar",
+  );
+  assert.match(await page.evaluate(() => document.cookie), /sidebar_width=\d+/);
+  await dragRail(page, before - widened);
+  const restored = await sidebarWidth(page);
+  assert.ok(Math.abs(restored - before) <= 2, `dragging back restores the width (${restored} vs ${before})`);
+  await page.locator('[data-sidebar="rail"]').click();
+  assert.equal(await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"), "collapsed");
+  await page.locator('[data-sidebar="rail"]').click();
+  assert.equal(await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"), "expanded");
+}
+
 async function expectVisible(locator) {
   await locator.waitFor({ state: "visible", timeout: 5000 });
 }
@@ -288,6 +334,7 @@ try {
   await expectVisible(page.getByRole("button", { name: "Start a conversation", exact: true }));
   assert.equal(state.opens - before, 1, "Double activation must open one connection");
   await shot(page, "connected-desktop");
+  await assertSidebarResizes(page);
   await page.getByRole("button", { name: "Add a connection", exact: true }).click();
   await expectVisible(page.getByRole("dialog"));
   await shot(page, "add-connection-desktop");

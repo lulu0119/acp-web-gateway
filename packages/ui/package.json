@@ -29,7 +29,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && node --test src/sidebar-width.test.ts",
     "palette": "node scripts/palette.mjs"
   },
   "dependencies": {
