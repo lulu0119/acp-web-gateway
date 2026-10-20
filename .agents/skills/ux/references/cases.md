@@ -48,7 +48,7 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 ## no-equal-weight-noise
 
 - ❌ `3cdf4fe` (2026-10-20; L2, 1440×900): consent painted the connector, the Unverified badge, the warning, and the permission icons gold, so the warning did not stand out. `web/pages/account.tsx` (`Consent`)
-- ✅ `3cdf4fe` + consent emphasis (2026-10-20; L2, 1440×900 and 390×844): gold stays on the unverified warning. The connector and permission marks use neutral ink, and Unverified stays an outline next to the origin. `web/pages/account.tsx` (`Consent`)
+- ✅ `3cdf4fe` + consent emphasis (2026-10-20; L2, 1440×900 and 390×844): amber stays on the unverified warning. The connector and permission marks use neutral ink, and Unverified stays an outline next to the origin. `web/pages/account.tsx` (`Consent`)
 
 ## no-indistinct-identity
 

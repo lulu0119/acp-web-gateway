@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { DeviceView, GrantedApp, LiveSessionInfo } from "../../shared/account-web.js";
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { AppIcon } from "./app-icon.js";
+import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button } from "@exterior/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
 import { EmptyState } from "@exterior/ui/empty-state";
@@ -69,10 +70,10 @@ export function GrantsSection({ grants, devices, sessions, agentIcons }: {
         Web apps that can open agents on your devices. Revoking signs an app out the next time it asks for a token.
       </SectionHeading>
       {problem ? (
-        <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
-          <CircleAlertIcon className="size-4" aria-hidden />
-          {problem}
-        </p>
+        <Alert variant="destructive">
+          <CircleAlertIcon />
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
       ) : null}
       {loaded.state === "loading" ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading apps">

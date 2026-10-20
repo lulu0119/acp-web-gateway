@@ -11,6 +11,7 @@ import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { SectionHeading } from "@exterior/ui/section-heading";
 import { SetupGuide } from "../components/setup-guide";
 import { UserMenu } from "../components/user-menu";
+import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button, buttonVariants } from "@exterior/ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "@exterior/ui/button-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
@@ -124,10 +125,10 @@ export function Dashboard({ initialData, guide }: { initialData: DashboardData; 
               </DialogDescription>
             </DialogHeader>
             {problem ? (
-              <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
-                <CircleAlertIcon className="size-4" aria-hidden />
-                {problem}
-              </p>
+              <Alert variant="destructive">
+                <CircleAlertIcon />
+                <AlertDescription>{problem}</AlertDescription>
+              </Alert>
             ) : null}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" disabled={removePending} onClick={() => setRemoving(undefined)}>Cancel</Button>
