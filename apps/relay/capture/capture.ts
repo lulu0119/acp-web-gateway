@@ -64,7 +64,7 @@ const surfaces: Surface[] = [
     // Remove on the first online device.
     ready: async (page) => {
       await page.getByRole("button", { name: "Remove laptop" }).click();
-      await page.waitForSelector("[role=dialog] >> text=Remove device");
+      await page.getByRole("button", { name: "Remove device" }).waitFor();
     },
   },
   {

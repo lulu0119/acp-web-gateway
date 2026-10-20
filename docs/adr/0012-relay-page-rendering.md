@@ -2,7 +2,7 @@
 
 Status: accepted
 
-The relay, desktop app, and Example import general React controls and the Exterior mark from `packages/ui` (`@exterior/ui`, private). The controls follow shadcn's composable source pattern over Base UI. One implementation owns each control's interaction, accessibility, and variants; each app owns its pages, layout, and theme tokens.
+The relay, desktop app, and Example import general React controls and the Exterior mark from `packages/ui` (`@exterior/ui`, private). The controls follow shadcn's composable source pattern over Base UI. One implementation owns each control's interaction, accessibility, and variants; each app owns its pages, layout, and theme tokens. When shadcn or assistant-ui already provides a suitable component, that component is added and composed. Change it to fit the product; its variants, sizes, and subcomponents remain, including ones no page uses yet.
 
 Example keeps its assistant-ui chat components and ACP integration beside the app. Sharing basic controls keeps the product surfaces consistent without coupling the web app SDK to a UI framework: `@exterior/client` has no UI dependency.
 

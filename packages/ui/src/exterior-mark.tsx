@@ -1,15 +1,15 @@
 import { cn } from "cn";
 
-/** Exterior's mark: a hub reaching three nodes, optionally on a solid tile. */
-export function ExteriorMark({ className, variant = "plain" }: { className?: string; variant?: "plain" | "tile" }) {
+/** Exterior's mark: a hub reaching three nodes, on the ink tile. */
+export function ExteriorMark({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 32 32"
       role="img"
       aria-label="Exterior"
-      className={cn("size-8 shrink-0", variant === "tile" ? "text-primary-foreground" : "text-foreground", className)}
+      className={cn("size-8 shrink-0 text-primary-foreground", className)}
     >
-      <rect width="32" height="32" rx="9" className={variant === "tile" ? "fill-primary" : "fill-background"} />
+      <rect width="32" height="32" rx="9" className="fill-primary" />
       <g stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
         <line x1="16" y1="16" x2="9.5" y2="10.5" />
         <line x1="16" y1="16" x2="22.5" y2="10.5" />

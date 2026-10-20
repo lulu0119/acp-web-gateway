@@ -81,7 +81,7 @@ function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: Agent
           {!custom ? <span className="truncate text-xs text-muted-foreground">{type?.name ?? agent.agentType}</span> : null}
         </div>
         {custom ? <p className="selectable truncate font-mono text-xs leading-5 text-muted-foreground">{agent.command?.join(" ")}</p> : null}
-        {type && !type.ready ? <p className="text-xs leading-5 text-warning-700 dark:text-warning-400">Cannot start here: {type.reason}</p> : null}
+        {type && !type.ready ? <p className="text-xs leading-5 text-amber-700 dark:text-amber-400">Cannot start here: {type.reason}</p> : null}
         {agent.envNames.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
             {agent.envNames.map((name) => <Badge key={name} variant="secondary" className="font-mono font-normal">{name}</Badge>)}

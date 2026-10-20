@@ -9,7 +9,7 @@ import {
   KeyRoundIcon,
   LaptopIcon,
   RefreshCwIcon,
-  ShieldAlertIcon,
+  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -20,6 +20,7 @@ import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Step } from "../components/step.js";
 import { Avatar, AvatarImage, AvatarFallback } from "@exterior/ui/avatar";
+import { Alert, AlertDescription, AlertTitle } from "@exterior/ui/alert";
 import { Badge } from "@exterior/ui/badge";
 import { buttonVariants } from "@exterior/ui/button";
 import { OTPField } from "@exterior/ui/otp-field";
@@ -105,9 +106,13 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
           </SubmitButton>
         </PendingForm>
       ) : (
-        <Notice tone="error" title="GitHub sign-in is not set up">
-          Set <code className="font-mono">GITHUB_CLIENT_ID</code> and <code className="font-mono">GITHUB_CLIENT_SECRET</code>, then start Exterior again.
-        </Notice>
+        <Alert variant="destructive">
+          <CircleAlertIcon />
+          <AlertTitle>GitHub sign-in is not set up</AlertTitle>
+          <AlertDescription>
+            Set <code className="font-mono">GITHUB_CLIENT_ID</code> and <code className="font-mono">GITHUB_CLIENT_SECRET</code>, then start Exterior again.
+          </AlertDescription>
+        </Alert>
       )}
     </Shell>
   );
@@ -144,12 +149,12 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
             className="justify-center"
           />
           {page.problem ? (
-            <p id="user-code-problem" className="flex items-start gap-2 text-sm text-destructive" role="alert">
-              <CircleAlertIcon className="mt-1 size-4 shrink-0" aria-hidden />
-              <span>
+            <Alert variant="destructive" id="user-code-problem">
+              <CircleAlertIcon />
+              <AlertDescription>
                 {page.problem}{/[.!?]$/.test(page.problem) ? "" : "."} Check it against the code on your device, or sign in again there for a new one.
-              </span>
-            </p>
+              </AlertDescription>
+            </Alert>
           ) : null}
         </div>
         <SubmitButton id="continue" size="xl">Continue</SubmitButton>
@@ -178,9 +183,13 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
         <Allowance icon={<BotIcon />}>The device can run agents for your account when an app you approved asks for one.</Allowance>
         <Allowance icon={<LaptopIcon />}>It appears on your dashboard. You can sign it out from the device.</Allowance>
       </ul>
-      <Notice tone="warning" title="Only connect a device you just started">
-        If someone sent you this code or link, deny it. Their computer would join your account and receive the agent sessions your apps open.
-      </Notice>
+      <Alert variant="warning">
+        <TriangleAlertIcon />
+        <AlertTitle>Only connect a device you just started</AlertTitle>
+        <AlertDescription>
+          If someone sent you this code or link, deny it. Their computer would join your account and receive the agent sessions your apps open.
+        </AlertDescription>
+      </Alert>
       <PendingScope>
         <div className="grid grid-cols-2 gap-3">
           <PendingForm method="post" action="/device" className="flex flex-col">
@@ -277,10 +286,14 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
     >
       <SignedInAs account={page.account} />
       {page.unverified ? (
-        <Notice tone="warning" title="Exterior has not verified this app">
-          {name ? <>The name “{name}” comes from the app itself. </> : null}
-          Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
-        </Notice>
+        <Alert variant="warning">
+          <TriangleAlertIcon />
+          <AlertTitle>Exterior has not verified this app</AlertTitle>
+          <AlertDescription>
+            {name ? <>The name “{name}” comes from the app itself. </> : null}
+            Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
+          </AlertDescription>
+        </Alert>
       ) : null}
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">This app will be able to</h2>
@@ -368,27 +381,9 @@ function Permission({ permission }: { permission: PermissionView }) {
 function Allowance({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-1 text-gold-ink [&_svg]:size-4">{icon}</span>
+      <span className="mt-1 text-foreground [&_svg]:size-4">{icon}</span>
       <span>{children}</span>
     </li>
-  );
-}
-
-function Notice({ tone, title, children }: { tone: "warning" | "error"; title: string; children: ReactNode }) {
-  return (
-    <div
-      role={tone === "error" ? "alert" : undefined}
-      className={cn(
-        "flex gap-3 rounded-xl p-4 text-sm ring-1",
-        tone === "warning" ? "bg-muted/60 ring-border" : "bg-danger-50 text-danger-900 ring-danger-200/70",
-      )}
-    >
-      <ShieldAlertIcon className={cn("mt-1 size-4 shrink-0", tone === "warning" && "text-gold-ink")} aria-hidden />
-      <div className="flex flex-col gap-1">
-        <span className={cn("font-semibold", tone === "warning" && "text-gold-ink")}>{title}</span>
-        <span className={tone === "warning" ? "text-muted-foreground" : "opacity-90"}>{children}</span>
-      </div>
-    </div>
   );
 }
 

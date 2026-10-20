@@ -21,12 +21,18 @@ When the task matches, read the skill before acting.
 - Something is broken, throwing, or slow → `diagnosing-bugs`
 - Gathering sources into a dated research note → `research`
 - Building or changing a relay page, the desktop window, or a web app surface → `ux`; auditing one, or verifying a UI change before calling it done → `ux-audit`
+- Cleaning generated slop from a diff → `deslop`
 - A screenshot of a relay or web page → `use-vishot`
 - Opening a PR → `create-pr`. A before/after image is for each page whose appearance this diff changes. Putting that image in the body → `upload-github-attachment`
+
+## Controls
+
+- A control shadcn or assistant-ui already provides is that component, variants, sizes, and subcomponents included. Add it where [ADR 0012](docs/adr/0012-relay-page-rendering.md) puts it, and compose it.
 
 ## Changes
 
 - If the roadmap gains, finishes, or defers an item, edit `docs/open-work.md` in the same change.
-- After a logic change, run deslop. Comments and docs match the code.
+- A logic change is finished when the comments, docs, and tests that named the old behavior now name only the behavior that remains. Delete a test with the behavior it covered. An assertion that something was removed is not a test.
+- Then run `deslop`.
 - Verify with `pnpm test` and `pnpm build`.
 - Repo language is English. Commit subjects are `type(scope):`.

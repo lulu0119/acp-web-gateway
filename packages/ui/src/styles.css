@@ -15,8 +15,6 @@
   --font-sans: "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Quicksand Variable", "Noto Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-gold: var(--gold);
-  --color-gold-ink: var(--gold-ink);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -47,7 +45,7 @@
 :root {
   /*
    * Exterior is named after the cultivated "external brain" in A Certain Magical Index. Cool white
-   * and ink carry the page; honey gold is kept for icons and the few words that must stand out.
+   * and ink carry the page. Warning states use amber.
    */
   --background: oklch(0.99 0.002 250);
   --foreground: oklch(0.2 0.01 260);
@@ -62,15 +60,12 @@
   --muted: oklch(0.96 0.004 255);
   --muted-foreground: oklch(0.52 0.012 258);
   --accent: oklch(0.96 0.004 255);
-  --accent-foreground: oklch(0.55 0.11 75);
+  --accent-foreground: oklch(0.2 0.01 260);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.915 0.005 255);
   --input: oklch(0.89 0.006 255);
   --ring: oklch(0.7 0.01 255);
   --radius: 0.5rem;
-  /* Honey gold, for icons and highlighted words only. Text in gold uses --gold-ink. */
-  --gold: oklch(0.8 0.135 82);
-  --gold-ink: oklch(0.55 0.11 75);
 }
 
 .dark {
@@ -87,13 +82,11 @@
   --muted: oklch(0.26 0.008 260);
   --muted-foreground: oklch(0.7 0.01 258);
   --accent: oklch(0.26 0.008 260);
-  --accent-foreground: oklch(0.82 0.12 82);
+  --accent-foreground: oklch(0.96 0.003 250);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.55 0.01 258);
-  --gold: oklch(0.8 0.135 82);
-  --gold-ink: oklch(0.82 0.12 82);
 }
 
 @layer base {

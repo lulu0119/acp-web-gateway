@@ -164,7 +164,7 @@ function StatusLabel({ tone, children }: { tone: Tone; children: string }) {
         "inline-flex shrink-0 items-center gap-2 text-xs leading-5 font-medium",
         tone === "ok" && "text-success-700 dark:text-success-400",
         tone === "busy" && "text-muted-foreground",
-        tone === "attention" && "text-warning-700 dark:text-warning-400",
+        tone === "attention" && "text-amber-700 dark:text-amber-400",
         tone === "off" && "text-muted-foreground",
       )}
     >
@@ -174,7 +174,7 @@ function StatusLabel({ tone, children }: { tone: Tone; children: string }) {
           "size-1.5 rounded-full",
           tone === "ok" && "bg-success-500",
           tone === "busy" && "animate-pulse bg-muted-foreground",
-          tone === "attention" && "bg-warning-500",
+          tone === "attention" && "bg-amber-500",
           tone === "off" && "bg-muted-foreground/40",
         )}
       />

@@ -98,7 +98,7 @@ export function App() {
         <Sidebar>
           <SidebarHeader className="p-4">
             <div className="flex items-center gap-3">
-              <ExteriorMark variant="tile" className="size-8" />
+              <ExteriorMark className="size-8" />
               <div>
                 <p className="text-sm font-semibold">Exterior</p>
                 <p className="text-xs text-muted-foreground">Playground</p>
