@@ -1,62 +1,71 @@
 import type { AccountPage } from "../../shared/account-web.js";
 
-// A browser navigation asks for HTML. A program calling this URL still gets the JSON error.
+export function isBrowserAuthorizeRequest(request: Request): boolean {
+  if (request.method !== "GET" || new URL(request.url).pathname !== "/api/auth/oauth2/authorize") return false;
+  return (request.headers.get("accept") ?? "").split(",").some((range) => {
+    const [type, ...parameters] = range.toLowerCase().split(";").map((part) => part.trim());
+    const quality = parameters.find((part) => part.startsWith("q="))?.slice(2);
+    return type === "text/html" && (quality === undefined || Number(quality) > 0);
+  });
+}
+
 export async function readBrowserAuthorizeError(request: Request, response: Response): Promise<AccountPage | undefined> {
-  if (request.method !== "GET" || response.status < 400) return undefined;
-  if (!new URL(request.url).pathname.endsWith("/oauth2/authorize")) return undefined;
-  if (!request.headers.get("accept")?.includes("text/html")) return undefined;
-  if (!(response.headers.get("content-type") ?? "").includes("json")) return undefined;
+  if (!isBrowserAuthorizeRequest(request) || response.status < 400) return undefined;
+  if (!response.headers.get("content-type")?.includes("json")) return undefined;
+  let body: unknown;
   try {
-    return authorizeErrorPage(request.url, await response.clone().json());
+    body = await response.clone().json();
   } catch {
     return undefined;
   }
-}
-
-function authorizeErrorPage(requestUrl: string, body: unknown): AccountPage | undefined {
-  const failure = explainAuthorizeFailure(body);
-  if (!failure) return undefined;
-  const retry = failure.retry ? retryAction(requestUrl) : undefined;
+  if (typeof body !== "object" || body === null) return undefined;
+  const error = "error" in body && typeof body.error === "string" ? body.error : "";
+  const description = "error_description" in body && typeof body.error_description === "string" ? body.error_description
+    : "message" in body && typeof body.message === "string" ? body.message : "";
+  const failure = explainAuthorizeFailure(error, description, response.status);
+  const url = new URL(request.url);
   return {
     kind: "message",
     tone: "error",
     title: failure.title,
     message: failure.message,
-    ...(retry ? { action: retry } : {}),
+    details: [error, description].filter(Boolean).join(": ") || undefined,
+    action: failure.retry ? { label: "Try again", href: `${url.pathname}${url.search}` } : undefined,
   };
 }
 
-function explainAuthorizeFailure(body: unknown): { title: string; message: string; retry: boolean } | undefined {
-  if (typeof body !== "object" || body === null || !("error" in body) || typeof body.error !== "string") return undefined;
-  const description = "error_description" in body && typeof body.error_description === "string" ? body.error_description : "";
-  if (description.startsWith("Metadata document fetch timed out")) {
+function explainAuthorizeFailure(error: string, description: string, status: number): { title: string; message: string; retry: boolean } {
+  if (status === 429) {
     return {
-      title: "Exterior could not reach this app",
-      message: "The app's description did not download in time. Try again.",
+      title: "Too many sign-in attempts",
+      message: "Wait a little before trying again.",
       retry: true,
     };
   }
-  if (description.startsWith("Failed to fetch metadata document")) {
+  if (error === "invalid_client" && description.startsWith("Metadata document fetch timed out")) {
     return {
       title: "Exterior could not reach this app",
-      message: "The app's description could not be downloaded. Try again.",
+      message: "The app's description did not download in time. Try again. If it keeps failing, ask the app's developer to check its sign-in setup.",
+      retry: true,
+    };
+  }
+  if (error === "invalid_client" && description.startsWith("Failed to fetch metadata document")) {
+    return {
+      title: "Exterior could not reach this app",
+      message: "The app's description could not be downloaded. Try again. If it keeps failing, ask the app's developer to check its sign-in setup.",
+      retry: true,
+    };
+  }
+  if (status >= 500 || error === "server_error" || error === "temporarily_unavailable") {
+    return {
+      title: "Sign-in is temporarily unavailable",
+      message: "Exterior could not finish this sign-in. Try again in a moment.",
       retry: true,
     };
   }
   return {
     title: "This sign-in could not start",
-    message: "Go back to the app and start again.",
+    message: "Go back to the app and start again. If it keeps failing, ask the app's developer to check its sign-in setup.",
     retry: false,
   };
-}
-
-function retryAction(requestUrl: string): { label: string; href: string } | undefined {
-  let url: URL;
-  try {
-    url = new URL(requestUrl);
-  } catch {
-    return undefined;
-  }
-  if (!url.pathname.endsWith("/oauth2/authorize")) return undefined;
-  return { label: "Try again", href: `${url.pathname}${url.search}` };
 }

@@ -4,12 +4,13 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { useLogg } from "@guiiai/logg";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { AccountPage } from "../shared/account-web.js";
 import { createAgentCatalog, type AgentCatalog } from "./agents/catalog.js";
 import type { Registry } from "./connections/registry.js";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
-import { readBrowserAuthorizeError } from "./identity/authorize-error.js";
+import { isBrowserAuthorizeRequest, readBrowserAuthorizeError } from "./identity/authorize-error.js";
 import { guardAuthRequest } from "./identity/clients.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
@@ -46,16 +47,31 @@ export function createRelayApp(input: {
   }));
   const daemonClientId = input.clients.daemonClientId;
 
+  function errorPage(page: AccountPage, response: Response): Response {
+    const headers = new Headers(response.headers);
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+    headers.set("Content-Type", "text/html; charset=UTF-8");
+    headers.set("Cache-Control", "no-store");
+    headers.set("X-Frame-Options", "DENY");
+    headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+    headers.set("Referrer-Policy", "no-referrer");
+    headers.append("Vary", "Accept");
+    return new Response(render.account(page), { status: response.status, headers });
+  }
+
   app.onError((error, c) => {
     log.withError(error).withFields({ method: c.req.method, path: c.req.path }).error("Request failed");
-    if (c.req.path.startsWith("/api/")) return c.json({ message: "Exterior hit an error. Try again." }, 500);
-    return c.html(render.account({
+    if (c.req.path.startsWith("/api/") && !isBrowserAuthorizeRequest(c.req.raw)) return c.json({ message: "Exterior hit an error. Try again." }, 500);
+    return errorPage({
       kind: "message",
       tone: "error",
       title: "Something went wrong",
-      message: "Exterior could not finish this step. Try again; if it keeps failing, start over from the app or your device.",
-      action: { label: "Try again", href: c.req.method === "GET" ? c.req.url : "/" },
-    }), 500);
+      message: c.req.method === "GET"
+        ? "Exterior could not finish this step. Try again; if it keeps failing, start over from the app or your device."
+        : "Exterior could not finish this step. Start again from the app or your device.",
+      action: c.req.method === "GET" ? { label: "Try again", href: c.req.url } : undefined,
+    }, new Response(null, { status: 500 }));
   });
 
   // Approve buttons must not be framed by another site and clicked through.
@@ -100,11 +116,7 @@ export function createRelayApp(input: {
     const response = await input.exterior.auth.handler(guarded);
     const page = await readBrowserAuthorizeError(c.req.raw, response);
     if (!page) return response;
-    const status = response.status === 401 || response.status === 403 || response.status === 429 ? response.status : 400;
-    return c.html(render.account(page), status, {
-      "X-Frame-Options": "DENY",
-      "Content-Security-Policy": "frame-ancestors 'none'",
-    });
+    return errorPage(page, response);
   });
 
   return { app, injectWebSocket: sockets.injectWebSocket };

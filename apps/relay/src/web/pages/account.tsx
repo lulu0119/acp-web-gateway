@@ -80,7 +80,7 @@ function SignedInAs({ account }: { account: AccountView }) {
 function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> }) {
   return (
     <Shell
-      framed={page.configured}
+      framed={false}
       header={(
         <>
           <ExteriorMark className="size-14" />
@@ -319,10 +319,11 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
 function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }> }) {
   return (
     <Shell
+      framed={page.tone !== "error"}
       header={(
         <>
-          <StatusMark tone={page.tone} />
-          <h1 className="font-display text-2xl font-bold">{page.title}</h1>
+          {page.tone === "error" ? <ExteriorMark className="size-14" /> : <StatusMark tone={page.tone} />}
+          <h1 className="font-display text-2xl font-bold text-balance">{page.title}</h1>
         </>
       )}
     >
@@ -336,6 +337,12 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
         ) : null}
         <a href="/" className={cn(buttonVariants({ variant: page.action ? "outline" : "default", size: "lg" }), "w-full")}>Back to Exterior</a>
       </div>
+      {page.details ? (
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer select-none hover:text-foreground">Technical details</summary>
+          <p className="mt-3 whitespace-pre-wrap break-words font-mono text-xs">{page.details}</p>
+        </details>
+      ) : null}
     </Shell>
   );
 }
@@ -394,12 +401,11 @@ function CodeDisplay({ code }: { code: string }) {
   );
 }
 
-/** A solid round mark for an outcome: a check for success, an exclamation for an error. */
-function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
+function StatusMark({ tone }: { tone: "success" | "neutral" }) {
   const style = tone === "success"
     ? "bg-success-500 text-white shadow-lg shadow-success-500/30"
-    : tone === "error" ? "bg-danger-500 text-white shadow-lg shadow-danger-500/30" : "bg-muted text-muted-foreground";
-  const icon = tone === "success" ? <CheckIcon strokeWidth={3} /> : tone === "error" ? <CircleAlertIcon /> : <InfoIcon />;
+    : "bg-muted text-muted-foreground";
+  const icon = tone === "success" ? <CheckIcon strokeWidth={3} /> : <InfoIcon />;
   return <span className={cn("flex size-14 items-center justify-center rounded-full [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
 }
 

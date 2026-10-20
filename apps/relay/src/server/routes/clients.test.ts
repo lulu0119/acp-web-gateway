@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import type { Hono } from "hono";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import type { RelayEnv } from "../http.js";
 import { openExteriorAuth, type ExteriorAuth } from "../identity/auth.js";
 import { prunePendingClients } from "../identity/clients.js";
@@ -127,7 +127,8 @@ test("a browser sees a page when the app's description cannot be downloaded", as
   assert.match(page, /Exterior could not reach this app/);
   assert.match(page, /The app's description could not be downloaded/);
   assert.match(page, /Try again/);
-  assert.doesNotMatch(page, /invalid_client/);
+  assert.match(page, /<details[^>]*>[\s\S]*invalid_client:[\s\S]*<\/details>/);
+  assert.doesNotMatch(page, /<details[^>]*\bopen\b/);
 
   const { app: rawApp } = await openRegistry({
     fetchClientMetadataResource: () => {
@@ -154,8 +155,62 @@ test("a browser sees that the app's description did not download in time", async
   const page = await shown.text();
   assert.match(page, /did not download in time/);
   assert.match(page, new RegExp(`href="${authorizeRequest(documentUrl).pathname}\\?[^"]*oauth-client\\.json`));
-  assert.doesNotMatch(page, /5000ms/);
+  assert.match(page, /<details[^>]*>[\s\S]*5000ms[\s\S]*<\/details>/);
 }, 15_000);
+
+test("invalid app metadata explains how to restart without a retry loop", async () => {
+  const { app } = await openRegistry({
+    fetchClientMetadataResource: () => new Response("not JSON", { headers: { "content-type": "application/json" } }),
+  });
+  const shown = await app.request(authorizeRequest("https://app.example.test/oauth-client.json"), { headers: { accept: "text/html" } });
+  assert.equal(shown.status, 400);
+  const page = await shown.text();
+  assert.match(page, /This sign-in could not start/);
+  assert.match(page, /Go back to the app/);
+  assert.match(page, /Metadata document is not valid JSON/);
+  assert.doesNotMatch(page, />Try again</);
+});
+
+test("an authorization error page preserves the server status and response headers", async () => {
+  const { app, exterior } = await openRegistry();
+  vi.spyOn(exterior.auth, "handler").mockResolvedValueOnce(Response.json({ error: "temporarily_unavailable" }, {
+    status: 503,
+    headers: { "retry-after": "30", "set-cookie": "flow=continue; HttpOnly", "content-length": "1" },
+  }));
+  const shown = await app.request(authorizeRequest("studio"), { headers: { accept: "text/html" } });
+  assert.equal(shown.status, 503);
+  assert.equal(shown.headers.get("retry-after"), "30");
+  assert.match(shown.headers.get("set-cookie") ?? "", /flow=continue/);
+  assert.equal(shown.headers.get("content-length"), null);
+  assert.equal(shown.headers.get("cache-control"), "no-store");
+  assert.equal(shown.headers.get("content-security-policy"), "frame-ancestors 'none'");
+  assert.match(await shown.text(), /Sign-in is temporarily unavailable/);
+});
+
+test("an unexpected authorization failure shows browsers a page and API callers JSON", async () => {
+  const { app, exterior } = await openRegistry();
+  app.post("/fixture-failure", () => { throw new Error("fixture form failure"); });
+  vi.spyOn(exterior.auth, "handler").mockRejectedValue(new Error("fixture authorization failure"));
+  for (const accept of ["text/html", "application/json"]) {
+    const shown = await app.request(authorizeRequest("studio"), { headers: { accept } });
+    assert.equal(shown.status, 500);
+    if (accept === "text/html") {
+      assert.match(shown.headers.get("content-type") ?? "", /text\/html/);
+      assert.equal(shown.headers.get("x-frame-options"), "DENY");
+      const page = await shown.text();
+      assert.match(page, /Something went wrong/);
+      assert.match(page, />Try again</);
+      assert.doesNotMatch(page, /fixture authorization failure/);
+    } else {
+      assert.deepEqual(await shown.json(), { message: "Exterior hit an error. Try again." });
+    }
+  }
+  const failedPost = await app.request(`${publicUrl}/fixture-failure`, { method: "POST" });
+  assert.equal(failedPost.status, 500);
+  const page = await failedPost.text();
+  assert.match(page, /Start again from the app or your device/);
+  assert.doesNotMatch(page, />Try again</);
+});
 
 test("an app on this computer is asked every time, and so is one that asks for consent", async () => {
   const { app, cookie } = await openRegistry();
