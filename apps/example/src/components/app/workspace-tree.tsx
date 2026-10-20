@@ -214,7 +214,7 @@ function SessionRow({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel variant="secondary">Cancel</AlertDialogCancel>
                 <AlertDialogAction variant="destructive" onClick={onDelete}>
                   Delete
                 </AlertDialogAction>

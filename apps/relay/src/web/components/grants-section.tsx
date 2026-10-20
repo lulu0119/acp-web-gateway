@@ -87,7 +87,7 @@ export function GrantsSection({ grants, devices, sessions, agentIcons }: {
             <EmptyTitle>Couldn't load authorized apps</EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
-            <Button variant="secondary" onClick={grants.retry}>Try again</Button>
+            <Button variant="outline" onClick={grants.retry}>Try again</Button>
           </EmptyContent>
         </Empty>
       ) : loaded.apps.length === 0 ? (

@@ -765,7 +765,7 @@ const EditComposer: FC = () => {
           autoFocus
         />
         <div className="aui-edit-composer-footer mx-3 mb-3 flex items-center gap-2 self-end">
-          <ComposerPrimitive.Cancel render={<Button variant="outline" size="sm" className="h-8 px-3" />}>Cancel
+          <ComposerPrimitive.Cancel render={<Button variant="secondary" size="sm" className="h-8 px-3" />}>Cancel
                               </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send render={<Button size="sm" className="h-8 px-3" />}>Update
                               </ComposerPrimitive.Send>

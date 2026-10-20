@@ -34,7 +34,7 @@ export function AgentsSection() {
 
   const typeById = new Map(types.kind === "ready" ? types.value.map((type) => [type.id, type]) : []);
   const list = agents.kind === "ready" ? agents.value : [];
-  const addButton = <Button variant="outline" onClick={() => setAdding(true)}>Add agent</Button>;
+  const addButton = <Button onClick={() => setAdding(true)}>Add agent</Button>;
   return (
     <section aria-labelledby="section-title" className="flex flex-col gap-4">
       <SectionIntro title="Agents">What web apps can open on this device. Changes reach the relays at once.</SectionIntro>
@@ -122,7 +122,7 @@ function RemoveButton({ name, onRemoved }: { name: string; onRemoved: () => void
         </DialogHeader>
         {error ? <p className="selectable text-sm text-danger-600 dark:text-danger-400">{error}</p> : null}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="destructive" loading={pending} onClick={() => void confirm()}>Remove</Button>
         </div>
       </DialogContent>

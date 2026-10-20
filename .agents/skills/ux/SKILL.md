@@ -7,7 +7,7 @@ description: Rules for how Exterior's web surfaces must read and behave. Each ru
 
 Exterior's pages ask a person to trust something: approve a device, let a web app reach an agent, revoke an app. They act on what the screen says. So the bar is not "looks fine". The bar is: **what the screen says is true, the important part reads first, every action answers, and the context the user built survives.**
 
-The rules are defect shapes, not a checklist of features. A rule fires only when its evidence is in hand. Instances from this repository live in [references/cases.md](references/cases.md), keyed by rule name; the rules themselves stay free of file names.
+The rules are defect shapes, not a checklist of features. A rule fires only when its evidence is in hand. Instances from this repository live in [references/cases.md](references/cases.md), keyed by rule name; the rules themselves stay free of file names. Which button variant to use is in [references/buttons.md](references/buttons.md).
 
 ## Principles
 
