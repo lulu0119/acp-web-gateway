@@ -88,4 +88,4 @@ export type AccountPage =
   | { kind: "device-code"; account: AccountView; userCode?: string; problem?: string }
   | { kind: "device"; userCode: string; account: AccountView }
   | { kind: "device-approved"; guide: SetupGuideData }
-  | { kind: "message"; tone: "success" | "neutral" | "error"; title: string; message: string; action?: { label: string; href: string } };
+  | { kind: "message"; tone: "success" | "neutral" | "error"; title: string; message: string; details?: string; action?: { label: string; href: string } };
