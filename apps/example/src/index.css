@@ -4,7 +4,13 @@
 @import "@fontsource-variable/geist";
 @import "tw-shimmer";
 
+@source "../../../packages/ui/src";
+
 @custom-variant dark (&:is(.dark *));
+
+.welcome-page {
+  background: radial-gradient(ellipse at 80% 15%, oklch(0.96 0.025 160 / 0.55), transparent 50%), oklch(0.99 0.003 90);
+}
 
 @theme inline {
     --font-heading: var(--font-sans);

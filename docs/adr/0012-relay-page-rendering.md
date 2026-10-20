@@ -1,15 +1,9 @@
-# Relay pages share React UI
+# Apps share React UI
 
 Status: accepted
 
-The relay's sign-in, consent, and machine-approval pages use React server rendering, while its dashboard uses React in the browser. Page markup, UI modules, layout, and CSS live together under `apps/relay/src/web`; the stylesheet is an independent build entry, so an account page does not depend on the dashboard's JavaScript bundle.
+The relay, desktop app, and Example import general React controls and the Exterior mark from `packages/ui` (`@exterior/ui`, private). The controls follow shadcn's composable source pattern over Base UI. One implementation owns each control's interaction, accessibility, and variants; each app owns its pages, layout, and theme tokens.
 
-Keeping HTML-string templates alongside React meant maintaining two button and layout implementations.
+Example keeps its assistant-ui chat components and ACP integration beside the app. Sharing basic controls keeps the product surfaces consistent without coupling the web app SDK to a UI framework: `@exterior/client` has no UI dependency.
 
-## Update: account pages hydrate
-
-Account pages now load a small script of their own that hydrates the server-rendered markup. It adds the segmented device-code field, tabs, copy buttons, and pending states on buttons. Code blocks are highlighted with Shiki on the server, so no page ships a highlighter.
-
-## Update: the components are a package
-
-The desktop app's window uses the same components, so they moved to `packages/ui` (`@exterior/ui`, private): the primitives, the Exterior mark, the theme, and the palette. Pages and components that read relay data stay in `apps/relay/src/web`. The package compiles to `dist` because the relay renders account pages on Node from its build; a `development` export condition lets Vite serve the source. Example is not a consumer: it stands for someone else's web app, and `@exterior/client` stays without UI for the same reason.
+The relay's account pages render on the server and hydrate with their own script; the dashboard renders in the browser. Server-highlighted code uses Shiki without shipping a highlighter to the page. The UI package compiles to `dist` for server rendering and production builds, while a `development` export condition lets Vite serve its source. Apps scan the shared source for Tailwind utilities and resolve one React instance.

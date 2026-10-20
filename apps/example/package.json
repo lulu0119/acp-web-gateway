@@ -6,20 +6,20 @@
   "scripts": {
     "build": "vite build",
     "start": "vite",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "node capture/verify.mjs"
   },
   "dependencies": {
     "@exterior/client": "workspace:*",
     "@exterior/contract": "workspace:*",
+    "@exterior/ui": "workspace:*",
     "@agentclientprotocol/sdk": "^1.7.0",
     "@assistant-ui/react": "^0.15.26",
     "@assistant-ui/react-markdown": "^0.14.20",
-    "@base-ui/react": "^1.9.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@hafbit/react-acp": "^0.1.9",
     "@tailwindcss/vite": "^4.1.14",
     "class-variance-authority": "^0.7.1",
-    "cmdk": "^1.1.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.55.0",
     "radix-ui": "^1.7.0",
@@ -37,6 +37,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "playwright": "^1.64.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.9",
     "vitest": "^3.2.7"

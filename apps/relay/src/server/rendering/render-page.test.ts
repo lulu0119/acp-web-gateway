@@ -3,10 +3,17 @@ import { mkdtempSync, mkdirSync, rmdirSync, unlinkSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, test } from "vitest";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
+import { SidebarProvider } from "@exterior/ui/sidebar";
 import { readWebAssets } from "./assets.js";
 import { createPageRenderer } from "./render-page.js";
 
 const publicDir = mkdtempSync(join(tmpdir(), "exterior-web-"));
+
+test("shared sidebar renders without browser globals", () => {
+  assert.doesNotThrow(() => renderToString(createElement(SidebarProvider, null, "Sidebar")));
+});
 mkdirSync(join(publicDir, ".vite"));
 writeFileSync(join(publicDir, ".vite", "manifest.json"), JSON.stringify({
   "index.html": { file: "assets/dashboard-abc.js" },

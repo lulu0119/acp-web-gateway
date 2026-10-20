@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FolderIcon, PlusIcon, FolderPlusIcon, RefreshCwIcon } from "lucide-react";
+import { FolderIcon, PlusIcon, FolderPlusIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { useAcpConnection, useAcpRuntimeExtras, useAcpThreadState } from "@hafbit/react-acp";
 import { hasAgentCapability } from "@hafbit/react-acp/core";
 import type { DirectoryAdapter } from "@/acp/directory-adapter";
@@ -14,48 +14,58 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+} from "@exterior/ui/alert-dialog";
+import { DropdownMenuItem } from "@exterior/ui/dropdown-menu";
+import { Button } from "@exterior/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@exterior/ui/tooltip";
 import {
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
+} from "@exterior/ui/sidebar";
 import { folderName, useWorkspaces } from "@/lib/workspaces";
 
 /** Working directories of one connection, each with its sessions. */
-export function WorkspaceTree({ agentType, directories }: { agentType: string; directories: DirectoryAdapter }) {
+export function WorkspaceTree({
+  agentType,
+  directories,
+  defaultDirectory,
+}: {
+  agentType: string;
+  directories: DirectoryAdapter;
+  defaultDirectory: string;
+}) {
   const state = useAcpThreadState();
   const extras = useAcpRuntimeExtras();
   const connection = useAcpConnection();
-  const { workspaces, add, remove } = useWorkspaces(agentType);
+  const { workspaces: savedWorkspaces, add, remove } = useWorkspaces(agentType);
   const [adding, setAdding] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creatingDirectory, setCreatingDirectory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
   const creatingRef = useRef(false);
   const canDelete = hasAgentCapability(connection.capabilities, "delete");
   const canList = hasAgentCapability(connection.capabilities, "list");
+  const sessionDirectories = state.sessionOrder.map((id) => state.sessions[id]?.info?.cwd ?? defaultDirectory);
+  const workspaces = [...new Set([defaultDirectory, ...savedWorkspaces, ...sessionDirectories])];
 
   const sessionIdsByDirectory = (directory: string) =>
-    state.sessionOrder.filter((id) => state.sessions[id]?.info?.cwd === directory);
-
-  // Directories the agent already has sessions in, offered as shortcuts in the add dialog.
-  const knownDirectories = [
-    ...new Set(state.sessionOrder.map((id) => state.sessions[id]?.info?.cwd).filter((cwd): cwd is string => !!cwd)),
-  ].filter((cwd) => !workspaces.includes(cwd));
+    state.sessionOrder.filter((id) => (state.sessions[id]?.info?.cwd ?? defaultDirectory) === directory);
 
   async function refreshSessions() {
     if (refreshing) return;
     setRefreshing(true);
+    setError("");
     try {
       await extras.refreshSessions();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not refresh conversations. Try again.");
     } finally {
       setRefreshing(false);
     }
@@ -64,13 +74,16 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
   async function createSession(directory: string) {
     if (creatingRef.current) return;
     creatingRef.current = true;
-    setCreating(true);
+    setCreatingDirectory(directory);
+    setError("");
     try {
       await directories.createSessionIn(directory, extras.createSession);
-      await extras.refreshSessions();
+      if (canList) await refreshSessions();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not start a conversation. Try again.");
     } finally {
       creatingRef.current = false;
-      setCreating(false);
+      setCreatingDirectory(null);
     }
   }
 
@@ -79,13 +92,13 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
       <SidebarGroupLabel>Working directories</SidebarGroupLabel>
       {canList && (
         <SidebarGroupAction
-          title="Refresh sessions"
+          title="Refresh conversations"
           className="right-9"
           disabled={refreshing}
           onClick={() => void refreshSessions()}
         >
           <RefreshCwIcon />
-          <span className="sr-only">Refresh sessions</span>
+          <span className="sr-only">Refresh conversations</span>
         </SidebarGroupAction>
       )}
       <SidebarGroupAction title="Add a working directory" onClick={() => setAdding(true)}>
@@ -96,44 +109,67 @@ export function WorkspaceTree({ agentType, directories }: { agentType: string; d
         <SidebarMenu>
           {workspaces.map((directory) => (
             <SidebarMenuItem key={directory}>
-              <SidebarMenuButton title={directory} className="font-medium">
-                <FolderIcon />
-                <span>{folderName(directory)}</span>
-              </SidebarMenuButton>
-              <RowMenu label={`Actions for ${folderName(directory)}`}>
-                <DropdownMenuItem onClick={() => remove(directory)}>Remove working directory</DropdownMenuItem>
-              </RowMenu>
-              <SidebarMenuSub>
+              <div className="flex items-center gap-2 p-2">
+                <div title={directory} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+                  <FolderIcon className="size-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate">{folderName(directory)}</span>
+                    <span className="block truncate text-xs font-normal text-muted-foreground">{directory}</span>
+                  </span>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`New conversation in ${folderName(directory)}`}
+                        aria-busy={creatingDirectory === directory || undefined}
+                        disabled={creatingDirectory !== null || connection.status !== "ready"}
+                        onClick={() => void createSession(directory)}
+                      />
+                    }
+                  >
+                    {creatingDirectory === directory ? (
+                      <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
+                    ) : (
+                      <PlusIcon className="size-4" />
+                    )}
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {creatingDirectory === directory ? "Starting…" : "New conversation"}
+                  </TooltipContent>
+                </Tooltip>
+                {savedWorkspaces.includes(directory) &&
+                  directory !== defaultDirectory &&
+                  !sessionDirectories.includes(directory) && (
+                    <RowMenu label={`Actions for ${folderName(directory)}`} className="static size-7 after:hidden">
+                      <DropdownMenuItem onClick={() => remove(directory)}>Remove working directory</DropdownMenuItem>
+                    </RowMenu>
+                  )}
+              </div>
+              <SidebarMenuSub className="empty:hidden">
                 {sessionIdsByDirectory(directory).map((id) => (
                   <SessionRow
                     key={id}
-                    title={state.sessions[id]?.info?.title ?? "Untitled session"}
+                    title={state.sessions[id]?.info?.title ?? "Untitled conversation"}
                     active={id === state.activeSessionId}
                     canDelete={canDelete}
                     onSelect={() => void extras.selectSession(id)}
                     onDelete={() => void extras.deleteSession(id)}
                   />
                 ))}
-                <SidebarMenuSubItem>
-                  <SidebarMenuSubButton
-                    aria-disabled={creating || undefined}
-                    onClick={() => void createSession(directory)}
-                  >
-                    <PlusIcon />
-                    <span>New session</span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
               </SidebarMenuSub>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        {error && (
+          <p role="alert" className="p-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
       </SidebarGroupContent>
-      <AddWorkspaceDialog
-        open={adding}
-        onOpenChange={setAdding}
-        suggestions={knownDirectories}
-        onAdd={add}
-      />
+      <AddWorkspaceDialog open={adding} onOpenChange={setAdding} suggestions={[]} onAdd={add} />
     </SidebarGroup>
   );
 }
@@ -154,22 +190,27 @@ function SessionRow({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   return (
     <SidebarMenuSubItem>
-      <SidebarMenuSubButton isActive={active} onClick={onSelect} className={canDelete ? "pe-6" : undefined}>
+      <SidebarMenuSubButton
+        render={<button type="button" />}
+        isActive={active}
+        onClick={onSelect}
+        className={canDelete ? "pe-6" : undefined}
+      >
         <span>{title}</span>
       </SidebarMenuSubButton>
       {canDelete && (
         <>
           <RowMenu label={`Actions for ${title}`}>
             <DropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
-              Delete session
+              Delete conversation
             </DropdownMenuItem>
           </RowMenu>
           <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
             <AlertDialogContent size="sm">
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+                <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  The session and its history are deleted from the agent and cannot be restored.
+                  The conversation and its history are deleted from the agent and cannot be restored.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

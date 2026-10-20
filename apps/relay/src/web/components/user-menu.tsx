@@ -1,6 +1,6 @@
 import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
-import { Avatar } from "@exterior/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@exterior/ui/avatar";
 import { Button } from "@exterior/ui/button";
 import {
   DropdownMenu,
@@ -30,7 +30,12 @@ export function UserMenu({ userName, userImage }: { userName: string; userImage?
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" />}>
-        <Avatar name={userName} image={userImage} />
+        <Avatar size="sm" className="inline-flex after:hidden">
+          {userImage && <AvatarImage keepMounted src={userImage} alt="" referrerPolicy="no-referrer" />}
+          <AvatarFallback className="text-xs font-semibold text-foreground">
+            {userName.trim().charAt(0).toUpperCase() || "?"}
+          </AvatarFallback>
+        </Avatar>
         {userName || "Account"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-36">

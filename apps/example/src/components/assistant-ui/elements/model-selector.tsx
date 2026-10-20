@@ -3,12 +3,12 @@
 import { useMemo, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@exterior/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -17,7 +17,7 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/command";
+} from "@exterior/ui/command";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
 import {

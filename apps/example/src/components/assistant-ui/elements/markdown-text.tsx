@@ -15,7 +15,7 @@ import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { useCopyToClipboard } from "react-use";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {

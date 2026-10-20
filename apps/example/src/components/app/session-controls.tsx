@@ -4,8 +4,8 @@ import {
   ModelSelectorRoot,
   ModelSelectorTrigger,
 } from "@/components/assistant-ui/elements/model-selector.aui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@exterior/ui/select";
+import { Switch } from "@exterior/ui/switch";
 import { useAcpConfigOptions, useAcpModes, useAcpRuntimeExtras } from "@hafbit/react-acp";
 
 type ConfigOption = ReturnType<typeof useAcpConfigOptions>[number];

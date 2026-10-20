@@ -1,5 +1,5 @@
 import type { AcpConnectionStatus } from "@hafbit/react-acp";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 
 export const connectionLabels: Record<AcpConnectionStatus, string> = {
   idle: "Waiting to connect",

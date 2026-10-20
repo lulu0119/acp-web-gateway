@@ -19,7 +19,7 @@ import { CodeBlock } from "../components/code-block.js";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Step } from "../components/step.js";
-import { Avatar } from "@exterior/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@exterior/ui/avatar";
 import { Badge } from "@exterior/ui/badge";
 import { buttonVariants } from "@exterior/ui/button";
 import { OTPField } from "@exterior/ui/otp-field";
@@ -71,7 +71,12 @@ function SignedInAs({ account }: { account: AccountView }) {
   if (!account.name) return null;
   return (
     <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-      <Avatar name={account.name} image={account.image} className="size-5 text-[10px]" />
+      <Avatar className="inline-flex size-5 after:hidden">
+        {account.image && <AvatarImage keepMounted src={account.image} alt="" referrerPolicy="no-referrer" />}
+        <AvatarFallback className="text-[10px] font-semibold text-foreground">
+          {account.name.trim().charAt(0).toUpperCase() || "?"}
+        </AvatarFallback>
+      </Avatar>
       Signed in as <span className="font-semibold text-foreground">{account.name}</span>
     </p>
   );
@@ -256,7 +261,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
         <>
           <div className="flex items-center gap-3" aria-hidden>
             <AppIcon label={name || site} logoUri={page.logoUri} className="size-14 rounded-xl bg-card text-xl ring-1 ring-border" />
-            <span className="signal-line h-0.5 w-12 text-gold-ink" aria-hidden />
+            <span className="signal-line h-0.5 w-12 text-muted-foreground" aria-hidden />
             <ExteriorMark className="size-14" />
           </div>
           <h1 className="max-w-lg font-display text-2xl font-bold text-balance">
@@ -264,7 +269,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
-            {page.unverified ? <Badge variant="outline" className="border-gold/50 text-gold-ink">Unverified</Badge> : null}
+            {page.unverified ? <Badge variant="outline">Unverified</Badge> : null}
           </div>
         </>
       )}
@@ -351,7 +356,7 @@ function Permission({ permission }: { permission: PermissionView }) {
   const icon = permission.scope === "devices" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
   return (
     <li className="flex gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground [&_svg]:size-4">{icon}</span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-4">{icon}</span>
       <div className="flex flex-col gap-1">
         <span className="text-sm font-semibold">{permission.title}</span>
         <span className="text-sm text-muted-foreground">{permission.detail}</span>

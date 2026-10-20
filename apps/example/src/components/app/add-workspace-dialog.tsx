@@ -1,8 +1,8 @@
 import { FolderIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Button } from "@exterior/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@exterior/ui/dialog";
+import { Input } from "@exterior/ui/input";
 import { folderName, isAbsolutePath } from "@/lib/workspaces";
 
 /**

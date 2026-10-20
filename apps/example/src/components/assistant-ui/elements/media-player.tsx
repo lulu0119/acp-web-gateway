@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from "react";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 import { field, inkButton, mono, paper } from "./surfaces";
 
 export interface AudioPlayerProps extends Omit<

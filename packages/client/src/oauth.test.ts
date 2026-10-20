@@ -91,6 +91,17 @@ test("revoking a refresh token names it as one", async () => {
   }
 });
 
+test("a dismissed connection form can cancel device listing and agent opening", async () => {
+  const relay = await fakeRelay();
+  const signal = AbortSignal.abort();
+  try {
+    await assert.rejects(listDevices(relay.origin, "access-1", signal), { name: "AbortError" });
+    await assert.rejects(openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "work" }, signal), { name: "AbortError" });
+  } finally {
+    relay.close();
+  }
+});
+
 test("a web app without a client id registers itself once per browser", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();

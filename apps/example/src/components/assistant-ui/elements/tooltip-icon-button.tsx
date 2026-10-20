@@ -8,9 +8,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+} from "@exterior/ui/tooltip";
+import { Button } from "@exterior/ui/button";
+import { cn } from "cn";
 
 export type TooltipIconButtonProps = ComponentPropsWithRef<typeof Button> & {
   tooltip: string;

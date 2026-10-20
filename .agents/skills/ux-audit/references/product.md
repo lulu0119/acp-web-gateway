@@ -21,6 +21,12 @@ An account console with OAuth consent and device approval. Compare with:
 
 Capabilities this class usually has: a code field that accepts paste and shows grouping, a clear success state with the next step, a retry or restart path after an expired link, devices listed even while offline with last seen, a revoke or remove action per row.
 
+Example is an agent chat playground. Compare with assistant-ui's interactive thread and ChatGPT's new conversation: an explanation before sign-in, one primary entry action, a visible connection state, a way to start a conversation, editable starter prompts, conversation navigation, streaming messages, and tool approvals. Exterior adds choosing an agent on an online device and showing the working directory. Its first connection belongs on the welcome page; adding another belongs in the connected app.
+
+Example calls ACP sessions conversations in the interface and groups them by working directory.
+
+Relay, Desktop, and Example share basic controls through `@exterior/ui`; each app owns its pages and theme. Changes to a shared control need verification in its affected consumers. Example owns its assistant-ui chat components and ACP integration; the client SDK has no UI dependency. See [ADR 0012](../../../../docs/adr/0012-relay-page-rendering.md).
+
 ## Surfaces and their main questions
 
 | Surface | Main question |
@@ -32,6 +38,7 @@ Capabilities this class usually has: a code field that accepts paste and shows g
 | Result pages (approved, denied, error) | "Did it work, and what do I do now?" |
 | Dashboard (`/`) | "Which of my devices are reachable, what runs on them, and which apps can reach them?" Secondary: connect another device. |
 | Example web app | "Can I reach an agent on my device from here, and is it working?" |
+| Example conversation navigation | "Which conversation am I in, and where do I start another?" |
 
 ## Core objects
 

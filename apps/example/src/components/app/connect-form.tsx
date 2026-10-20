@@ -1,122 +1,267 @@
 import { listDevices, openConnection } from "@exterior/client";
 import type { Device } from "@exterior/contract";
-import { BotIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 import type { AccountSession } from "@exterior/client/react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ArrowRightIcon, ArrowUpRightIcon, BotIcon, LaptopIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button, buttonVariants } from "@exterior/ui/button";
+import { cn } from "cn";
 import { exteriorRelayUrl } from "@/lib/relay-url";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ConnectedAgent = { agentType: string; url: string; label: string; workingDirectory: string };
+type DeviceList = { phase: "loading" | "ready" | "error"; devices: Device[]; error?: string };
 
-export function ConnectForm({ session, onConnected }: { session: AccountSession; onConnected: (agent: ConnectedAgent) => void }) {
+export function ConnectForm({
+  session,
+  onConnected,
+}: {
+  session: AccountSession;
+  onConnected: (agent: ConnectedAgent) => void;
+}) {
   const relayUrl = exteriorRelayUrl();
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [list, setList] = useState<DeviceList>({ phase: "loading", devices: [] });
   const [selection, setSelection] = useState("");
+  const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
-
+  const [error, setError] = useState("");
+  const opening = useRef<AbortController | null>(null);
   const accessToken = session.account.phase === "signed-in" ? session.account.accessToken : undefined;
 
   useEffect(() => {
-    if (!accessToken) {
-      setDevices([]);
-      setSelection("");
-      setStatus("");
-      return;
-    }
-    setStatus("Checking the sign-in.");
-    let cancelled = false;
-    void listDevices(relayUrl, accessToken)
-      .then((listed) => {
-        if (cancelled) return;
-        setDevices(listed);
-        const first = listed.find((device) => device.agents.length > 0);
-        const agent = first?.agents[0];
-        if (first && agent) setSelection(selectionOf(first.id, agent.name));
-        setStatus(agentListStatus(listed));
+    if (!accessToken) return;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
+    setList((current) => ({ phase: "loading", devices: current.devices }));
+    void listDevices(relayUrl, accessToken, signal)
+      .then((devices) => {
+        if (controller.signal.aborted) return;
+        setList({ phase: "ready", devices });
+        setSelection((current) => {
+          if (devices.some((device) => device.agents.some((agent) => selectionOf(device.id, agent.name) === current)))
+            return current;
+          const first = devices.find((device) => device.agents.length > 0);
+          return first ? selectionOf(first.id, first.agents[0].name) : "";
+        });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setStatus(error instanceof Error ? error.message : "Sign in again.");
+        if (!controller.signal.aborted)
+          setList((current) => ({
+            phase: "error",
+            devices: current.devices,
+            error: requestError(error, "Could not load your agents."),
+          }));
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [relayUrl, accessToken]);
+    return () => controller.abort();
+  }, [relayUrl, accessToken, refresh]);
 
-  const items = devices.flatMap((device) =>
-    device.agents.map((agent) => ({
-      value: selectionOf(device.id, agent.name),
-      label: `${device.hostname} / ${agent.name}`,
-      workingDirectory: device.workingDirectory,
-    })),
-  );
-  const selected = items.find((item) => item.value === selection);
+  useEffect(() => () => opening.current?.abort(), [accessToken]);
 
-  if (accessToken && items.length === 0 && emptyAgentList(status)) {
-    return <NoAgents status={status} />;
+  async function connect() {
+    if (!accessToken || opening.current) return;
+    const device = list.devices.find((device) =>
+      device.agents.some((agent) => selectionOf(device.id, agent.name) === selection),
+    );
+    if (!device) return;
+    const agent = device.agents.find((agent) => selectionOf(device.id, agent.name) === selection);
+    if (!agent) return;
+    const controller = new AbortController();
+    opening.current = controller;
+    setBusy(true);
+    setError("");
+    try {
+      const opened = await openConnection(
+        relayUrl,
+        accessToken,
+        { deviceId: device.id, agentName: agent.name },
+        AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
+      );
+      if (!controller.signal.aborted)
+        onConnected({
+          agentType: opened.agentType,
+          url: opened.url,
+          label: `${device.hostname} / ${agent.name}`,
+          workingDirectory: device.workingDirectory,
+        });
+    } catch (error) {
+      if (!controller.signal.aborted) setError(requestError(error, "Exterior did not open the agent."));
+    } finally {
+      opening.current = null;
+      if (!controller.signal.aborted) setBusy(false);
+    }
   }
 
+  const hasAgents = list.devices.some((device) => device.agents.length > 0);
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4">
-      <h2 className="text-lg font-medium">Connect an agent</h2>
-      {session.account.phase === "checking" && <p className="text-muted-foreground text-sm">Checking the sign-in.</p>}
+    <div data-slot="connect-form" className="flex min-w-0 flex-col gap-6">
+      <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/50">
+        <BotIcon className="size-6" strokeWidth={1.5} aria-hidden />
+      </div>
+      <h2 className="text-2xl font-semibold tracking-tight">
+        {accessToken ? "Choose your agent" : "Connect your first agent"}
+      </h2>
+      {session.account.phase === "checking" && (
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" /> Checking your sign-in…
+        </p>
+      )}
       {session.account.phase === "signed-out" && (
-        <>
-          <Button disabled={session.busy} onClick={session.signIn}>
-            Sign in with Exterior
+        <div className="flex flex-col gap-3">
+          <Button size="lg" className="h-11 w-full" disabled={session.busy} onClick={session.signIn}>
+            {session.busy ? (
+              <>
+                <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" /> Redirecting…
+              </>
+            ) : (
+              <>
+                Sign in with Exterior <ArrowRightIcon />
+              </>
+            )}
           </Button>
-          {session.error ? <p className="text-muted-foreground text-sm">{session.error}</p> : null}
-        </>
+          {session.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {session.error}
+            </p>
+          )}
+        </div>
       )}
-      {accessToken && items.length > 0 && (
-        <>
-          <Select
-            items={items}
-            value={selection}
-            onValueChange={(value) => {
-              if (value) setSelection(value);
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Choose an agent" />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
+      {accessToken && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {hasAgents
+                ? `${list.devices.reduce((count, device) => count + device.agents.length, 0)} agents · ${list.devices.length} devices online`
+                : "Online devices"}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={list.phase === "loading" || busy}
+              onClick={() => setRefresh((current) => current + 1)}
+            >
+              <RefreshCwIcon
+                className={list.phase === "loading" ? "animate-spin motion-reduce:animate-none" : undefined}
+              />{" "}
+              Refresh
+            </Button>
+          </div>
+          {list.phase === "loading" && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Looking for your agents…
+            </p>
+          )}
+          {list.phase === "error" && (
+            <div
+              role="alert"
+              className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm"
+            >
+              <p>{list.error}</p>
+              {list.devices.length > 0 && <p className="text-muted-foreground">Showing the last loaded devices.</p>}
+              <Button size="sm" variant="outline" onClick={() => setRefresh((current) => current + 1)}>
+                Try again
+              </Button>
+              {list.error === "Sign in again." && (
+                <Button size="sm" disabled={session.busy} onClick={session.signIn}>
+                  Sign in again
+                </Button>
+              )}
+            </div>
+          )}
+          {list.devices.length > 0 && (
+            <fieldset disabled={busy} className="max-h-72 space-y-4 overflow-y-auto p-1">
+              <legend className="sr-only">Choose an agent</legend>
+              {list.devices.map((device) => (
+                <div key={device.id} className="space-y-2">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <LaptopIcon className="size-4 text-muted-foreground" aria-hidden /> {device.hostname}
+                  </p>
+                  {device.agents.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No agents configured on this device.</p>
+                  )}
+                  {device.agents.map((agent) => {
+                    const value = selectionOf(device.id, agent.name);
+                    return (
+                      <label
+                        key={agent.name}
+                        className={cn(
+                          "relative flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-muted/50 has-focus-visible:ring-2 has-focus-visible:ring-ring",
+                          selection === value && "border-foreground/60 bg-muted/40",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="agent"
+                          value={value}
+                          checked={selection === value}
+                          onChange={() => {
+                            setSelection(value);
+                            setError("");
+                          }}
+                          className="size-4 shrink-0 accent-foreground"
+                        />
+                        <span className="flex min-w-0 flex-col gap-1">
+                          <span className="text-sm font-medium">{agent.name}</span>
+                          <span className="text-xs text-muted-foreground">{agent.agentType}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-          <Button
-            disabled={busy || !selected}
-            onClick={() => {
-              if (!selected || !accessToken) return;
-              const parsed = parseSelection(selected.value);
-              if (!parsed) return;
-              setBusy(true);
-              void openConnection(relayUrl, accessToken, parsed)
-                .then((opened) => {
-                  onConnected({
-                    agentType: opened.agentType,
-                    url: opened.url,
-                    label: selected.label,
-                    workingDirectory: selected.workingDirectory,
-                  });
-                })
-                .catch((error: unknown) => {
-                  setStatus(error instanceof Error ? error.message : "Exterior did not open the agent.");
-                })
-                .finally(() => setBusy(false));
-            }}
-          >
-            Connect
-          </Button>
-        </>
+            </fieldset>
+          )}
+          {list.phase === "ready" && !hasAgents && (
+            <div className="space-y-2 rounded-xl border border-dashed p-4">
+              <h3 className="text-sm font-medium">
+                {list.devices.length === 0 ? "No devices online yet" : "Add an agent to your device"}
+              </h3>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {list.devices.length === 0
+                  ? "Open Exterior on your computer and connect a device. Then refresh this list."
+                  : "Configure an agent in Exterior, then refresh this list to connect."}
+              </p>
+            </div>
+          )}
+          {hasAgents && (
+            <>
+              <Button
+                size="lg"
+                className="h-11 w-full"
+                disabled={busy || !selection || list.phase === "loading"}
+                onClick={() => void connect()}
+              >
+                {busy ? (
+                  <>
+                    <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" /> Connecting…
+                  </>
+                ) : (
+                  <>
+                    Connect agent <ArrowRightIcon />
+                  </>
+                )}
+              </Button>
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
-      <p className="text-muted-foreground min-h-5 text-sm">{accessToken ? status : ""}</p>
+      {accessToken && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
+          <a
+            href={relayUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 hover:text-foreground"
+          >
+            Manage devices & agents <ArrowUpRightIcon className="size-3" aria-hidden />
+          </a>
+          <Button variant="link" size="xs" disabled={busy} onClick={session.signOut}>
+            Sign out
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -127,52 +272,20 @@ export function ManageAgentsLink({ className }: { className?: string }) {
       href={exteriorRelayUrl()}
       target="_blank"
       rel="noreferrer"
-      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-start gap-2 px-2", className)}
+      className={cn(buttonVariants({ variant: "ghost" }), "justify-start gap-2 border-0 px-2 font-normal", className)}
     >
-      <BotIcon className="size-4" aria-hidden />
-      Agents
+      <LaptopIcon className="size-4" aria-hidden /> <span>Devices & agents</span>
+      <ArrowUpRightIcon className="ml-auto size-4" aria-hidden />
     </a>
   );
 }
 
-function NoAgents({ status }: { status: string }) {
-  const noDevice = status === "No device is online.";
-  return (
-    <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
-      <div className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground/70">
-        <BotIcon className="size-5" aria-hidden />
-      </div>
-      <div className="flex max-w-sm flex-col gap-1">
-        <p className="font-semibold">No agents online</p>
-        <p className="text-sm leading-6 text-muted-foreground">
-          {noDevice
-            ? "A session needs an agent on a device that is online. Set that up on Exterior."
-            : "The online devices have no agents. Configure one on Exterior, then connect it here."}
-        </p>
-      </div>
-      <a href={exteriorRelayUrl()} target="_blank" rel="noreferrer" className={cn(buttonVariants({ size: "lg" }), "mt-1")}>
-        Manage agents
-      </a>
-    </div>
-  );
-}
-
-function emptyAgentList(status: string): boolean {
-  return status === "No device is online." || status === "The online devices have no agents.";
-}
-
-function agentListStatus(devices: Device[]): string {
-  if (devices.length === 0) return "No device is online.";
-  if (devices.every((device) => device.agents.length === 0)) return "The online devices have no agents.";
-  return "";
+function requestError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.name === "TimeoutError")
+    return "Exterior took too long to respond. Please try again.";
+  return error instanceof Error ? error.message : fallback;
 }
 
 function selectionOf(deviceId: string, agentName: string): string {
-  return `${deviceId}\t${agentName}`;
-}
-
-function parseSelection(value: string): { deviceId: string; agentName: string } | undefined {
-  const separator = value.indexOf("\t");
-  if (separator < 1) return undefined;
-  return { deviceId: value.slice(0, separator), agentName: value.slice(separator + 1) };
+  return JSON.stringify([deviceId, agentName]);
 }

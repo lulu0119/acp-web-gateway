@@ -29,7 +29,7 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - Heartbeats through the hosted relay behind Coolify: a device that loses its network goes offline on the dashboard within a minute, and a daemon whose socket died without closing connects again and is listed once.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.
-- Sign in with GitHub on Exterior, return to Example, see a device running `exterior daemon`, and open a live ACP session.
+- Sign in with GitHub on Exterior, return to Example, choose an agent on a device running `exterior daemon`, and start a live conversation. Verify tool calls and approvals with the real agent.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.
 - A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in the device's own directory. The launch, `session/new`, and stop were checked against the real agents without the relay.
 - The folder dialog on a real window: choose a directory in the desktop app's Settings and see it in `exterior config show`, and check a cancelled dialog changes nothing.
