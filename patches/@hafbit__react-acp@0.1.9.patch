@@ -1,0 +1,86 @@
+diff --git a/dist/chunk-ONH56VKO.js b/dist/chunk-ONH56VKO.js
+index 26fef9df8c1f6cc948c2f2a0becca805c2094d2e..487a608a6dc8ce301e8bf5370d709fbb7cbe4c69 100644
+--- a/dist/chunk-ONH56VKO.js
++++ b/dist/chunk-ONH56VKO.js
+@@ -235,6 +235,13 @@ var finalizeAssistantMessage = (session, stopReason) => {
+     status: statusFromStopReason(stopReason)
+   }));
+ };
++var completeReplayedMessages = (session) => ({
++  ...session,
++  messages: session.messages.map((message) => message.role === "assistant" && message.status?.type === "running" ? {
++    ...message,
++    status: { type: "complete", stopReason: "end_turn" }
++  } : message)
++});
+ function reduceAcpThreadState(state, event) {
+   switch (event.type) {
+     case "connection.status":
+@@ -269,6 +276,8 @@ function reduceAcpThreadState(state, event) {
+         sessionOrder: active && !listedOrder.includes(active) ? [...listedOrder, active] : listedOrder
+       };
+     }
++    case "session.replayed":
++      return updateSession(state, event.sessionId, completeReplayedMessages);
+     case "session.attached":
+       return updateSession(state, event.sessionId, (session) => ({
+         ...session,
+@@ -659,9 +668,11 @@ var projectMessagePieces = (session, messages) => {
+   }
+   return projected;
+ };
+-var statusForMessage = (message) => {
++var statusForMessage = (message, session) => {
+   if (message.role !== "assistant") return void 0;
+   const status = message.status;
++  const live = (session.runState === "running" || session.runState === "cancelling") && message.id === session.lastAssistantMessageId;
++  if (!live && (!status || status.type === "running")) return { type: "complete", reason: "stop" };
+   if (!status || status.type === "running") return { type: "running" };
+   if (status.type === "complete") {
+     return { type: "complete", reason: "stop" };
+@@ -702,7 +713,7 @@ var projectMessage = (session, messages) => {
+     role: message.role,
+     createdAt: new Date(message.createdAt),
+     content: projectMessagePieces(session, messages),
+-    ...statusForMessage(latest) ? { status: statusForMessage(latest) } : {},
++    ...statusForMessage(latest, session) ? { status: statusForMessage(latest, session) } : {},
+     metadata: {
+       isOptimistic: messages.some((candidate) => candidate.optimistic),
+       custom: {
+@@ -1300,6 +1311,7 @@ var AcpThreadController = class {
+     }
+     const token = ++this.selectionGeneration;
+     const fallbackSessionId = this.settledActiveSessionId;
++    this.dispatch({ type: "session.selected", sessionId });
+     try {
+       await this.attachSession(sessionId, options);
+     } catch (error) {
+@@ -1309,7 +1321,6 @@ var AcpThreadController = class {
+       throw error;
+     }
+     if (token !== this.selectionGeneration) return;
+-    this.dispatch({ type: "session.selected", sessionId });
+     this.settledActiveSessionId = sessionId;
+     if (notify) this.options.onThreadIdChange?.(sessionId);
+   }
+@@ -1332,7 +1343,11 @@ var AcpThreadController = class {
+     const connection = this.requireConnection();
+     const snapshot = this.state.sessions[sessionId] ?? createAcpSessionState(sessionId);
+     const base = buildSessionRequest(this.options.workspace, this.state.capabilities);
+-    const useResume = options.method === "resume" || !hasAgentCapability(this.state.capabilities, "load") && hasAgentCapability(this.state.capabilities, "resume");
++    const retained = snapshot.messages.length > 0;
++    const replaying = options.method === "auto";
++    const canResume = hasAgentCapability(this.state.capabilities, "resume");
++    const canLoad = hasAgentCapability(this.state.capabilities, "load");
++    const useResume = options.method === "resume" || !replaying && (retained && canResume || !canLoad && canResume);
+     if (options.method === "resume" && !hasAgentCapability(this.state.capabilities, "resume")) {
+       throw new AcpCapabilityError("session/resume");
+     }
+@@ -1354,6 +1369,7 @@ var AcpThreadController = class {
+         throw new AcpError("ACP_DISCONNECTED", "ACP connection changed while attaching a session.");
+       }
+       this.attachedSessions.add(sessionId);
++      if (!useResume) this.dispatch({ type: "session.replayed", sessionId });
+       this.dispatch({
+         type: "session.attached",
+         sessionId,

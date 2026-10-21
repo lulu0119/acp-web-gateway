@@ -7,7 +7,10 @@
     "node": ">=22"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"],
+    "patchedDependencies": {
+      "@hafbit/react-acp@0.1.9": "patches/@hafbit__react-acp@0.1.9.patch"
+    }
   },
   "scripts": {
     "build": "pnpm -r --filter \"!exterior-workspace\" --if-present run build",
