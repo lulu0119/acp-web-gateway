@@ -1,33 +1,35 @@
-import { carryAgent, createDeviceHost, type AgentHooks, type AgentPipe, type AgentSlot, type DaemonMessage, type DevicePlatform } from "@exterioragentprotocol/sdk/device";
+import { createDeviceHost, type AgentSlot, type DeviceKey, type DevicePlatform, type StartedAgent } from "@exterioragentprotocol/sdk/device";
 import type { AgentLaunch } from "./acp-registry.js";
 import type { StoredAgent } from "./config.js";
 import { startProcess } from "./launch.js";
 
 /** A device host that offers the configured agents it can launch, and starts each as its own process. */
 export function createDaemonHost(input: {
+  relayUrl: string;
+  deviceKey: DeviceKey;
   hostname: string;
   platform: DevicePlatform;
-  deviceId: string;
   workingDirectory: string;
   agents: readonly StoredAgent[];
-  send: (message: DaemonMessage) => void;
   resolveLaunch: (agent: StoredAgent) => AgentLaunch | undefined;
-  spawnAgent?: (launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string) => AgentPipe;
+  spawnAgent?: (launch: AgentLaunch, workingDirectory: string) => StartedAgent | string;
+  heartbeatMs?: number;
 }) {
   let configured = input.agents;
   const offered = (): AgentSlot[] =>
     configured.flatMap((agent) => (input.resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : []));
   const host = createDeviceHost({
+    relayUrl: input.relayUrl,
+    deviceKey: input.deviceKey,
     hostname: input.hostname,
     platform: input.platform,
-    deviceId: input.deviceId,
     workingDirectory: input.workingDirectory,
     agents: offered(),
-    send: input.send,
-    launch(agentName, hooks, workingDirectory) {
+    heartbeatMs: input.heartbeatMs,
+    launch(agentName, workingDirectory) {
       const agent = configured.find((item) => item.name === agentName);
       const launch = agent ? input.resolveLaunch(agent) : undefined;
-      return launch ? (input.spawnAgent ?? startAgent)(launch, hooks, workingDirectory) : undefined;
+      return launch ? (input.spawnAgent ?? startAgent)(launch, workingDirectory) : "That agent is not configured.";
     },
   });
   return {
@@ -39,22 +41,15 @@ export function createDaemonHost(input: {
   };
 }
 
-export function startAgent(launch: AgentLaunch, hooks: AgentHooks, workingDirectory: string): AgentPipe {
-  let started: ReturnType<typeof startProcess>;
+export function startAgent(launch: AgentLaunch, workingDirectory: string): StartedAgent | string {
   try {
-    started = startProcess({
+    return startProcess({
       executable: launch.executable,
       args: launch.args,
       env: { ...process.env, ...launch.env },
       workingDirectory,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The agent did not start.";
-    queueMicrotask(() => {
-      hooks.onFail(message);
-      hooks.onClose();
-    });
-    return { write() {}, stop() {} };
+    return error instanceof Error ? error.message : "The agent did not start.";
   }
-  return carryAgent(started.child, hooks, started.stop);
 }

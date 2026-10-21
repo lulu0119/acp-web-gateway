@@ -6,6 +6,8 @@ import { join } from "node:path";
 /** The credentials a device holds for one relay. */
 export type SignIn = {
   relayUrl: string;
+  /** The device's OAuth client id on the relay, which is its device id. */
+  clientId: string;
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
@@ -32,11 +34,12 @@ function signInPath(relayUrl: string, homeDirectory: string): string {
 
 export function parseSignIn(value: unknown): SignIn | undefined {
   if (!isRecord(value)) return undefined;
-  if (typeof value.relayUrl !== "string" || typeof value.accessToken !== "string" || typeof value.refreshToken !== "string") return undefined;
+  if (typeof value.relayUrl !== "string" || typeof value.clientId !== "string" || typeof value.accessToken !== "string" || typeof value.refreshToken !== "string") return undefined;
   if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return undefined;
   try {
     return {
       relayUrl: new URL(value.relayUrl).origin,
+      clientId: value.clientId,
       accessToken: value.accessToken,
       refreshToken: value.refreshToken,
       expiresAt: value.expiresAt,

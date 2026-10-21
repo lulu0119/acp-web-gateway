@@ -2,7 +2,7 @@
   "name": "@exterior/contract",
   "private": true,
   "version": "0.0.0",
-  "description": "Exterior's own relay paths, device registration, and agent catalog, shared by the relay, the daemon, and Example.",
+  "description": "Exterior's own relay paths and agent catalog, shared by the relay, the daemon, and Example.",
   "type": "module",
   "exports": {
     ".": {
@@ -13,10 +13,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
-  },
-  "dependencies": {
-    "@exterioragentprotocol/sdk": "workspace:*",
-    "valibot": "^1.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

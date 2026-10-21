@@ -13,7 +13,7 @@ The person who signs in. One user has many devices. The person is better-auth's 
 _Avoid_: account (for the person), workspace, team
 
 **Device**:
-A computer signed in to an account with the desktop app or `exterior login`. It keeps one device id per relay, which signing out does not change, and stays listed while offline; it is online while its daemon is connected, and listed once however often that daemon reconnects. A daemon connects only as a device its account registered. Removing a device signs it out; signing it in again brings it back under the same id.
+A computer signed in to an account with the desktop app or `exterior login`. On each relay it holds a key its tokens are bound to, and the key's thumbprint is its device id, which signing out does not change. It is listed once it first connects, stays listed while offline, is online while its device socket is open, and is listed once however often it reconnects. Removing a device signs it out; signing it in again brings it back under the same id.
 _Avoid_: machine, gateway, host
 
 **Sign-in**:
@@ -29,8 +29,16 @@ The OAuth identity a web app signs in with: a dashboard-registered id, a metadat
 _Avoid_: account, device
 
 **Connection**:
-One running agent process on one device, reached through one socket: one ACP connection, which may hold several ACP sessions. Opened with `POST /api/connections` (`openConnection` in the SDK). It ends when its socket closes and is never resumed; a web app that reconnects opens a new one and resumes the ACP session. Neither the browser session nor a device sign-in.
+One running agent process on one device: one ACP connection, which may hold several ACP sessions. Opened with `POST /eap/v1/connections` (`openConnection` in the SDK). The relay joins the web app's attach socket to the device's agent socket for it. It ends when either socket closes and is never resumed; a web app that reconnects opens a new one and resumes the ACP session. Neither the browser session nor a device sign-in.
 _Avoid_: session (an ACP session lives inside a connection), port, nonce, gateway process
+
+**Device socket**:
+The one WebSocket a device keeps open to the relay, for `hello`, `open` and `open_failed`. No frames cross it, and connections outlive it.
+_Avoid_: daemon socket, control channel
+
+**Agent socket**:
+The WebSocket a device dials for one connection, carrying that agent's frames. The device proves its key on the dial, and the relay accepts it only for a connection opened on that device.
+_Avoid_: data socket, session socket
 
 **Desktop app**:
 The tray app on a device that runs one daemon per sign-in, starts at login, and edits agent configurations in its window. Quitting it takes the device offline.

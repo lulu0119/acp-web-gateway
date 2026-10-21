@@ -17,9 +17,9 @@ import { mkdir, readFile, rm, symlink, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fetchPublicClients } from "@exterior/contract";
-import { connectionsPath, daemonPath, relayWebSocketUrl, type AgentSlot, type DaemonMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
-import { beginDeviceAuthorization, pollDeviceAuthorization } from "@exterioragentprotocol/sdk/device";
+import { agentSocketPath, connectionsPath, deviceSocketPath, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
+import { exteriorDeviceClient } from "@exterior/contract";
+import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, type DeviceKey } from "@exterioragentprotocol/sdk/device";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
 import WebSocket from "ws";
@@ -93,11 +93,10 @@ const surfaces: Surface[] = [
   {
     name: "device-approval",
     path: "/",
-    // A daemon that just asked to sign in, opened from the link it printed.
+    // A device that just asked to sign in, opened from the link it printed.
     ready: async (page) => {
       const origin = new URL(page.url()).origin;
-      const clients = await fetchPublicClients(origin);
-      const pending = await beginDeviceAuthorization({ relayUrl: origin, clientId: clients.daemonClientId });
+      const pending = await beginDeviceAuthorization({ relayUrl: origin, clientId: exteriorDeviceClient.client_id });
       await page.goto(`${origin}/device?user_code=${encodeURIComponent(pending.userCode)}`);
       await page.waitForSelector("text=Connect this device?");
     },
@@ -111,15 +110,15 @@ const fixtureLogo = `data:image/png;base64,${(await readFile(join(repositoryRoot
  * The devices the captures show: two online, one gone under an hour, one gone nine days. The last
  * one never reported a platform, so its card has no operating-system icon.
  */
-const fixtureDevices: { id: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[]; lastSeenMinutesAgo: number }[] = [
+/** Online devices sign in with a key of their own, whose thumbprint is their id, so only the offline ones carry a fixed id. */
+const fixtureDevices: { id?: string; hostname: string; platform?: DevicePlatform; agents: AgentSlot[]; lastSeenMinutesAgo: number }[] = [
   {
-    id: "device-studio",
     hostname: "studio-mac",
     platform: "macos",
     agents: [{ name: "work", agentType: "claude-acp" }, { name: "research", agentType: "codex-acp" }, { name: "opencode", agentType: "opencode" }],
     lastSeenMinutesAgo: 0,
   },
-  { id: "device-laptop", hostname: "laptop", platform: "windows", agents: [{ name: "work", agentType: "gemini" }], lastSeenMinutesAgo: 0 },
+  { hostname: "laptop", platform: "windows", agents: [{ name: "work", agentType: "gemini" }], lastSeenMinutesAgo: 0 },
   { id: "device-server", hostname: "build-server", platform: "linux", agents: [], lastSeenMinutesAgo: 43 },
   { id: "device-old", hostname: "old-laptop", agents: [], lastSeenMinutesAgo: 60 * 24 * 9 },
 ];
@@ -211,18 +210,18 @@ async function authorizeApps(input: { publicUrl: string; sessionCookie: string }
 }
 
 /** Agents the fixture apps hold open while the pages are captured, so devices and apps show who uses what. */
-const fixtureSessions: { app: string; deviceId: string; agentName: string }[] = [
-  { app: "Example", deviceId: "device-studio", agentName: "work" },
-  { app: "Notes", deviceId: "device-studio", agentName: "research" },
-  { app: "Example", deviceId: "device-laptop", agentName: "work" },
+const fixtureSessions: { app: string; hostname: string; agentName: string }[] = [
+  { app: "Example", hostname: "studio-mac", agentName: "work" },
+  { app: "Notes", hostname: "studio-mac", agentName: "research" },
+  { app: "Example", hostname: "laptop", agentName: "work" },
 ];
 
-async function openFixtureSessions(input: { publicUrl: string; tokens: Map<string, string> }): Promise<void> {
+async function openFixtureSessions(input: { publicUrl: string; tokens: Map<string, string>; deviceIds: Map<string, string> }): Promise<void> {
   for (const fixture of fixtureSessions) {
     const opened = await fetch(new URL(connectionsPath, input.publicUrl), {
       method: "POST",
       headers: { authorization: `Bearer ${input.tokens.get(fixture.app) ?? ""}`, "content-type": "application/json" },
-      body: JSON.stringify({ deviceId: fixture.deviceId, agentName: fixture.agentName }),
+      body: JSON.stringify({ deviceId: input.deviceIds.get(fixture.hostname), agentName: fixture.agentName }),
     });
     if (!opened.ok) throw new Error(`${fixture.app} could not open ${fixture.agentName} (HTTP ${opened.status}).`);
   }
@@ -298,8 +297,8 @@ function signSessionToken(token: string): string {
 /**
  * Creates the account the captures sign in as, plus its devices.
  *
- * The devices are written to the store directly rather than through a daemon, so the pair shows a
- * fixed set: two online, one that has been gone under an hour, one that has been gone nine days.
+ * The offline devices are written to the store directly, so the pair shows a fixed set: two online,
+ * which sign in later, one that has been gone under an hour, and one that has been gone nine days.
  *
  * Returns both the signed value the browser cookie carries and the `cookie` header the approval
  * request needs, so the harness never has to take its own cookie apart.
@@ -321,10 +320,10 @@ async function seedAccount(input: { databasePath: string; publicUrl: string }): 
   const session = await context.internalAdapter.createSession(user.id);
   const devices = openDeviceStore(database);
   for (const fixture of fixtureDevices) {
+    if (!fixture.id) continue;
     const seen = { userId: user.id, deviceId: fixture.id, hostname: fixture.hostname, now: Date.now() - fixture.lastSeenMinutesAgo * 60 * 1000 };
-    devices.record(seen);
     // What the relay keeps from the device's last connection.
-    devices.touch({ ...seen, platform: fixture.platform });
+    devices.record({ ...seen, platform: fixture.platform });
   }
   database.close();
   const value = signSessionToken(session.token);
@@ -461,17 +460,15 @@ async function capture(input: { browser: Browser; publicUrl: string; sessionValu
 }
 
 /**
- * Signs a daemon in through the relay's own device-code flow and approves it with the seeded session.
- *
- * The devices are written to the store directly, so a fixture is listed whether or not it is online.
- * This is what makes the online ones online: their daemon announces itself over the real socket.
+ * Signs a device in through the relay's device-code flow as Exterior's device software, with a key of its own, and
+ * approves it with the seeded session. Its device socket then lists it and makes it online.
  *
  * The approval itself is two requests: the relay only accepts `approve` for a code a signed-in
  * session has already claimed, which is what the real flow gets from opening the approval page.
  */
-async function mintDaemonToken(input: { publicUrl: string; sessionCookie: string }): Promise<string> {
-  const clients = await fetchPublicClients(input.publicUrl);
-  const pending = await beginDeviceAuthorization({ relayUrl: input.publicUrl, clientId: clients.daemonClientId });
+async function signInDevice(input: { publicUrl: string; sessionCookie: string }): Promise<{ deviceId: string; deviceKey: DeviceKey; accessToken: string }> {
+  const deviceKey = await generateDeviceKey();
+  const pending = await beginDeviceAuthorization({ relayUrl: input.publicUrl, clientId: exteriorDeviceClient.client_id });
   const headers = { cookie: input.sessionCookie };
   const claimed = await fetch(`${input.publicUrl}/device?user_code=${encodeURIComponent(pending.userCode)}`, { headers });
   if (!claimed.ok) throw new Error(`Opening the approval page for the capture device failed (HTTP ${claimed.status}).`);
@@ -483,35 +480,42 @@ async function mintDaemonToken(input: { publicUrl: string; sessionCookie: string
   });
   if (approval.status === 302) throw new Error("The seeded session was not accepted; the approval page redirected to sign-in.");
   if (!approval.ok) throw new Error(`Approving the capture device failed (HTTP ${approval.status}).`);
-  const tokens = await pollDeviceAuthorization(pending);
-  return tokens.accessToken;
+  const tokens = await pollDeviceAuthorization(pending, deviceKey);
+  return { deviceId: await deviceIdOf(deviceKey), deviceKey, accessToken: tokens.accessToken };
 }
 
-/** A daemon that announces itself and then stays connected, so the pair shows agents, not "Agents shown when online". */
-async function connectDaemon(input: { publicUrl: string; accessToken: string; deviceId: string; hostname: string; platform: DevicePlatform; agents: AgentSlot[] }): Promise<{ close: () => void }> {
-  const socket = new WebSocket(relayWebSocketUrl(input.publicUrl, daemonPath), {
-    headers: { authorization: `Bearer ${input.accessToken}` },
+/** A device that announces itself and then stays connected, so the pair shows agents, not "Agents shown when online". */
+async function connectDevice(input: { publicUrl: string; deviceKey: DeviceKey; accessToken: string; hostname: string; platform: DevicePlatform; agents: AgentSlot[] }): Promise<{ close: () => void }> {
+  const url = relayWebSocketUrl(input.publicUrl, deviceSocketPath);
+  const socket = new WebSocket(url, {
+    headers: { authorization: `DPoP ${input.accessToken}`, dpop: await dpopProof(input.deviceKey, "GET", url, input.accessToken) },
   });
   await new Promise<void>((ready, failed) => {
     socket.once("open", () => ready());
     socket.once("error", (error: Error) => failed(error));
   });
-  const hello: DaemonMessage = {
+  const hello: DeviceMessage = {
     type: "hello",
-    protocolVersion: 1,
     hostname: input.hostname,
-    deviceId: input.deviceId,
     workingDirectory: "/home/ada/.local/share/exterior/workspace",
     agents: input.agents,
     platform: input.platform,
   };
   socket.send(JSON.stringify(hello));
-  // Agrees to every session, as a running agent would; nothing reads the frames.
+  // Starts every agent asked for by dialing its agent socket, as a device does; nothing reads the frames.
+  const agents: WebSocket[] = [];
   socket.on("message", (data: Buffer) => {
     const message = JSON.parse(data.toString()) as { type: string; connectionId?: string };
-    if (message.type === "open") socket.send(JSON.stringify({ type: "opened", connectionId: message.connectionId }));
+    if (message.type !== "open" || !message.connectionId) return;
+    const agentUrl = relayWebSocketUrl(input.publicUrl, agentSocketPath(message.connectionId));
+    void dpopProof(input.deviceKey, "GET", agentUrl).then((proof) => agents.push(new WebSocket(agentUrl, { headers: { dpop: proof } })));
   });
-  return { close: () => socket.close() };
+  return {
+    close: () => {
+      for (const agent of agents) agent.close();
+      socket.close();
+    },
+  };
 }
 
 async function main(): Promise<void> {
@@ -522,21 +526,23 @@ async function main(): Promise<void> {
 
   const session = await seedAccount({ databasePath: join(runDir, "data", "relay.sqlite"), publicUrl });
   const relay = await startRelay({ cwd: runDir, publicUrl, port: options.port });
-  const daemons: { close: () => void }[] = [];
+  const online: { close: () => void }[] = [];
   const browser = await chromium.launch();
   try {
     const tokens = await authorizeApps({ publicUrl, sessionCookie: session.cookie });
-    const accessToken = await mintDaemonToken({ publicUrl, sessionCookie: session.cookie });
+    const deviceIds = new Map<string, string>();
     for (const fixture of fixtureDevices) {
-      // Only the devices the pair should show as online hold a connection.
-      if (fixture.lastSeenMinutesAgo !== 0) continue;
+      // Only the devices the pair should show as online sign in and hold a device socket.
+      if (fixture.id) continue;
       if (!fixture.platform) throw new Error(`${fixture.hostname} is online without a platform.`);
-      daemons.push(await connectDaemon({ publicUrl, accessToken, deviceId: fixture.id, hostname: fixture.hostname, platform: fixture.platform, agents: fixture.agents }));
+      const { deviceId, deviceKey, accessToken } = await signInDevice({ publicUrl, sessionCookie: session.cookie });
+      deviceIds.set(fixture.hostname, deviceId);
+      online.push(await connectDevice({ publicUrl, deviceKey, accessToken, hostname: fixture.hostname, platform: fixture.platform, agents: fixture.agents }));
     }
-    await openFixtureSessions({ publicUrl, tokens });
+    await openFixtureSessions({ publicUrl, tokens, deviceIds });
     for (const file of await capture({ browser, publicUrl, sessionValue: session.value, options })) process.stdout.write(`${file}\n`);
   } finally {
-    for (const daemon of daemons) daemon.close();
+    for (const device of online) device.close();
     await browser.close();
     await relay.stop();
     await removeRunDir(runDir);

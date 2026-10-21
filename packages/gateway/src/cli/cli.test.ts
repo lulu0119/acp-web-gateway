@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { platformTarget } from "../acp-registry.js";
 import { writeDaemonState } from "../daemon-state.js";
-import { readDeviceId, writeDeviceId } from "../device-ids.js";
+import { deviceIdOf } from "@exterioragentprotocol/sdk/device";
+import { deviceKeyFor, readDeviceKey } from "../device-keys.js";
 import { writeSignIn } from "../sign-ins.js";
 import { executeCli } from "./cli.js";
 import { parseRelayUrl } from "./relay.js";
@@ -28,7 +29,7 @@ async function run(args: string[], input: { home?: string; env?: NodeJS.ProcessE
 
 async function signedIn(...relayUrls: string[]): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), "exterior-cli-"));
-  for (const relayUrl of relayUrls) await writeSignIn({ relayUrl, accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000 }, home);
+  for (const relayUrl of relayUrls) await writeSignIn({ relayUrl, clientId: "device-studio-1", accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000 }, home);
   return home;
 }
 
@@ -116,7 +117,7 @@ test("logout revokes the sign-in on the relay and keeps the device id", async ()
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
       const json = (body: unknown) => response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
-      if (request.url === "/api/clients") return json({ daemonClientId: "daemon-client" });
+      if (request.url === "/.well-known/oauth-protected-resource") return json({ resource: origin, authorization_servers: [`${origin}/api/auth`] });
       if (request.url === "/api/auth/.well-known/openid-configuration") {
         return json({ issuer: `${origin}/api/auth`, revocation_endpoint: `${origin}/api/auth/oauth2/revoke` });
       }
@@ -133,13 +134,14 @@ test("logout revokes the sign-in on the relay and keeps the device id", async ()
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   try {
     const home = await signedIn(origin);
-    await writeDeviceId(origin, "device-studio-1", home);
+    const deviceId = await deviceIdOf(await deviceKeyFor(origin, home));
     const result = await run(["logout"], { home });
     assert.equal(result.stderr, "");
     assert.equal(result.stdout, `Signed out of ${origin}.\n`);
-    assert.deepEqual(revoked, ["daemon-client refresh_token r"]);
+    assert.deepEqual(revoked, ["device-studio-1 refresh_token r"]);
     assert.equal((await run(["status"], { home })).stdout, "This device is not signed in. Run exterior login --relay <url>.\n");
-    assert.equal(await readDeviceId(origin, home), "device-studio-1");
+    const kept = await readDeviceKey(origin, home);
+    assert.equal(kept && (await deviceIdOf(kept)), deviceId);
   } finally {
     server.close();
   }

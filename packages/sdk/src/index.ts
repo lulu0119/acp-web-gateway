@@ -1,13 +1,22 @@
 import * as v from "valibot";
 
-export const daemonPath = "/api/daemon";
-export const acpPath = "/api/acp";
-/** Clients list devices here. */
-export const devicesPath = "/api/devices";
-export const connectionsPath = "/api/connections";
-export const devicesScope = "devices offline_access";
+/** Where an authorization server is found for a relay (RFC 9728). */
+export const protectedResourcePath = "/.well-known/oauth-protected-resource";
+/** EAP v1's endpoints. A later version that changes one serves it under a new path. Clients list devices here. */
+export const devicesPath = "/eap/v1/devices";
+export const connectionsPath = "/eap/v1/connections";
+/** A device keeps one socket open here, for `hello`, `open` and `open_failed`. */
+export const deviceSocketPath = "/eap/v1/device";
 
-export const protocolVersion = 1;
+/** Where a device dials the agent socket of one connection. */
+export function agentSocketPath(connectionId: string): string {
+  return `${deviceSocketPath}/connections/${connectionId}`;
+}
+
+/** The scope of a client's token: it lists devices and opens connections. */
+export const clientScope = "eap:client";
+/** The scope of a device's token: it opens the device socket. */
+export const deviceScope = "eap:device";
 
 /** The largest frame, in UTF-8 bytes. */
 export const frameBytes = 1_048_576;
@@ -15,7 +24,7 @@ export const frameBytes = 1_048_576;
 /**
  * Why the relay closed an attach socket. Every close ends the connection.
  * `ticket_rejected`: the ticket is used, expired or unknown; open a new connection.
- * `agent_exited`: the agent ended. `device_gone`: the device socket closed, or the device was removed.
+ * `agent_exited`: the agent ended. `device_gone`: the agent socket closed without the agent ending, or the device was removed.
  * `revoked`: the client's authorization no longer permits the connection; sign in again before opening another.
  */
 export const attachCloseCodes = { ticket_rejected: 4100, agent_exited: 4101, device_gone: 4102, revoked: 4103 } as const;
@@ -23,10 +32,10 @@ export type AttachCloseReason = keyof typeof attachCloseCodes;
 
 /**
  * Why the relay closed a device socket. `replaced`: a newer socket for the device took over.
- * `revoked`: the device was removed or signed out, and must sign in again. `unsupported_version`: the relay does
- * not speak the `hello` version. `invalid_message`: the device sent a message the protocol does not allow.
+ * `revoked`: the device was removed, and must sign in again. `invalid_message`: the device sent a message
+ * the protocol does not allow.
  */
-export const deviceCloseCodes = { replaced: 4200, revoked: 4201, unsupported_version: 4202, invalid_message: 4203 } as const;
+export const deviceCloseCodes = { replaced: 4200, revoked: 4201, invalid_message: 4202 } as const;
 export type DeviceCloseReason = keyof typeof deviceCloseCodes;
 
 /** An error response's `code`. A client decides by it; an unknown one counts as `server_error`. */
@@ -37,7 +46,6 @@ export const errorCodes = [
   "target_not_found",
   "agent_start_failed",
   "device_timeout",
-  "rate_limited",
   "server_error",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];
@@ -48,7 +56,6 @@ export function closeReason<Codes extends Record<string, number>>(codes: Codes, 
 }
 
 const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
-const idPattern = /^[A-Za-z0-9_-]{8,128}$/;
 const connectionIdPattern = /^[A-Za-z0-9_-]{22,128}$/;
 const namePattern = /^[^\r\n\t]{1,128}$/;
 const maxFailureLength = 500;
@@ -59,20 +66,16 @@ export type DevicePlatform = (typeof devicePlatforms)[number];
 
 const AgentTypeSchema = v.pipe(v.string(), v.regex(agentTypePattern));
 const PlatformSchema = v.picklist(devicePlatforms);
-const IdSchema = v.pipe(v.string(), v.regex(idPattern));
 const NameSchema = v.pipe(v.string(), v.regex(namePattern));
 const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
 const HostnameSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(256));
 const PathSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(4096));
 const ConnectionIdSchema = v.pipe(v.string(), v.regex(connectionIdPattern));
-const PayloadSchema = v.pipe(v.string(), v.maxLength(frameBytes));
 const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureLength));
 
 const HelloSchema = v.object({
   type: v.literal("hello"),
-  protocolVersion: v.pipe(v.number(), v.integer()),
   hostname: HostnameSchema,
-  deviceId: IdSchema,
   /**
    * The directory this device works in when a web app names none.
    *
@@ -84,20 +87,15 @@ const HelloSchema = v.object({
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
   platform: PlatformSchema,
 });
-const FrameSchema = v.object({ type: v.literal("frame"), connectionId: ConnectionIdSchema, payload: PayloadSchema });
-const CloseSchema = v.object({ type: v.literal("close"), connectionId: ConnectionIdSchema });
-const OpenedSchema = v.object({ type: v.literal("opened"), connectionId: ConnectionIdSchema });
 const OpenFailedSchema = v.object({ type: v.literal("open_failed"), connectionId: ConnectionIdSchema, message: FailureSchema });
 const OpenSchema = v.object({ type: v.literal("open"), connectionId: ConnectionIdSchema, agentName: NameSchema });
 
-const DaemonMessageSchema = v.variant("type", [HelloSchema, FrameSchema, CloseSchema, OpenedSchema, OpenFailedSchema]);
-const RelayMessageSchema = v.variant("type", [OpenSchema, FrameSchema, CloseSchema]);
-const daemonMessageTypes: readonly string[] = ["hello", "frame", "close", "opened", "open_failed"];
-const relayMessageTypes: readonly string[] = ["open", "frame", "close"];
+const DeviceMessageSchema = v.variant("type", [HelloSchema, OpenFailedSchema]);
+const deviceMessageTypes: readonly string[] = ["hello", "open_failed"];
 
 export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
 
-/** An online device as web apps see it. `id` is its device id. */
+/** An online device as web apps see it. `id` is its device id, which is its OAuth client id. */
 export type Device = {
   id: string;
   hostname: string;
@@ -106,9 +104,11 @@ export type Device = {
   platform: DevicePlatform;
 };
 
-export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;
+/** What a device sends on its device socket. */
+export type DeviceMessage = v.InferOutput<typeof DeviceMessageSchema>;
 
-export type RelayMessage = v.InferOutput<typeof RelayMessageSchema>;
+/** What the relay sends on a device socket. */
+export type RelayMessage = v.InferOutput<typeof OpenSchema>;
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
@@ -126,12 +126,12 @@ export function relayWebSocketUrl(relayUrl: string, path: string): string {
  */
 export type Parsed<Message> = { ok: true; message: Message } | { ok: false; reason: "unknown" | "invalid" };
 
-export function parseDaemonMessage(value: unknown): Parsed<DaemonMessage> {
-  return parseMessage(DaemonMessageSchema, daemonMessageTypes, value);
+export function parseDeviceMessage(value: unknown): Parsed<DeviceMessage> {
+  return parseMessage(DeviceMessageSchema, deviceMessageTypes, value);
 }
 
 export function parseRelayMessage(value: unknown): Parsed<RelayMessage> {
-  return parseMessage(RelayMessageSchema, relayMessageTypes, value);
+  return parseMessage(OpenSchema, ["open"], value);
 }
 
 function parseMessage<Schema extends v.GenericSchema>(schema: Schema, types: readonly string[], value: unknown): Parsed<v.InferOutput<Schema>> {

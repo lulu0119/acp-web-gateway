@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { test } from "vitest";
 import { openExteriorAuth, type ExteriorAuth } from "./auth.js";
-import { ensureDaemonClient, maxClientsPerUser, parseClientRegistration, registerClient } from "./clients.js";
+import { maxClientsPerUser, parseClientRegistration, registerClient } from "./clients.js";
 
 async function openExterior(): Promise<ExteriorAuth> {
   return openExteriorAuth({
@@ -13,13 +13,6 @@ async function openExterior(): Promise<ExteriorAuth> {
     githubClientSecret: "github-secret",
   });
 }
-
-test("the daemon keeps the same client id", async () => {
-  const exterior = await openExterior();
-  const first = await ensureDaemonClient(exterior);
-  const second = await ensureDaemonClient(exterior);
-  assert.equal(first, second);
-});
 
 test("registration rejects reserved names and bad redirects", () => {
   const badName = parseClientRegistration({ clientName: "Exterior Pro", redirectUris: ["https://app.example.test/callback"], confidential: false });

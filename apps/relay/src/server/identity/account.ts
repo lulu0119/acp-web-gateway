@@ -80,9 +80,9 @@ export async function decideConsent(request: Request, exterior: ExteriorAuth, qu
 }
 
 const scopeDescriptions: Record<string, Omit<PermissionView, "scope">> = {
-  devices: {
+  "eap:client": {
     title: "Use agents on your devices",
-    detail: "See which of your devices are online and the agents set up on them, and start a session with one of those agents.",
+    detail: "See which of your devices are online and start any agent on them, including agents you add later. An agent runs with your permissions on its device.",
   },
   offline_access: {
     title: "Stay connected",

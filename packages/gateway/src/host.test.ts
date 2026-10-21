@@ -3,64 +3,66 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import type { DaemonMessage } from "@exterioragentprotocol/sdk/device";
+import { generateDeviceKey, type DeviceMessage } from "@exterioragentprotocol/sdk/device";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
 
 const connectionId = "connection-1-aaaaaaaaaaa";
 const workingDirectory = join("home", "person", "workspace");
+const relayUrl = "http://127.0.0.1:1";
+const deviceKey = await generateDeviceKey();
 
 test("hello advertises a custom agent only while its command is installed", () => {
-  const sent: DaemonMessage[] = [];
+  const sent: DeviceMessage[] = [];
   const host = createDaemonHost({
-    deviceId: "device-studio-1",
+    relayUrl,
+    deviceKey,
     hostname: "studio",
     platform: "linux",
     workingDirectory,
     agents: [{ name: "mine", agentType: "custom", env: {}, command: "my-agent" }],
-    send: (message) => sent.push(message),
     resolveLaunch: () => undefined,
   });
-  host.hello();
-  assert.deepEqual(sent, [{ type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] }]);
+  host.attach((message) => sent.push(message));
+  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", workingDirectory, platform: "linux", agents: [] }]);
 });
 
 test("hello omits an agent the registry cannot launch, and opening it fails", () => {
-  const sent: DaemonMessage[] = [];
+  const sent: DeviceMessage[] = [];
   const host = createDaemonHost({
-    deviceId: "device-studio-1",
+    relayUrl,
+    deviceKey,
     hostname: "studio",
     platform: "linux",
     workingDirectory,
     agents: [agent],
-    send: (message) => sent.push(message),
     resolveLaunch: () => undefined,
-    spawnAgent: () => {
-      throw new Error("spawned");
-    },
+    spawnAgent: () => assert.fail("spawned"),
   });
-  host.hello();
+  host.attach((message) => sent.push(message));
   host.receive({ type: "open", connectionId, agentName: "work" });
   assert.deepEqual(sent, [
-    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] },
+    { type: "hello", hostname: "studio", workingDirectory, platform: "linux", agents: [] },
     { type: "open_failed", connectionId, message: "That agent is not configured." },
   ]);
 });
 
 test("a new configuration offers the agents it can launch", () => {
-  const sent: DaemonMessage[] = [];
+  const sent: DeviceMessage[] = [];
   const host = createDaemonHost({
-    deviceId: "device-studio-1",
+    relayUrl,
+    deviceKey,
     hostname: "studio",
     platform: "linux",
     workingDirectory,
     agents: [],
-    send: (message) => sent.push(message),
     resolveLaunch: (stored) => (stored.name === "work" ? readyLaunch(stored) : undefined),
   });
+  host.attach((message) => sent.push(message));
+  sent.length = 0;
   host.setAgents([agent, { name: "mine", agentType: "custom", env: {}, command: "my-agent" }]);
   assert.deepEqual(sent, [
-    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "work", agentType: "opencode" }] },
+    { type: "hello", hostname: "studio", workingDirectory, platform: "linux", agents: [{ name: "work", agentType: "opencode" }] },
   ]);
 });
 
@@ -68,16 +70,18 @@ test("an argument a batch script cannot take fails the open instead of reaching 
   const directory = await mkdtemp(join(tmpdir(), "exterior-batch-"));
   const script = join(directory, "agent.cmd");
   await writeFile(script, "@echo off\n", "utf8");
-  const sent: DaemonMessage[] = [];
+  const sent: DeviceMessage[] = [];
   const host = createDaemonHost({
-    deviceId: "device-studio-1",
+    relayUrl,
+    deviceKey,
     hostname: "studio",
     platform: "linux",
     workingDirectory,
     agents: [agent],
-    send: (message) => sent.push(message),
     resolveLaunch: () => ({ executable: { kind: "batch", path: script }, args: ["--flag&echo"], env: {} }),
   });
+  host.attach((message) => sent.push(message));
+  sent.length = 0;
   host.receive({ type: "open", connectionId, agentName: "work" });
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.deepEqual(sent, [

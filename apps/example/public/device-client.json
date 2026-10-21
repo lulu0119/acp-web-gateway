@@ -1,0 +1,12 @@
+{
+  "client_id": "https://lulu0119.github.io/exterior/device-client.json",
+  "client_name": "Exterior",
+  "client_uri": "https://lulu0119.github.io/exterior/",
+  "grant_types": [
+    "urn:ietf:params:oauth:grant-type:device_code",
+    "refresh_token"
+  ],
+  "response_types": [],
+  "token_endpoint_auth_method": "none",
+  "dpop_bound_access_tokens": true
+}

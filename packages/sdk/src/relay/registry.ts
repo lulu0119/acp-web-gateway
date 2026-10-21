@@ -1,35 +1,46 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { frameBytes, protocolVersion, type AgentSlot, type AttachCloseReason, type DaemonMessage, type Device, type DeviceCloseReason, type DevicePlatform, type RelayMessage } from "../index.js";
+import { frameBytes, type AgentSlot, type AttachCloseReason, type Device, type DeviceCloseReason, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 
 const defaultTicketTtlMs = 60_000;
 const defaultOpenTimeoutMs = 15_000;
+/** Unsent bytes on one socket past which the relay stops reading the socket that feeds it. */
+const maxUnsentBytes = frameBytes;
 
-/** A live session, as an account's own pages list it. */
+/** A live connection, as an account's own pages list it. */
 export type ConnectionInfo = {
   deviceId: string;
   agentName: string;
   agentType: string;
-  /** The web app that opened the session. */
+  /** The OAuth client that opened the connection. */
   clientId: string;
 };
 
-export type OpenSessionResult =
-  | { ok: true; ticket: string; expiresAt: number; agentType: string; agentName: string }
+export type OpenConnectionResult =
+  | { ok: true; ticket: string; expiresAt: number; agentType: string }
   | { ok: false; status: 404 | 502 | 504; code: "target_not_found" | "agent_start_failed" | "device_timeout"; message: string };
 
-export type BrowserSocket = {
-  send(payload: string): void;
-  close(reason: AttachCloseReason): void;
+/** One end of a connection's data path: the client's attach socket or the device's agent socket. */
+export type FrameSocket = {
+  /** Sends a frame. `flushed` is called once the frame has left the relay. */
+  send(frame: string, flushed: () => void): void;
+  /** Bytes sent but not yet flushed. */
+  unsent(): number;
+  /** Stops reading frames from this socket, and `resume` starts again. */
+  pause(): void;
+  resume(): void;
 };
 
-export type BrowserLink = {
-  frame(payload: string): void;
-  close(): void;
-};
+export type AttachSocket = FrameSocket & { close(reason: AttachCloseReason): void };
+export type AgentSocket = FrameSocket & { close(): void };
 
-/** One daemon connection. Its id is the relay's own and changes on every reconnect; the device id does not. */
-type LiveDaemon = {
-  id: string;
+/** What a socket's handler tells the registry. */
+export type AttachLink = { frame(frame: string): void; closed(): void };
+/** `agentExited`: the device closed the agent socket because the agent ended, rather than the socket dropping. */
+export type AgentLink = { frame(frame: string): void; closed(agentExited: boolean): void };
+
+type OnlineDevice = {
+  /** The relay's own id for this device socket. It changes on every reconnect; the device id does not. */
+  socketId: string;
   userId: string;
   deviceId: string;
   hostname: string;
@@ -40,161 +51,137 @@ type LiveDaemon = {
   close: (reason: DeviceCloseReason) => void;
 };
 
-type LiveSession = {
+type Connection = {
   id: string;
   userId: string;
-  daemonId: string;
   deviceId: string;
   agentName: string;
   agentType: string;
-  /** The web app that opened it. */
   clientId: string;
   ticket: string;
   expiresAt: number;
-  ended: boolean;
-  /** Frames the agent wrote before the socket attached, and their size in bytes. */
+  state: "opening" | "issued" | "attached" | "ended";
+  agent?: AgentSocket;
+  client?: AttachSocket;
+  /** Frames the agent socket delivered before it was paused and a client attached. */
   held: string[];
-  heldBytes: number;
-  browser?: BrowserSocket;
-  openTimer: ReturnType<typeof setTimeout>;
-  ticketTimer?: ReturnType<typeof setTimeout>;
-  openResolve?: (result: OpenSessionResult) => void;
+  timer: ReturnType<typeof setTimeout>;
+  resolve?: (result: OpenConnectionResult) => void;
 };
 
-/**
- * Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept.
- * Answers false when the account has no such device, and the daemon is turned away.
- */
-export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform: DevicePlatform }) => boolean;
-
-/** A ticket that is used, expired or unknown is refused, and the dial ends there. */
-export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false };
+/** Told when a device socket says hello and when it closes, so the device can be listed while offline. */
+export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform: DevicePlatform }) => void;
 
 export type Registry = {
-  /** `close` ends the daemon's socket when the relay turns the daemon away. */
-  connectDaemon(input: { userId: string; send: (message: RelayMessage) => void; close: (reason: DeviceCloseReason) => void }): {
-    receive(message: DaemonMessage): void;
+  /**
+   * A device socket the relay admitted. `deviceId` is the key its token is bound to. `close` ends the socket when
+   * a newer one replaces it, the device is removed, or it breaks the protocol.
+   */
+  connectDevice(input: { userId: string; deviceId: string; send: (message: RelayMessage) => void; close: (reason: DeviceCloseReason) => void }): {
+    receive(message: DeviceMessage): void;
     close(): void;
   };
   listDevices(userId: string): Device[];
-  listSessions(userId: string): ConnectionInfo[];
-  openSession(input: { userId: string; clientId: string; deviceId: string; agentName: string }): Promise<OpenSessionResult>;
-  /** Ends the device's connection and its sessions, as the device was removed. */
-  disconnectDevice(input: { userId: string; deviceId: string }): void;
-  takeTicket(ticket: string, browser: BrowserSocket): TakeTicketResult;
+  listConnections(userId: string): ConnectionInfo[];
+  openConnection(input: { userId: string; clientId: string; deviceId: string; agentName: string }): Promise<OpenConnectionResult>;
+  /**
+   * A device dialed the agent socket of a connection, proving `deviceId`. Undefined when the relay is not waiting for
+   * that connection, or it was opened on another device, and the socket is closed.
+   */
+  acceptAgent(input: { connectionId: string; deviceId: string }, socket: AgentSocket): AgentLink | undefined;
+  /** A client dialed a ticket. Dialing consumes it; undefined when it is used, expired or unknown. */
+  acceptClient(ticket: string, socket: AttachSocket): AttachLink | undefined;
+  /** The device was removed: its device socket closes with `revoked` and its connections end. */
+  removeDevice(input: { userId: string; deviceId: string }): void;
+  /** The account revoked the client: its connections end with `revoked`. */
+  revokeClient(input: { userId: string; clientId: string }): void;
 };
 
 /**
- * Why a session ended. `browser`: its socket closed. `timeout`: the device did not answer, or nobody dialed the ticket.
- * `overflow`: the agent wrote more than a frame's worth before anybody dialed. The others are told to the socket.
+ * Why a connection ended. `client`: its attach socket closed. `timeout`: the device did not dial, or nobody dialed the ticket.
+ * `failed`: the device answered `open_failed`. The others are told to the attach socket.
  */
-type Ending = "browser" | "timeout" | "overflow" | AttachCloseReason;
+type Ending = "client" | "timeout" | "failed" | AttachCloseReason;
 
 export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number; seen?: SeenDevice }): Registry {
   const now = input?.now ?? Date.now;
-  const seen = input?.seen ?? (() => true);
+  const seen = input?.seen ?? (() => undefined);
   const ticketTtlMs = input?.ticketTtlMs ?? defaultTicketTtlMs;
   const openTimeoutMs = input?.openTimeoutMs ?? defaultOpenTimeoutMs;
-  const daemons = new Map<string, LiveDaemon>();
-  const sessions = new Map<string, LiveSession>();
-  const sessionsByTicket = new Map<string, LiveSession>();
+  const devices = new Map<string, OnlineDevice>();
+  const connections = new Map<string, Connection>();
+  const byTicket = new Map<string, Connection>();
 
-  function finishSession(session: LiveSession, ending: Ending): void {
-    if (session.ended) return;
-    session.ended = true;
-    clearTimeout(session.openTimer);
-    clearTimeout(session.ticketTimer);
-    sessions.delete(session.id);
-    sessionsByTicket.delete(session.ticket);
-    if (ending !== "agent_exited" && ending !== "device_gone") sendToDaemon(session.daemonId, { type: "close", connectionId: session.id });
-    if (ending !== "browser" && ending !== "timeout" && ending !== "overflow") session.browser?.close(ending);
-    const resolve = session.openResolve;
-    session.openResolve = undefined;
+  /** Closes whichever of the connection's sockets are still open, and answers an open still waiting. */
+  function end(connection: Connection, ending: Ending, answer?: OpenConnectionResult): void {
+    if (connection.state === "ended") return;
+    connection.state = "ended";
+    clearTimeout(connection.timer);
+    connections.delete(connection.id);
+    byTicket.delete(connection.ticket);
+    connection.agent?.close();
+    if (ending !== "client" && ending !== "timeout" && ending !== "failed") connection.client?.close(ending);
+    const resolve = connection.resolve;
+    connection.resolve = undefined;
     resolve?.(
-      ending === "timeout"
+      answer ?? (ending === "timeout"
         ? { ok: false, status: 504, code: "device_timeout", message: "The device did not answer." }
-        : { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." },
+        : { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." }),
     );
   }
 
-  function sendToDaemon(daemonId: string, message: RelayMessage): void {
-    const daemon = daemons.get(daemonId);
-    if (!daemon) return;
-    try {
-      daemon.send(message);
-    } catch {
-      daemon.send = () => undefined;
-    }
-  }
-
-  function findDaemon(userId: string, deviceId: string): LiveDaemon | undefined {
-    for (const daemon of daemons.values()) {
-      if (daemon.userId === userId && daemon.deviceId === deviceId) return daemon;
+  function findDevice(userId: string, deviceId: string): OnlineDevice | undefined {
+    for (const device of devices.values()) {
+      if (device.userId === userId && device.deviceId === deviceId) return device;
     }
     return undefined;
   }
 
-  function dropDaemon(daemon: LiveDaemon, reason: DeviceCloseReason): void {
-    daemons.delete(daemon.id);
-    for (const session of sessions.values()) {
-      if (session.daemonId === daemon.id) finishSession(session, "device_gone");
-    }
+  function dropDevice(device: OnlineDevice, reason: DeviceCloseReason): void {
+    devices.delete(device.socketId);
     try {
-      daemon.close(reason);
+      device.close(reason);
     } catch {
       // The socket is already gone.
     }
   }
 
-  function linkFor(session: LiveSession, browser: BrowserSocket): BrowserLink {
-    return {
-      frame(payload) {
-        if (session.ended || session.browser !== browser) return;
-        sendToDaemon(session.daemonId, { type: "frame", connectionId: session.id, payload });
-      },
-      close() {
-        if (session.ended || session.browser !== browser) return;
-        finishSession(session, "browser");
-      },
-    };
+  // The reader of `from` stops while `to` holds more than it should, so one slow end slows its peer instead of filling the relay.
+  function forward(frame: string, to: FrameSocket, from: FrameSocket): void {
+    to.send(frame, () => {
+      if (to.unsent() <= maxUnsentBytes) from.resume();
+    });
+    if (to.unsent() > maxUnsentBytes) from.pause();
   }
 
   return {
-    connectDaemon(link) {
-      let daemonId: string | undefined;
+    connectDevice(link) {
+      let socketId: string | undefined;
+      let closed = false;
       return {
         receive(message) {
+          if (closed) return;
           if (message.type === "hello") {
-            if (message.protocolVersion !== protocolVersion) {
-              link.close("unsupported_version");
-              return;
-            }
-            const current = daemonId ? daemons.get(daemonId) : undefined;
-            // Another connection took this one's place, or the device was removed.
-            if (daemonId && !current) return;
-            if (!seen({ userId: link.userId, deviceId: message.deviceId, hostname: message.hostname, platform: message.platform })) {
-              if (current) dropDaemon(current, "revoked");
-              else link.close("revoked");
-              return;
-            }
-            // A daemon that reconnects before the relay noticed its old socket die announces the same
-            // device id again. The newer connection takes over, so a device is online once.
-            const previous = findDaemon(link.userId, message.deviceId);
-            if (previous && previous !== current) dropDaemon(previous, "replaced");
+            const current = socketId ? devices.get(socketId) : undefined;
+            // Another socket took this one's place, or the device was removed.
+            if (socketId && !current) return;
+            seen({ userId: link.userId, deviceId: link.deviceId, hostname: message.hostname, platform: message.platform });
             const agents = message.agents.map((agent) => ({ name: agent.name, agentType: agent.agentType }));
             if (current) {
-              current.deviceId = message.deviceId;
               current.hostname = message.hostname;
               current.platform = message.platform;
               current.workingDirectory = message.workingDirectory;
               current.agents = agents;
               return;
             }
-            daemonId = randomUUID();
-            daemons.set(daemonId, {
-              id: daemonId,
+            // A device that reconnects before the relay noticed its old socket die. The newer socket takes over, so a device is online once.
+            const previous = findDevice(link.userId, link.deviceId);
+            if (previous) dropDevice(previous, "replaced");
+            socketId = randomUUID();
+            devices.set(socketId, {
+              socketId,
               userId: link.userId,
-              deviceId: message.deviceId,
+              deviceId: link.deviceId,
               hostname: message.hostname,
               platform: message.platform,
               workingDirectory: message.workingDirectory,
@@ -204,126 +191,130 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
             });
             return;
           }
-          if (!daemonId) {
+          if (!socketId) {
             link.close("invalid_message");
             return;
           }
-          const session = sessions.get(message.connectionId);
-          if (!session || session.daemonId !== daemonId || session.ended) {
-            // The device holds a connection the relay does not, such as one whose open timed out: it stops the agent.
-            if (message.type !== "close") sendToDaemon(daemonId, { type: "close", connectionId: message.connectionId });
-            return;
-          }
-          if (message.type === "opened") {
-            if (!session.openResolve) return;
-            const resolve = session.openResolve;
-            session.openResolve = undefined;
-            clearTimeout(session.openTimer);
-            session.expiresAt = now() + ticketTtlMs;
-            session.ticketTimer = setTimeout(() => finishSession(session, "timeout"), ticketTtlMs);
-            resolve({ ok: true, ticket: session.ticket, expiresAt: session.expiresAt, agentType: session.agentType, agentName: session.agentName });
-            return;
-          }
-          if (message.type === "open_failed") {
-            const resolve = session.openResolve;
-            session.openResolve = undefined;
-            clearTimeout(session.openTimer);
-            session.ended = true;
-            sessions.delete(session.id);
-            sessionsByTicket.delete(session.ticket);
-            resolve?.({ ok: false, status: 502, code: "agent_start_failed", message: message.message });
-            return;
-          }
-          if (message.type === "frame") {
-            if (session.browser) {
-              session.browser.send(message.payload);
-              return;
-            }
-            session.heldBytes += Buffer.byteLength(message.payload);
-            if (session.heldBytes > frameBytes) {
-              finishSession(session, "overflow");
-              return;
-            }
-            session.held.push(message.payload);
-            return;
-          }
-          finishSession(session, "agent_exited");
+          const connection = connections.get(message.connectionId);
+          if (connection?.state !== "opening" || connection.deviceId !== link.deviceId || connection.userId !== link.userId) return;
+          end(connection, "failed", { ok: false, status: 502, code: "agent_start_failed", message: message.message });
         },
         close() {
-          if (!daemonId) return;
-          const closed = daemons.get(daemonId);
-          daemonId = undefined;
-          if (!closed) return;
-          seen({ userId: closed.userId, deviceId: closed.deviceId, hostname: closed.hostname, platform: closed.platform });
-          daemons.delete(closed.id);
-          for (const session of sessions.values()) {
-            if (session.daemonId === closed.id) finishSession(session, "device_gone");
-          }
+          closed = true;
+          const device = socketId ? devices.get(socketId) : undefined;
+          socketId = undefined;
+          if (!device) return;
+          devices.delete(device.socketId);
+          seen({ userId: device.userId, deviceId: device.deviceId, hostname: device.hostname, platform: device.platform });
         },
       };
     },
     listDevices(userId) {
-      return [...daemons.values()]
-        .filter((daemon) => daemon.userId === userId)
-        .map((daemon) => ({
-          id: daemon.deviceId,
-          hostname: daemon.hostname,
-          agents: daemon.agents,
-          workingDirectory: daemon.workingDirectory,
-          platform: daemon.platform,
+      return [...devices.values()]
+        .filter((device) => device.userId === userId)
+        .map((device) => ({
+          id: device.deviceId,
+          hostname: device.hostname,
+          agents: device.agents,
+          workingDirectory: device.workingDirectory,
+          platform: device.platform,
         }));
     },
-    listSessions(userId) {
-      return [...sessions.values()]
-        .filter((session) => session.userId === userId && !session.ended)
-        .map((session) => ({ deviceId: session.deviceId, agentName: session.agentName, agentType: session.agentType, clientId: session.clientId }));
+    listConnections(userId) {
+      return [...connections.values()]
+        .filter((connection) => connection.userId === userId)
+        .map((connection) => ({ deviceId: connection.deviceId, agentName: connection.agentName, agentType: connection.agentType, clientId: connection.clientId }));
     },
-    openSession({ userId, clientId, deviceId, agentName }) {
-      const daemon = findDaemon(userId, deviceId);
-      const agent = daemon?.agents.find((slot) => slot.name === agentName);
-      if (!daemon || !agent) return Promise.resolve({ ok: false, status: 404, code: "target_not_found", message: "That device is not online, or does not offer that agent." });
+    openConnection({ userId, clientId, deviceId, agentName }) {
+      const device = findDevice(userId, deviceId);
+      const agent = device?.agents.find((slot) => slot.name === agentName);
+      if (!device || !agent) return Promise.resolve({ ok: false, status: 404, code: "target_not_found", message: "That device is not online, or does not offer that agent." });
       const id = randomBytes(16).toString("base64url");
-      const ticket = randomBytes(32).toString("base64url");
       return new Promise((resolve) => {
-        const session: LiveSession = {
+        const connection: Connection = {
           id,
           userId,
-          daemonId: daemon.id,
           deviceId,
           agentName,
           agentType: agent.agentType,
           clientId,
-          ticket,
-          expiresAt: now() + ticketTtlMs,
-          ended: false,
+          ticket: randomBytes(32).toString("base64url"),
+          expiresAt: 0,
+          state: "opening",
           held: [],
-          heldBytes: 0,
-          openTimer: setTimeout(() => finishSession(session, "timeout"), openTimeoutMs),
-          openResolve: resolve,
+          timer: setTimeout(() => end(connection, "timeout"), openTimeoutMs),
+          resolve,
         };
-        sessions.set(id, session);
-        sessionsByTicket.set(ticket, session);
-        sendToDaemon(daemon.id, { type: "open", connectionId: id, agentName });
+        connections.set(id, connection);
+        try {
+          device.send({ type: "open", connectionId: id, agentName });
+        } catch {
+          // The device socket is closing; the open times out.
+        }
       });
     },
-    disconnectDevice({ userId, deviceId }) {
-      const daemon = findDaemon(userId, deviceId);
-      if (daemon) dropDaemon(daemon, "revoked");
+    acceptAgent({ connectionId, deviceId }, socket) {
+      const connection = connections.get(connectionId);
+      if (connection?.state !== "opening" || connection.deviceId !== deviceId) return undefined;
+      // Nothing is read from the agent until a client attaches, so the agent waits instead of the relay holding its output.
+      socket.pause();
+      connection.agent = socket;
+      connection.state = "issued";
+      clearTimeout(connection.timer);
+      connection.expiresAt = now() + ticketTtlMs;
+      connection.timer = setTimeout(() => end(connection, "timeout"), ticketTtlMs);
+      byTicket.set(connection.ticket, connection);
+      const resolve = connection.resolve;
+      connection.resolve = undefined;
+      resolve?.({ ok: true, ticket: connection.ticket, expiresAt: connection.expiresAt, agentType: connection.agentType });
+      return {
+        frame(frame) {
+          if (connection.state === "ended") return;
+          if (connection.client) forward(frame, connection.client, socket);
+          else connection.held.push(frame);
+        },
+        closed(agentExited) {
+          connection.agent = undefined;
+          end(connection, agentExited ? "agent_exited" : "device_gone");
+        },
+      };
     },
-    takeTicket(ticket, browser) {
-      const session = sessionsByTicket.get(ticket);
-      // Dialing consumes the ticket, whatever happens next.
-      sessionsByTicket.delete(ticket);
-      if (!session || session.ended || session.openResolve) return { ok: false };
-      if (session.expiresAt < now()) {
-        finishSession(session, "timeout");
-        return { ok: false };
+    acceptClient(ticket, socket) {
+      const connection = byTicket.get(ticket);
+      byTicket.delete(ticket);
+      const agent = connection?.agent;
+      if (!connection || !agent || connection.state !== "issued") return undefined;
+      if (connection.expiresAt < now()) {
+        end(connection, "timeout");
+        return undefined;
       }
-      clearTimeout(session.ticketTimer);
-      session.browser = browser;
-      for (const payload of session.held) browser.send(payload);
-      session.held = [];
-      return { ok: true, link: linkFor(session, browser) };
+      clearTimeout(connection.timer);
+      connection.state = "attached";
+      connection.client = socket;
+      for (const frame of connection.held) forward(frame, socket, agent);
+      connection.held = [];
+      agent.resume();
+      return {
+        frame(frame) {
+          if (connection.state !== "ended") forward(frame, agent, socket);
+        },
+        closed() {
+          connection.client = undefined;
+          end(connection, "client");
+        },
+      };
+    },
+    removeDevice({ userId, deviceId }) {
+      const device = findDevice(userId, deviceId);
+      if (device) dropDevice(device, "revoked");
+      for (const connection of connections.values()) {
+        if (connection.userId === userId && connection.deviceId === deviceId) end(connection, "device_gone");
+      }
+    },
+    revokeClient({ userId, clientId }) {
+      for (const connection of connections.values()) {
+        if (connection.userId === userId && connection.clientId === clientId) end(connection, "revoked");
+      }
     },
   };
 }

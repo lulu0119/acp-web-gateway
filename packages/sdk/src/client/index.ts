@@ -1,4 +1,3 @@
-export { createAgentConnector, type AgentTarget, type OpenAgent } from "./connection.js";
 export {
   beginBrowserSignIn,
   browserCallbackPath,

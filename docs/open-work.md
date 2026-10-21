@@ -11,9 +11,9 @@ Code still missing.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - Unauthenticated endpoints that add rows: rate-limit `POST /api/auth/oauth2/register` and the metadata-document fetch, and decide what "verified" means beyond the redirect host the pages show.
-- Exterior Agent Protocol v1 ([spec](protocol/exterior-agent-protocol.md)): connections, device messages, close codes and error codes follow the spec. Missing: the discovery documents and the `/eap/` endpoints they name, the `eap:client` and `eap:device` scopes, one OAuth client per device with the device id read from the token instead of `hello`, and closing the sockets of a narrowed grant or a revoked client. better-auth registers a device-code client per device (RFC 7591) and puts that client in the token's `azp`, but stores every registered scope on every self-registered client: the relay has to tie `eap:device` to the device-code grant at registration, at `/device/code` and at authorization, and bind a device client to the first account that approves it.
-- Check `Origin` against the app's redirect origins on the web app API and on `/api/acp`, instead of `Access-Control-Allow-Origin: *`.
-- The device approval page shows only the code. Show the requesting device's name and address so a forwarded code is easier to spot.
+- Grants per device: the consent page grants every device of the account. Let the person choose devices, and close the attach sockets a narrowed grant no longer covers ([spec §4.4](protocol/exterior-agent-protocol.md#44-grants)).
+- The device approval page shows the code and the account. Show the requesting device's name and address too, so a forwarded code is easier to spot.
+- A machine-readable EAP schema and a conformance suite a third-party relay or device can run.
 - npm release of `exterior-project` and `@exterioragentprotocol/sdk`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: update the Coolify application name and the GitHub OAuth app name. The GitHub repo is already [lulu0119/exterior](https://github.com/lulu0119/exterior).
 
@@ -24,7 +24,7 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
-- Removing a device and `logout` against the hosted relay: a removed device's daemon stops with sign in again, the desktop app shows Sign in, and signing in again lists the device under the same id. `logout` revokes the refresh token there.
+- EAP v1 against the hosted relay: a device signs in with its key through Exterior's metadata document, which Example's Pages site must serve at `https://lulu0119.github.io/exterior/device-client.json` for any other relay; Example opens an agent through the agent socket; a dropped device socket leaves the agent running; removing the device stops its daemon with sign in again, and signing in again brings it back; `logout` revokes the refresh token. The hosted relay and the installed daemons have to move to v1 together.
 - Heartbeats through the hosted relay behind Coolify: a device that loses its network goes offline on the dashboard within a minute, and a daemon whose socket died without closing connects again and is listed once.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.

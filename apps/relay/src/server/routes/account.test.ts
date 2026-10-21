@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { devicesPath, devicesScope } from "@exterioragentprotocol/sdk";
+import { once } from "node:events";
+import { exteriorDeviceClient } from "@exterior/contract";
+import { clientScope, deviceCloseCodes, devicesPath, deviceScope, deviceSocketPath, relayWebSocketUrl } from "@exterioragentprotocol/sdk";
+import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, refreshAccessToken, RefreshTokenRejectedError } from "@exterioragentprotocol/sdk/device";
+import { WebSocket } from "ws";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";
 import { onTestFinished, test } from "vitest";
 import { openExteriorAuth } from "../identity/auth.js";
-import { ensureDaemonClient, registerClient } from "../identity/clients.js";
+import { registerClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
 test("github sign-in sends the state cookie the callback checks", async () => {
@@ -63,7 +67,7 @@ test("approving a web app redirects back with an authorization code", async () =
   authorize.searchParams.set("client_id", registered.clientId);
   authorize.searchParams.set("redirect_uri", redirectUri);
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", devicesScope);
+  authorize.searchParams.set("scope", `${clientScope} offline_access`);
   authorize.searchParams.set("state", "browser-state");
   authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   authorize.searchParams.set("code_challenge_method", "S256");
@@ -85,8 +89,8 @@ test("approving a web app redirects back with an authorization code", async () =
   assert.equal(typeof back.searchParams.get("code"), "string");
 });
 
-// Served on a real port: verifying the device's access token fetches the relay's own JWKS.
-test("an approved device appears on the dashboard once its sign-in records it", async () => {
+// Served on a real port: the device signs in through the SDK, which discovers the relay and fetches its JWKS.
+test("a device signs in with a key, connects as that key, and removing it signs it out", async () => {
   const port = await freePort();
   const publicUrl = `http://127.0.0.1:${port}`;
   const secret = "test-secret-test-secret-test-secret";
@@ -97,93 +101,108 @@ test("an approved device appears on the dashboard once its sign-in records it", 
     githubClientId: "github-client",
     githubClientSecret: "github-secret",
   });
-  const daemonClientId = await ensureDaemonClient(exterior);
   const context = await exterior.auth.$context;
   const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
   const session = await context.internalAdapter.createSession(user.id);
   const cookie = await sessionCookie(session.token, secret);
-  const { app } = await createTestApp(exterior);
+  const { app, injectWebSocket } = await createTestApp(exterior);
   const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" });
+  injectWebSocket(server);
   onTestFinished(() => {
     server.close();
   });
 
-  const started = await app.request(`${publicUrl}/api/auth/device/code`, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: daemonClientId, scope: devicesScope, resource: publicUrl }),
-  });
-  assert.equal(started.status, 200);
-  const pending = (await started.json()) as { user_code?: string; device_code?: string };
-  assert.equal(typeof pending.user_code, "string");
-  assert.equal(typeof pending.device_code, "string");
-
-  const page = await app.request(`${publicUrl}/device?user_code=${pending.user_code}`, { headers: { cookie } });
-  assert.equal(page.status, 200);
-
+  // Exterior's device software is a metadata document the relay knows; the device itself is a key.
+  const key = await generateDeviceKey();
+  const deviceId = await deviceIdOf(key);
+  const pending = await beginDeviceAuthorization({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id });
+  assert.equal((await app.request(`${publicUrl}/device?user_code=${pending.userCode}`, { headers: { cookie } })).status, 200);
   const approved = await app.request(`${publicUrl}/device`, {
     method: "POST",
     headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ userCode: pending.user_code ?? "", decision: "approve" }),
+    body: new URLSearchParams({ userCode: pending.userCode, decision: "approve" }),
   });
-  const approvedText = await approved.text();
-  assert.equal(approved.status, 200, approvedText);
-  assert.match(approvedText, /Device connected/);
+  assert.match(await approved.text(), /Device connected/);
+  const tokens = await pollDeviceAuthorization(pending, key);
+  const refreshToken = tokens.refreshToken ?? "";
 
-  const discovery = await app.request(`${publicUrl}/api/auth/.well-known/openid-configuration`);
-  const metadata = (await discovery.json()) as { token_endpoint?: string };
-  const token = await app.request(metadata.token_endpoint ?? "", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-      device_code: pending.device_code ?? "",
-      client_id: daemonClientId,
-      resource: publicUrl,
-    }),
+  // The token is bound to the key: without a proof it opens nothing.
+  const bare = new WebSocket(relayWebSocketUrl(publicUrl, deviceSocketPath), { headers: { authorization: `Bearer ${tokens.accessToken}` } });
+  const [, refused] = (await once(bare, "unexpected-response")) as [unknown, { statusCode: number }];
+  assert.equal(refused.statusCode, 401);
+  const asClient = await app.request(`${publicUrl}${devicesPath}`, {
+    headers: { authorization: `DPoP ${tokens.accessToken}`, dpop: await dpopProof(key, "GET", `${publicUrl}${devicesPath}`, tokens.accessToken) },
   });
-  const tokenText = await token.text();
-  assert.equal(token.status, 200, tokenText);
-  const body = JSON.parse(tokenText) as { access_token: string; refresh_token: string };
-  assert.equal(typeof body.access_token, "string");
+  assert.equal(asClient.status, 403);
 
-  const register = (refreshToken: string) => app.request(`${publicUrl}${devicesPath}`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${body.access_token}`, "content-type": "application/json" },
-    body: JSON.stringify({ deviceId: "device-studio-1", hostname: "studio", refreshToken }),
-  });
-  assert.equal((await register("not-a-refresh-token")).status, 403);
-  const recorded = await register(body.refresh_token);
-  assert.equal(recorded.status, 200, await recorded.clone().text());
-  const dashboard = await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } });
-  const data = (await dashboard.json()) as { devices: { id: string; hostname: string; online: boolean }[] };
-  assert.deepEqual(data.devices.map(({ id, hostname, online }) => ({ id, hostname, online })), [
-    { id: "device-studio-1", hostname: "studio", online: false },
-  ]);
+  const connect = async () => {
+    const url = relayWebSocketUrl(publicUrl, deviceSocketPath);
+    const socket = new WebSocket(url, { headers: { authorization: `DPoP ${tokens.accessToken}`, dpop: await dpopProof(key, "GET", url, tokens.accessToken) } });
+    await once(socket, "open");
+    socket.send(JSON.stringify({ type: "hello", hostname: "studio", platform: "linux", workingDirectory: "/home/ada/work", agents: [] }));
+    return socket;
+  };
+  const control = await connect();
+  const dashboard = async () => ((await (await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } })).json()) as { devices: { id: string; hostname: string; online: boolean }[] }).devices;
+  await waitFor(async () => (await dashboard()).length === 1);
+  assert.deepEqual((await dashboard()).map(({ id, hostname, online }) => ({ id, hostname, online })), [{ id: deviceId, hostname: "studio", online: true }]);
 
-  const asWebApp = await app.request(`${publicUrl}${devicesPath}`, { headers: { authorization: `Bearer ${body.access_token}` } });
-  assert.equal(asWebApp.status, 403);
-
-  // A refresh carries the device id to the next token, so removing the device still finds it.
-  const refresh = (refreshToken: string) => app.request(metadata.token_endpoint ?? "", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: daemonClientId, resource: publicUrl }),
-  });
-  const refreshed = await refresh(body.refresh_token);
-  assert.equal(refreshed.status, 200, await refreshed.clone().text());
-  const rotated = ((await refreshed.json()) as { refresh_token: string }).refresh_token;
-  assert.notEqual(rotated, body.refresh_token);
-
-  const removed = await app.request(`${publicUrl}${devicesPath}/remove`, {
+  // Removing the device closes its socket, and the access token it still holds no longer opens one.
+  const closed = once(control, "close");
+  const removed = await app.request(`${publicUrl}/api/devices/remove`, {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ deviceId: "device-studio-1" }),
+    body: JSON.stringify({ deviceId }),
   });
   assert.equal(removed.status, 200, await removed.clone().text());
-  assert.deepEqual(((await (await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } })).json()) as { devices: unknown[] }).devices, []);
-  assert.equal((await refresh(rotated)).status, 400);
-  assert.equal((await register(rotated)).status, 403);
+  assert.equal(((await closed) as [number])[0], deviceCloseCodes.revoked);
+  assert.deepEqual(await dashboard(), []);
+  const again = await connect();
+  assert.equal(((await once(again, "close")) as [number])[0], deviceCloseCodes.revoked);
+  await assert.rejects(refreshAccessToken({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id, refreshToken, deviceKey: key }), RefreshTokenRejectedError);
+  // The device polls at the interval the provider names, five seconds.
+}, 20_000);
+
+test("one OAuth client holds one role: device software never registers or signs in through a browser, and a web app never with a device code", async () => {
+  const publicUrl = "http://127.0.0.1:8787";
+  const exterior = await openExteriorAuth({
+    database: new Database(":memory:"),
+    secret: "test-secret-test-secret-test-secret",
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+  });
+  const { app } = await createTestApp(exterior);
+  const register = (metadata: Record<string, unknown>) => app.request(`${publicUrl}/api/auth/oauth2/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "studio", token_endpoint_auth_method: "none", ...metadata }),
+  });
+  const both = await register({ grant_types: ["authorization_code", "urn:ietf:params:oauth:grant-type:device_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: deviceScope });
+  assert.equal(both.status, 400);
+  const webAppAsDevice = await register({ grant_types: ["authorization_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: `${clientScope} ${deviceScope}` });
+  assert.equal(webAppAsDevice.status, 400);
+  const deviceAsClient = await register({ grant_types: ["urn:ietf:params:oauth:grant-type:device_code"], response_types: [], scope: clientScope });
+  assert.equal(deviceAsClient.status, 400);
+
+  const webApp = (await (await register({ application_type: "native", grant_types: ["authorization_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: clientScope })).json()) as { client_id: string };
+  const webAppCode = await app.request(`${publicUrl}/api/auth/device/code`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: webApp.client_id, scope: deviceScope, resource: publicUrl }),
+  });
+  assert.equal(((await webAppCode.json()) as { error: string }).error, "unauthorized_client");
+  const code = await app.request(`${publicUrl}/api/auth/device/code`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: "any", scope: clientScope, resource: publicUrl }),
+  });
+  assert.equal(code.status, 400);
+  assert.equal(((await code.json()) as { error: string }).error, "invalid_scope");
+  const authorize = new URL("/api/auth/oauth2/authorize", publicUrl);
+  authorize.searchParams.set("client_id", "any");
+  authorize.searchParams.set("scope", deviceScope);
+  assert.equal((await app.request(authorize)).status, 400);
 });
 
 test("an expired approval link offers to start again instead of failing", async () => {
@@ -248,6 +267,11 @@ async function sessionCookie(token: string, secret: string): Promise<string> {
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
   const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
   return `better-auth.session_token=${token}.${encoded}`;
+}
+
+async function waitFor(condition: () => Promise<boolean>): Promise<void> {
+  for (let tries = 0; tries < 100 && !(await condition()); tries += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(await condition());
 }
 
 function freePort(): Promise<number> {

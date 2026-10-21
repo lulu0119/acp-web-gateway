@@ -1,4 +1,5 @@
 import * as oauth from "oauth4webapi";
+import type { DeviceKey } from "./dpop.js";
 
 export type Tokens = {
   accessToken: string;
@@ -18,6 +19,8 @@ export async function refreshAccessToken(input: {
   clientId: string;
   refreshToken: string;
   clientSecret?: string;
+  /** The key a device's tokens are bound to. The new tokens are bound to it too. */
+  deviceKey?: DeviceKey;
   signal?: AbortSignal;
 }): Promise<Tokens> {
   const server = await discover(input.relayUrl, input.signal);
@@ -25,6 +28,7 @@ export async function refreshAccessToken(input: {
   const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
   const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, {
     ...requestOptions(input.relayUrl, originOf(input.relayUrl)),
+    ...(input.deviceKey ? { DPoP: oauth.DPoP(client, input.deviceKey) } : {}),
     signal: input.signal,
   });
   const tokens = await oauth.processRefreshTokenResponse(server, client, response).catch((error: unknown) => {
@@ -49,21 +53,32 @@ export async function revokeRefreshToken(input: { relayUrl: string; clientId: st
   });
 }
 
+/**
+ * Finds the relay's authorization server: the relay's protected resource metadata (RFC 9728) names it,
+ * and its own metadata (RFC 8414) names its endpoints.
+ */
 export async function discover(relayUrl: string, signal?: AbortSignal): Promise<oauth.AuthorizationServer> {
-  const issuer = new URL("/api/auth", originOf(relayUrl));
-  let response: Response;
+  const origin = originOf(relayUrl);
+  const unreachable = () => new Error(`Exterior did not answer at ${origin}.`);
+  let issuer: URL;
   try {
-    response = await oauth.discoveryRequest(issuer, { ...httpOptions(relayUrl), signal });
+    const resource = await oauth.processResourceDiscoveryResponse(new URL(origin), await oauth.resourceDiscoveryRequest(new URL(origin), { ...httpOptions(relayUrl), signal }));
+    const named = resource.authorization_servers?.[0];
+    if (!named) throw unreachable();
+    issuer = new URL(named);
   } catch {
-    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
+    throw unreachable();
   }
-  const server = await oauth.processDiscoveryResponse(issuer, response).catch(() => {
-    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
-  });
-  if (!server.device_authorization_endpoint) {
-    return { ...server, device_authorization_endpoint: new URL("/device/code", issuer).href };
+  // RFC 8414 first, then OpenID Connect Discovery, which an authorization server with a path often serves instead.
+  for (const algorithm of ["oauth2", "oidc"] as const) {
+    try {
+      const response = await oauth.discoveryRequest(issuer, { ...httpOptions(relayUrl), algorithm, signal });
+      return await oauth.processDiscoveryResponse(issuer, response);
+    } catch {
+      if (signal?.aborted) break;
+    }
   }
-  return server;
+  throw unreachable();
 }
 
 export function publicClient(clientId: string): oauth.Client {

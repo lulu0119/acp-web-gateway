@@ -103,6 +103,16 @@ function firstRedirectOrigin(redirectUris: string[] | string | null | undefined)
   }
 }
 
+/** Whether the account approved the client. An approval grants every device of the account. */
+export async function hasGrant(exterior: ExteriorAuth, userId: string, clientId: string): Promise<boolean> {
+  const context = await exterior.auth.$context;
+  const consents = await context.adapter.findMany<StoredConsent>({
+    model: "oauthConsent",
+    where: [{ field: "userId", value: userId }, { field: "clientId", value: clientId }],
+  });
+  return consents.some((consent) => consent.userId === userId && consent.clientId === clientId);
+}
+
 export async function revokeGrant(exterior: ExteriorAuth, account: Account, clientId: string): Promise<void> {
   const context = await exterior.auth.$context;
   const where = [

@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { AttachCloseReason, DaemonMessage, RelayMessage } from "../index.js";
-import { createRegistry, type BrowserSocket, type Registry } from "./registry.js";
+import type { AttachCloseReason, DeviceMessage, RelayMessage } from "../index.js";
+import { createRegistry, type AgentSocket, type AttachSocket, type Registry } from "./registry.js";
 
-const hello: DaemonMessage = { type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] };
+const hello: DeviceMessage = { type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] };
+const studio = { userId: "ada", deviceId: "device-studio-1" };
 
-test("a device is online only for the account that connected it, under its device id", () => {
+test("a device is online only for the account that connected it, under the device id of its token", () => {
   const registry = createRegistry();
-  const ada = registry.connectDaemon({ userId: "ada", close: () => undefined, send: () => undefined });
+  const ada = registry.connectDevice({ ...studio, close: () => undefined, send: () => undefined });
   ada.receive(hello);
   assert.deepEqual(registry.listDevices("ada"), [
     {
@@ -23,180 +24,236 @@ test("a device is online only for the account that connected it, under its devic
   assert.deepEqual(registry.listDevices("ada"), []);
 });
 
-test("a daemon for a device the account has not registered is turned away", () => {
-  const registry = createRegistry({ seen: ({ deviceId }) => deviceId === "device-studio-1" });
-  const closed: string[] = [];
-  const stranger = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  stranger.receive({ ...hello, deviceId: "device-unknown-1" });
-  assert.deepEqual(closed, ["revoked"]);
-  assert.deepEqual(registry.listDevices("ada"), []);
+test("a device is seen when it says hello and when its socket closes", () => {
+  const seen: string[] = [];
+  const registry = createRegistry({ seen: ({ deviceId, hostname }) => void seen.push(`${deviceId} ${hostname}`) });
+  const device = registry.connectDevice({ ...studio, close: () => undefined, send: () => undefined });
+  device.receive(hello);
+  device.close();
+  assert.deepEqual(seen, ["device-studio-1 studio", "device-studio-1 studio"]);
 });
 
-test("a hello in a version the relay does not speak, or a message before hello, closes the device socket", () => {
+test("a message before hello closes the device socket", () => {
   const registry = createRegistry();
   const closed: string[] = [];
-  const later = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  later.receive({ ...hello, protocolVersion: 2 });
-  const early = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  early.receive({ type: "opened", connectionId: "c".repeat(22) });
-  assert.deepEqual(closed, ["unsupported_version", "invalid_message"]);
+  const early = registry.connectDevice({ ...studio, close: (reason) => closed.push(reason), send: () => undefined });
+  early.receive({ type: "open_failed", connectionId: "c".repeat(22), message: "No." });
+  assert.deepEqual(closed, ["invalid_message"]);
   assert.deepEqual(registry.listDevices("ada"), []);
 });
 
-test("disconnecting a removed device ends its connection and its sessions", async () => {
-  const registry = createRegistry({ openTimeoutMs: 1_000 });
+test("a newer device socket takes the place of the old one, and leaves running connections alone", async () => {
+  const { registry, agent, client } = await attached();
   const closed: string[] = [];
-  const daemon = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
-  daemon.receive(hello);
-  const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
-  registry.disconnectDevice({ userId: "bea", deviceId: "device-studio-1" });
-  assert.deepEqual(closed, []);
-  registry.disconnectDevice({ userId: "ada", deviceId: "device-studio-1" });
-  assert.deepEqual(closed, ["revoked"]);
-  assert.deepEqual(await pending, { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." });
-  assert.deepEqual(registry.listDevices("ada"), []);
-});
-
-test("a newer connection with the same device id takes the place of the old one", async () => {
-  const registry = createRegistry({ openTimeoutMs: 1_000 });
-  const closed: string[] = [];
-  const old = registry.connectDaemon({ userId: "ada", close: (reason) => closed.push(reason), send: () => undefined });
+  const old = registry.connectDevice({ ...studio, close: (reason) => closed.push(reason), send: () => undefined });
   old.receive(hello);
-  const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
-  const bea = registry.connectDaemon({ userId: "bea", close: () => assert.fail("another account's connection was closed"), send: () => undefined });
-  bea.receive(hello);
-
   const sent: RelayMessage[] = [];
-  const fresh = registry.connectDaemon({ userId: "ada", close: () => assert.fail("the newer connection was closed"), send: (message) => sent.push(message) });
+  const fresh = registry.connectDevice({ ...studio, close: () => assert.fail("the newer socket was closed"), send: (message) => sent.push(message) });
   fresh.receive({ ...hello, hostname: "studio-renamed" });
   assert.deepEqual(closed, ["replaced"]);
-  assert.equal((await pending).ok, false);
-  assert.deepEqual(registry.listDevices("ada").map((device) => device.hostname), ["studio-renamed"]);
-  assert.equal(registry.listDevices("bea").length, 1);
-
-  // The old socket closing, or saying hello again, leaves the newer connection alone.
+  // The old socket saying hello again, or closing, leaves the newer one alone.
   old.receive(hello);
   old.close();
   assert.deepEqual(registry.listDevices("ada").map((device) => device.hostname), ["studio-renamed"]);
-  void registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
+  void registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
   assert.equal(sent[0]?.type, "open");
+  assert.equal(agent.closed, false);
+  assert.deepEqual(client.reasons, []);
 });
 
-test("opening waits until the device starts the agent, and the dial consumes the ticket", async () => {
-  const { registry, daemon, sent, connectionId, ticket } = await opened();
-  const browserFrames: string[] = [];
-  const taken = registry.takeTicket(ticket, fakeBrowser(browserFrames));
-  assert.equal(taken.ok, true);
-  if (!taken.ok) return;
-  daemon.receive({ type: "frame", connectionId, payload: "{\"id\":1}" });
-  assert.deepEqual(browserFrames, ['{"id":1}']);
-  taken.link.frame('{"id":2}');
-  assert.deepEqual(sent.at(-1), { type: "frame", connectionId, payload: '{"id":2}' });
-  assert.deepEqual(registry.takeTicket(ticket, fakeBrowser([])), { ok: false });
+test("opening answers once the device dials the agent socket, and the ticket joins the two sockets", async () => {
+  const setup = online();
+  const { registry, sent } = setup;
+  const pending = registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
+  const { connectionId } = setup;
+  assert.deepEqual(sent, [{ type: "open", connectionId, agentName: "work" }]);
+  const agent = fakeAgent();
+  // Only the device the connection was opened on can answer it.
+  assert.equal(registry.acceptAgent({ connectionId, deviceId: "device-other-1" }, fakeAgent()), undefined);
+  const agentLink = registry.acceptAgent({ connectionId, deviceId: "device-studio-1" }, agent);
+  assert.ok(agentLink);
+  assert.equal(agent.paused, true);
+  const result = await pending;
+  if (!result.ok) throw new Error("expected a ticket");
+  assert.equal(result.agentType, "opencode");
+  assert.equal(registry.acceptAgent({ connectionId, deviceId: "device-studio-1" }, fakeAgent()), undefined);
 
-  const missing = await registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "other" });
+  const client = fakeClient();
+  const clientLink = registry.acceptClient(result.ticket, client);
+  assert.ok(clientLink);
+  assert.equal(agent.paused, false);
+  clientLink.frame('{"id":1}');
+  agentLink.frame('{"id":1,"result":{}}');
+  assert.deepEqual(agent.frames, ['{"id":1}']);
+  assert.deepEqual(client.frames, ['{"id":1,"result":{}}']);
+  assert.equal(registry.acceptClient(result.ticket, fakeClient()), undefined);
+
+  const missing = await registry.openConnection({ ...studio, clientId: "notes", agentName: "other" });
   assert.equal(missing.ok ? undefined : missing.code, "target_not_found");
 });
 
-test("a socket that closes ends the connection, and a second dial cannot take it over", async () => {
-  const { registry, sent, connectionId, ticket } = await opened();
-  const first = registry.takeTicket(ticket, fakeBrowser([]));
-  assert.equal(first.ok, true);
-  if (!first.ok) return;
-  first.link.close();
-  assert.deepEqual(sent.at(-1), { type: "close", connectionId });
-  assert.deepEqual(registry.takeTicket(ticket, fakeBrowser([])), { ok: false });
-  assert.deepEqual(registry.listSessions("ada"), []);
+test("a device that cannot start the agent says why, and one that does not answer times out", async () => {
+  const failing = online();
+  const pending = failing.registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
+  failing.device.receive({ type: "open_failed", connectionId: failing.connectionId, message: "npx is not installed." });
+  assert.deepEqual(await pending, { ok: false, status: 502, code: "agent_start_failed", message: "npx is not installed." });
+  assert.equal(failing.registry.acceptAgent({ connectionId: failing.connectionId, deviceId: "device-studio-1" }, fakeAgent()), undefined);
+
+  const silent = online({ openTimeoutMs: 5 });
+  const timedOut = await silent.registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
+  assert.equal(timedOut.ok ? undefined : timedOut.code, "device_timeout");
+  // The agent started after the relay gave up: its dial is refused, and the device stops it.
+  assert.equal(silent.registry.acceptAgent({ connectionId: silent.connectionId, deviceId: "device-studio-1" }, fakeAgent()), undefined);
 });
 
-test("frames the agent writes before the dial wait for it, up to a frame's worth", async () => {
-  const early = await opened();
-  early.daemon.receive({ type: "frame", connectionId: early.connectionId, payload: '{"method":"log"}' });
-  const frames: string[] = [];
-  assert.equal(early.registry.takeTicket(early.ticket, fakeBrowser(frames)).ok, true);
-  assert.deepEqual(frames, ['{"method":"log"}']);
+test("closing either socket closes the other, and the client hears why", async () => {
+  const left = await attached();
+  left.clientLink.closed();
+  assert.equal(left.agent.closed, true);
+  assert.deepEqual(left.registry.listConnections("ada"), []);
 
-  const flood = await opened();
-  flood.daemon.receive({ type: "frame", connectionId: flood.connectionId, payload: "x".repeat(1_048_576) });
-  flood.daemon.receive({ type: "frame", connectionId: flood.connectionId, payload: "x" });
-  assert.deepEqual(flood.sent.at(-1), { type: "close", connectionId: flood.connectionId });
-  assert.deepEqual(flood.registry.takeTicket(flood.ticket, fakeBrowser([])), { ok: false });
+  const exited = await attached();
+  exited.agentLink.closed(true);
+  const dropped = await attached();
+  dropped.agentLink.closed(false);
+  assert.deepEqual([...exited.client.reasons, ...dropped.client.reasons], ["agent_exited", "device_gone"]);
 });
 
-test("the socket hears why its connection ended", async () => {
-  const exited = await opened();
-  const reasons: AttachCloseReason[] = [];
-  exited.registry.takeTicket(exited.ticket, fakeBrowser([], reasons));
-  exited.daemon.receive({ type: "close", connectionId: exited.connectionId });
-
-  const gone = await opened();
-  gone.registry.takeTicket(gone.ticket, fakeBrowser([], reasons));
-  gone.daemon.close();
-  assert.deepEqual(reasons, ["agent_exited", "device_gone"]);
-});
-
-test("a device message for a connection the relay does not hold is answered with close", async () => {
-  const sent: RelayMessage[] = [];
-  const registry = createRegistry({ openTimeoutMs: 10 });
-  const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive(hello);
-  const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
-  const open = sent[0];
-  if (open?.type !== "open") throw new Error("expected open");
-  assert.equal((await pending).ok, false);
-  sent.length = 0;
-  // The open timed out; the agent started anyway.
-  daemon.receive({ type: "opened", connectionId: open.connectionId });
-  daemon.receive({ type: "close", connectionId: open.connectionId });
-  assert.deepEqual(sent, [{ type: "close", connectionId: open.connectionId }]);
-});
-
-test("a ticket that nobody dials ends the session", async () => {
+test("a ticket nobody dials in time ends the connection", async () => {
   let clock = 0;
-  const { registry, sent, ticket } = await opened({ now: () => clock, ticketTtlMs: 10 });
-  clock = 11;
-  assert.deepEqual(registry.takeTicket(ticket, fakeBrowser([])), { ok: false });
-  assert.equal(sent.at(-1)?.type, "close");
-});
-
-test("live sessions are listed per account without reading ACP payloads", async () => {
-  const { registry, daemon } = await opened();
-  const bea = registry.connectDaemon({ userId: "bea", close: () => undefined, send: () => undefined });
-  bea.receive({ ...hello, hostname: "field", deviceId: "device-field-1" });
-  assert.deepEqual(registry.listSessions("ada"), [{ deviceId: "device-studio-1", agentName: "work", agentType: "opencode", clientId: "notes" }]);
-  assert.deepEqual(registry.listSessions("bea"), []);
-  daemon.close();
-  assert.deepEqual(registry.listSessions("ada"), []);
-});
-
-/** A registry with one device, and one session the device opened. */
-async function opened(options?: { now?: () => number; ticketTtlMs?: number }): Promise<{
-  registry: Registry;
-  daemon: ReturnType<Registry["connectDaemon"]>;
-  sent: RelayMessage[];
-  connectionId: string;
-  ticket: string;
-}> {
-  const sent: RelayMessage[] = [];
-  const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000, ...options });
-  const daemon = registry.connectDaemon({ userId: "ada", close: () => undefined, send: (message) => sent.push(message) });
-  daemon.receive(hello);
-  const pending = registry.openSession({ userId: "ada", clientId: "notes", deviceId: "device-studio-1", agentName: "work" });
-  const open = sent[0];
-  if (open?.type !== "open") throw new Error("expected open");
-  daemon.receive({ type: "opened", connectionId: open.connectionId });
+  const setup = online({ now: () => clock, ticketTtlMs: 10 });
+  const { registry } = setup;
+  const pending = registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
+  const agent = fakeAgent();
+  registry.acceptAgent({ connectionId: setup.connectionId, deviceId: "device-studio-1" }, agent);
   const result = await pending;
   if (!result.ok) throw new Error("expected a ticket");
-  return { registry, daemon, sent, connectionId: open.connectionId, ticket: result.ticket };
-}
+  clock = 11;
+  assert.equal(registry.acceptClient(result.ticket, fakeClient()), undefined);
+  assert.equal(agent.closed, true);
+});
 
-function fakeBrowser(frames: string[], reasons: AttachCloseReason[] = []): BrowserSocket {
+test("a slow socket pauses the one that feeds it until its frames have left", async () => {
+  const { agent, client, clientLink, agentLink } = await attached();
+  client.unsentBytes = 2 * 1_048_576;
+  agentLink.frame("{}");
+  assert.equal(agent.paused, true);
+  client.unsentBytes = 0;
+  client.flush();
+  assert.equal(agent.paused, false);
+  agent.unsentBytes = 2 * 1_048_576;
+  clientLink.frame("{}");
+  assert.equal(client.paused, true);
+});
+
+test("removing a device closes its device socket and its connections", async () => {
+  const { registry, device, agent, client } = await attached();
+  const closed: string[] = [];
+  device.close();
+  const again = registry.connectDevice({ ...studio, close: (reason) => closed.push(reason), send: () => undefined });
+  again.receive(hello);
+  registry.removeDevice({ userId: "bea", deviceId: "device-studio-1" });
+  assert.deepEqual(closed, []);
+  registry.removeDevice(studio);
+  assert.deepEqual(closed, ["revoked"]);
+  assert.equal(agent.closed, true);
+  assert.deepEqual(client.reasons, ["device_gone"]);
+  assert.deepEqual(registry.listDevices("ada"), []);
+});
+
+test("revoking a client ends its connections with revoked, and only its own", async () => {
+  const { registry, client, agent } = await attached();
+  registry.revokeClient({ userId: "ada", clientId: "other" });
+  registry.revokeClient({ userId: "bea", clientId: "notes" });
+  assert.deepEqual(client.reasons, []);
+  registry.revokeClient({ userId: "ada", clientId: "notes" });
+  assert.deepEqual(client.reasons, ["revoked"]);
+  assert.equal(agent.closed, true);
+});
+
+test("live connections are listed per account", async () => {
+  const { registry } = await attached();
+  assert.deepEqual(registry.listConnections("ada"), [{ deviceId: "device-studio-1", agentName: "work", agentType: "opencode", clientId: "notes" }]);
+  assert.deepEqual(registry.listConnections("bea"), []);
+});
+
+/** A registry with one online device. `connectionId` is the id of the first `open` it is sent, once one is. */
+function online(options?: Parameters<typeof createRegistry>[0]): {
+  registry: Registry;
+  device: ReturnType<Registry["connectDevice"]>;
+  sent: RelayMessage[];
+  readonly connectionId: string;
+} {
+  const sent: RelayMessage[] = [];
+  const registry = createRegistry({ openTimeoutMs: 1_000, ticketTtlMs: 5_000, ...options });
+  const device = registry.connectDevice({ ...studio, close: () => undefined, send: (message) => sent.push(message) });
+  device.receive(hello);
   return {
-    send(payload) {
-      frames.push(payload);
-    },
-    close(reason) {
-      reasons.push(reason);
+    registry,
+    device,
+    sent,
+    get connectionId() {
+      const open = sent[0];
+      if (!open) throw new Error("expected open");
+      return open.connectionId;
     },
   };
+}
+
+/** A registry with one connection whose agent and client sockets are both attached. */
+async function attached() {
+  const setup = online();
+  const { registry, device } = setup;
+  const pending = registry.openConnection({ ...studio, clientId: "notes", agentName: "work" });
+  const agent = fakeAgent();
+  const agentLink = registry.acceptAgent({ connectionId: setup.connectionId, deviceId: "device-studio-1" }, agent);
+  const result = await pending;
+  if (!agentLink || !result.ok) throw new Error("expected a ticket");
+  const client = fakeClient();
+  const clientLink = registry.acceptClient(result.ticket, client);
+  if (!clientLink) throw new Error("expected the dial to attach");
+  return { registry, device, agent, agentLink, client, clientLink };
+}
+
+function fakeSocket() {
+  const flushes: (() => void)[] = [];
+  return {
+    frames: [] as string[],
+    paused: false,
+    unsentBytes: 0,
+    send(frame: string, flushed: () => void) {
+      this.frames.push(frame);
+      flushes.push(flushed);
+    },
+    unsent() {
+      return this.unsentBytes;
+    },
+    pause() {
+      this.paused = true;
+    },
+    resume() {
+      this.paused = false;
+    },
+    flush() {
+      for (const flushed of flushes.splice(0)) flushed();
+    },
+  };
+}
+
+function fakeAgent(): AgentSocket & ReturnType<typeof fakeSocket> & { closed: boolean } {
+  return Object.assign(fakeSocket(), {
+    closed: false,
+    close() {
+      this.closed = true;
+    },
+  });
+}
+
+function fakeClient(): AttachSocket & ReturnType<typeof fakeSocket> & { reasons: AttachCloseReason[] } {
+  return Object.assign(fakeSocket(), {
+    reasons: [] as AttachCloseReason[],
+    close(reason: AttachCloseReason) {
+      this.reasons.push(reason);
+    },
+  });
 }

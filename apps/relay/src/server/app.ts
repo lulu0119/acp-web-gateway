@@ -1,7 +1,8 @@
-import { publicClientsPath, type PublicClients } from "@exterior/contract";
+import { clientScope, deviceScope, protectedResourcePath } from "@exterioragentprotocol/sdk";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { useLogg } from "@guiiai/logg";
+import { DPOP_SIGNING_ALGORITHMS } from "better-auth/oauth2";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AccountPage } from "../shared/account-web.js";
@@ -12,14 +13,16 @@ import type { RelayEnv, ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
 import { isBrowserAuthorizeRequest, readBrowserAuthorizeError } from "./identity/authorize-error.js";
 import { guardAuthRequest } from "./identity/clients.js";
+import { deviceSignedIn } from "./identity/device-sign-ins.js";
+import { hasGrant } from "./identity/grants.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
 import { createPageRenderer } from "./rendering/render-page.js";
 import { mountAccountPages } from "./routes/account.js";
 import { mountClients } from "./routes/clients.js";
-import { mountConnections } from "./routes/connections.js";
+import { mountConnections, type IsGranted } from "./routes/connections.js";
 import { mountDashboard } from "./routes/dashboard.js";
-import { mountSockets } from "./routes/sockets.js";
+import { mountSockets, type DeviceSignedIn } from "./routes/sockets.js";
 
 const log = useLogg("relay").useGlobalConfig();
 
@@ -27,11 +30,12 @@ export function createRelayApp(input: {
   exterior: ExteriorAuth;
   registry: Registry;
   devices: DeviceStore;
-  clients: PublicClients;
   githubConfigured: boolean;
   publicDir?: string;
   devServerUrl?: string;
   readAccess?: ReadAccess;
+  isGranted?: IsGranted;
+  deviceSignedIn?: DeviceSignedIn;
   /** How often sockets are pinged; tests shorten it. */
   heartbeatMs?: number;
   catalog?: AgentCatalog;
@@ -44,8 +48,10 @@ export function createRelayApp(input: {
     jwksUrl: input.exterior.jwksUrl,
     issuer: input.exterior.issuer,
     audience: input.exterior.resource,
+    publicUrl: input.exterior.publicUrl,
   }));
-  const daemonClientId = input.clients.daemonClientId;
+  const resourceMetadataUrl = input.exterior.resourceMetadataUrl;
+  const isGranted = input.isGranted ?? ((userId: string, clientId: string) => hasGrant(input.exterior, userId, clientId));
 
   function errorPage(page: AccountPage, response: Response): Response {
     const headers = new Headers(response.headers);
@@ -62,6 +68,7 @@ export function createRelayApp(input: {
 
   app.onError((error, c) => {
     log.withError(error).withFields({ method: c.req.method, path: c.req.path }).error("Request failed");
+    if (c.req.path.startsWith("/eap/")) return c.json({ code: "server_error", message: "Exterior hit an error. Try again." }, 500);
     if (c.req.path.startsWith("/api/") && !isBrowserAuthorizeRequest(c.req.raw)) return c.json({ message: "Exterior hit an error. Try again." }, 500);
     return errorPage({
       kind: "message",
@@ -77,35 +84,46 @@ export function createRelayApp(input: {
   // Approve buttons must not be framed by another site and clicked through.
   app.use("*", async (c, next) => {
     await next();
-    if (c.req.path.startsWith("/api/") || c.req.path.startsWith("/assets/")) return;
+    if (["/api/", "/eap/", "/assets/", "/.well-known/"].some((prefix) => c.req.path.startsWith(prefix))) return;
     c.header("X-Frame-Options", "DENY");
     c.header("Content-Security-Policy", "frame-ancestors 'none'");
   });
 
-  app.use("/api/*", cors({
-    origin: "*",
-    allowHeaders: ["Authorization", "Content-Type"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
-  }));
+  // A bearer token is the only credential these take, so any origin may call them.
+  for (const path of ["/api/*", "/eap/*", "/.well-known/*"]) {
+    app.use(path, cors({
+      origin: "*",
+      allowHeaders: ["Authorization", "Content-Type"],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      exposeHeaders: ["WWW-Authenticate"],
+    }));
+  }
 
   app.get("/health", (c) => c.json({ status: "ok" }));
-  app.get(publicClientsPath, (c) => c.json(input.clients));
+  app.get(protectedResourcePath, (c) => c.json({
+    resource: input.exterior.resource,
+    authorization_servers: [input.exterior.issuer],
+    scopes_supported: [clientScope, deviceScope, "offline_access"],
+    bearer_methods_supported: ["header"],
+    dpop_signing_alg_values_supported: [...DPOP_SIGNING_ALGORITHMS],
+  }));
   mountAccountPages(app, input.exterior, input.githubConfigured, render);
   const catalog = input.catalog ?? createAgentCatalog();
-  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, daemonClientId, render, catalog });
-  mountClients(app, input.exterior);
+  mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, render, catalog });
+  mountClients(app, input.exterior, input.registry);
   mountConnections(app, {
-    exterior: input.exterior,
     registry: input.registry,
-    devices: input.devices,
     readAccess: readAccessAccount,
-    daemonClientId,
+    resourceMetadataUrl,
+    isGranted,
     publicUrl: input.exterior.publicUrl,
   });
   mountSockets(app, {
+    exterior: input.exterior,
+    deviceSignedIn: input.deviceSignedIn ?? ((access) => deviceSignedIn(input.exterior, access)),
     registry: input.registry,
     readAccess: readAccessAccount,
-    daemonClientId,
+    resourceMetadataUrl,
     upgradeWebSocket: sockets.upgradeWebSocket,
     heartbeatMs: input.heartbeatMs,
   });

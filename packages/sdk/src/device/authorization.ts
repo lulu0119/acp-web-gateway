@@ -1,5 +1,6 @@
-import { devicesScope } from "../index.js";
 import * as oauth from "oauth4webapi";
+import type { DeviceKey } from "../dpop.js";
+import { deviceScope } from "../index.js";
 import { discover, httpOptions, oauthMessage, originOf, publicClient, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
 export type DeviceAuthorization = {
@@ -21,7 +22,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
     server,
     client,
     oauth.None(),
-    new URLSearchParams({ scope: devicesScope, resource: originOf(input.relayUrl) }),
+    new URLSearchParams({ scope: `${deviceScope} offline_access`, resource: originOf(input.relayUrl) }),
     httpOptions(input.relayUrl),
   );
   const device = await oauth.processDeviceAuthorizationResponse(server, client, response).catch((error: unknown) => {
@@ -39,9 +40,11 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
   };
 }
 
-export async function pollDeviceAuthorization(pending: DeviceAuthorization, signal?: AbortSignal): Promise<Tokens> {
+/** Waits for the person to approve the code. The tokens are bound to `key` (RFC 9449), whose thumbprint is the device id. */
+export async function pollDeviceAuthorization(pending: DeviceAuthorization, key: DeviceKey, signal?: AbortSignal): Promise<Tokens> {
   const server = await discover(pending.relayUrl);
   const client = publicClient(pending.clientId);
+  const dpop = oauth.DPoP(client, key);
   let intervalMs = pending.intervalSeconds * 1000;
   while (Date.now() < pending.expiresAt) {
     await delay(intervalMs, signal);
@@ -51,13 +54,15 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, sign
         client,
         oauth.None(),
         pending.deviceCode,
-        requestOptions(pending.relayUrl, originOf(pending.relayUrl)),
+        { ...requestOptions(pending.relayUrl, originOf(pending.relayUrl)), DPoP: dpop },
       );
       const tokens = await oauth.processDeviceCodeResponse(server, client, response);
       const stored = toTokens(tokens);
       if (!stored.refreshToken) throw new Error("Exterior did not return a refresh token.");
       return stored;
     } catch (error) {
+      // The server asked for a nonce, which the handle now holds for the next poll.
+      if (oauth.isDPoPNonceError(error)) continue;
       if (!(error instanceof oauth.ResponseBodyError)) throw error;
       if (error.error === "authorization_pending") continue;
       if (error.error === "slow_down") {

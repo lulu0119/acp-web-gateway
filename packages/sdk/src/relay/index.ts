@@ -1,12 +1,14 @@
 export {
   createRegistry,
-  type BrowserLink,
-  type BrowserSocket,
+  type AgentLink,
+  type AgentSocket,
+  type AttachLink,
+  type AttachSocket,
   type ConnectionInfo,
-  type OpenSessionResult,
+  type FrameSocket,
+  type OpenConnectionResult,
   type Registry,
   type SeenDevice,
-  type TakeTicketResult,
 } from "./registry.js";
-export { heartbeat } from "./heartbeat.js";
-export type { AgentSlot, DaemonMessage, Device, DevicePlatform, RelayMessage } from "../index.js";
+export { heartbeat } from "../heartbeat.js";
+export type { AgentSlot, Device, DeviceMessage, DevicePlatform, RelayMessage } from "../index.js";

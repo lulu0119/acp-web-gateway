@@ -1,8 +1,9 @@
-import { connectionsPath, devicePlatforms, devicesPath, devicesScope, errorCodes, type Device, type ErrorCode } from "../index.js";
+import { clientScope, connectionsPath, devicePlatforms, devicesPath, errorCodes, type Device, type ErrorCode } from "../index.js";
 import * as oauth from "oauth4webapi";
 import { discover, httpOptions, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
 const refreshWindowMs = 60_000;
+const signInScope = `${clientScope} offline_access`;
 
 export async function createAuthorizationRequest(input: {
   relayUrl: string;
@@ -17,7 +18,7 @@ export async function createAuthorizationRequest(input: {
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", devicesScope);
+  url.searchParams.set("scope", signInScope);
   url.searchParams.set("code_challenge", await oauth.calculatePKCECodeChallenge(codeVerifier));
   url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("state", state);
@@ -150,7 +151,7 @@ export async function registerBrowserClient(input: {
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      scope: devicesScope,
+      scope: signInScope,
     },
     httpOptions(input.relayUrl),
   );

@@ -350,7 +350,7 @@ function authorizeRequest(clientId: string): URL {
   authorize.searchParams.set("client_id", clientId);
   authorize.searchParams.set("redirect_uri", "https://app.example.test/callback");
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", "devices offline_access");
+  authorize.searchParams.set("scope", "eap:client offline_access");
   authorize.searchParams.set("state", "browser-state");
   authorize.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   authorize.searchParams.set("code_challenge_method", "S256");

@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { chooseRelay, parseSignIn, readSignIn, readSignIns, removeSignIn, writeSignIn } from "./sign-ins.js";
 
-const local = { relayUrl: "http://127.0.0.1:8787", accessToken: "access-1", refreshToken: "refresh-1", expiresAt: 1_700_000_000_000 };
-const hosted = { relayUrl: "https://exterior.example", accessToken: "access-2", refreshToken: "refresh-2", expiresAt: 1_700_000_000_000 };
+const local = { relayUrl: "http://127.0.0.1:8787", clientId: "device-local-1", accessToken: "access-1", refreshToken: "refresh-1", expiresAt: 1_700_000_000_000 };
+const hosted = { relayUrl: "https://exterior.example", clientId: "device-hosted-1", accessToken: "access-2", refreshToken: "refresh-2", expiresAt: 1_700_000_000_000 };
 
 test("a sign-in is private and kept per relay", async () => {
   const home = await mkdtemp(join(tmpdir(), "exterior-sign-in-"));

@@ -1,6 +1,6 @@
 # A connection lasts as long as its socket
 
-Status: accepted. Supersedes 0011.
+Status: accepted. Supersedes 0011. Amended by 0025: a connection no longer ends when the device socket closes.
 
 The first EAP draft let a connection outlive its socket and its device link. Each endpoint kept a ring of the frames it sent, counted frames without putting numbers on the wire, and replayed from a position after a reattach. An audit found three faults that follow from the text. Frames from before a detach could reach the new socket ahead of the replay, because nothing on the device socket separated one attach from the next. Dropping the client's ring in the simplified draft left a client unable to tell whether a prompt, or its answer to a permission request, had reached the agent, and ACP requests are not idempotent. A reloaded page could not use the replay at all, since it holds no `initialize` result and starts its JSON-RPC ids again. ACP already restores a conversation where its state lives: `session/resume` without replay, `session/load` with it.
 

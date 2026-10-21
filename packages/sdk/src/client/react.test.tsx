@@ -63,6 +63,9 @@ async function fakeTokenRelay(): Promise<{ origin: string; close: () => void }> 
       const port = address && typeof address !== "string" ? address.port : 0;
       const origin = `http://127.0.0.1:${port}`;
       const issuer = `${origin}/api/auth`;
+      if (url.pathname === "/.well-known/oauth-protected-resource") {
+        return json(response, { resource: origin, authorization_servers: [issuer] });
+      }
       if (url.pathname === "/api/auth/.well-known/openid-configuration") {
         return json(response, {
           issuer,
