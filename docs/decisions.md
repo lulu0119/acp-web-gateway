@@ -2,6 +2,8 @@
 
 Every `adr/NNNN-slug.md` is listed here, newest first. Superseded entries stay for history. A new ADR adds its line in the same change.
 
+- [0024 The protocol ships as one SDK](adr/0024-the-protocol-ships-as-one-sdk.md) — accepted. `@exterioragentprotocol/sdk` with an entry per role: `client`, `client/react`, `device`, `relay`, and the wire types at the root.
+- [0023 A connection lasts as long as its socket](adr/0023-a-connection-lasts-as-long-as-its-socket.md) — accepted. No detach, rings or resume; a client reconnects with a new connection and ACP `session/resume`. The dial consumes the ticket. Supersedes 0011.
 - [0022 The working directory is chosen, not typed](adr/0022-the-working-directory-is-chosen.md) — accepted. A setting in `config.json` chosen in the system's folder picker; `mkdir` is the check. Amends 0016.
 - [0021 A web app registers itself, or names itself by its own document](adr/0021-a-web-app-registers-itself.md) — accepted. Web apps arrive via RFC 7591 self-registration or a CIMD metadata document; the relay only forces loopback consent and prunes stale registrations.
 - [0020 Removing a device deletes the daemon tokens stamped with its id](adr/0020-removing-a-device-deletes-its-tokens.md) — accepted. Removal deletes stamped daemon tokens, the device, and closes its socket; signing in again binds new tokens to the same id.
@@ -13,7 +15,7 @@ Every `adr/NNNN-slug.md` is listed here, newest first. Superseded entries stay f
 - [0014 Tokens are told apart by the client they were issued to](adr/0014-tokens-are-told-apart-by-client.md) — accepted. The relay routes on `azp`: daemon tokens only open `/api/daemon`, web app tokens only list devices and open sessions. (Written as machine, today's device.)
 - [0013 A machine keeps one sign-in per relay](adr/0013-one-sign-in-per-relay.md) — accepted. One sign-in file per relay; no remembered "active" relay.
 - [0012 Apps share React UI](adr/0012-relay-page-rendering.md) — accepted. Relay, Desktop, and Example share basic controls through `@exterior/ui`; app pages and chat components stay with their consumers.
-- [0011 A ticket survives an infant socket, and the client owns the retry](adr/0011-ticket-retake-grace.md) — accepted. A socket that dies before any ACP frame flows may retake its ticket; sessions are never resumed.
+- [0011 A ticket survives an infant socket, and the client owns the retry](adr/0011-ticket-retake-grace.md) — superseded by 0023.
 - [0010 Coolify hosts Exterior](adr/0010-coolify-hosts-exterior.md) — accepted. The relay and Example run from Dockerfiles on Coolify; npm waits for the product, pkg-pr-new previews meanwhile.
 - [0009 The daemon launches agents from the ACP Registry](adr/0009-acp-registry-launch.md) — accepted. `npx`/`uvx` entries start with that tool; unlisted agents are custom commands.
 - [0008 An account relays a web app to a machine](adr/0008-account-relay.md) — accepted. The account-and-relay model: GitHub sign-in, consent on Exterior, device-code daemon sign-in, one-time WebSocket tickets.

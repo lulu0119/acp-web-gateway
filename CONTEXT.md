@@ -29,8 +29,8 @@ The OAuth identity a web app signs in with: a dashboard-registered id, a metadat
 _Avoid_: account, device
 
 **Connection**:
-One live ACP session with one agent on one device. Opened with `POST /api/connections` (`openConnection` in the SDK); the relay tracks it as a live session. Neither the browser session nor a device sign-in.
-_Avoid_: port, nonce, gateway process
+One running agent process on one device, reached through one socket: one ACP connection, which may hold several ACP sessions. Opened with `POST /api/connections` (`openConnection` in the SDK). It ends when its socket closes and is never resumed; a web app that reconnects opens a new one and resumes the ACP session. Neither the browser session nor a device sign-in.
+_Avoid_: session (an ACP session lives inside a connection), port, nonce, gateway process
 
 **Desktop app**:
 The tray app on a device that runs one daemon per sign-in, starts at login, and edits agent configurations in its window. Quitting it takes the device offline.
@@ -41,5 +41,5 @@ The directory on a device an agent session works in. A web app runs on another c
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
 **Ticket**:
-The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. An infant socket that dies before any ACP frame flows does not consume it.
+The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.
 _Avoid_: token, code, reusable URL

@@ -37,13 +37,13 @@ flowchart LR
   relaySide -.->|"verifies tokens"| authorization
 ```
 
-There are two paths. The control path is HTTPS: a client lists devices and opens, attaches to and ends connections. The data path is two WebSockets joined inside the relay: the client's attach socket and the device socket. Frames travel the data path and are never stored by the relay.
+There are two paths. The control path is HTTPS: a client lists devices and opens connections. The data path is two WebSockets joined inside the relay: the client's attach socket and the device socket. Frames travel the data path. The relay holds a frame only until it forwards it.
 
 EAP carries ACP messages without reading them. It specifies:
 
 - how a relay is discovered and how clients and devices sign in to it;
 - how a device announces itself and its agents;
-- how a client opens, attaches to, resumes and ends a connection to an agent;
+- how a client opens a connection to an agent and how the connection ends;
 - the messages between relay and device;
 - errors and close codes.
 
@@ -53,7 +53,7 @@ EAP does not specify how an account is created, how a person logs in, what a con
 
 **Account**: the person on whose behalf clients and devices act. The relay learns it from a token.
 
-**Relay**: the party both other roles connect to. It keeps the set of online devices and the set of live connections, and forwards frames. It holds no frames.
+**Relay**: the party both other roles connect to. It keeps the set of online devices and the set of live connections, and forwards frames.
 
 **Client**: an application that lists devices and opens connections. A client is an ACP client. A web app is a client.
 
@@ -61,13 +61,13 @@ EAP does not specify how an account is created, how a person logs in, what a con
 
 **Agent**: an ACP agent a device can start. A device offers it under an agent name.
 
-**Connection**: one running agent process reached through the relay. It is an ACP connection: one `initialize`, and as many ACP sessions as the agent supports. It has an id, belongs to one account and one client, and outlives any one socket.
+**Connection**: one running agent process, reached through one attach socket. It is one ACP connection: one `initialize`, and as many ACP sessions as the agent supports. It ends when its socket closes, and is never resumed.
 
 **Frame**: one WebSocket text message carrying one ACP JSON-RPC message.
 
 **Ticket**: a single-use, short-lived secret that lets one WebSocket attach to one connection.
 
-**Grant**: the set of devices, and optionally agents, an account has permitted a client to reach.
+**Grant**: the set of devices an account has permitted a client to reach.
 
 ## 3. Discovery
 
@@ -90,10 +90,7 @@ The relay MUST publish, at the relay address:
   "limits": {
     "openSeconds": 15,
     "ticketSeconds": 60,
-    "detachSeconds": 300,
-    "deviceOfflineSeconds": 300,
-    "frameBytes": 1048576,
-    "ringBytes": 4194304
+    "frameBytes": 1048576
   }
 }
 ```
@@ -101,6 +98,7 @@ The relay MUST publish, at the relay address:
 - `resource` is the OAuth resource indicator (RFC 8707) every token request names.
 - The endpoint addresses are absolute and are the only addresses a client or device uses. A relay chooses its own paths.
 - `protocolVersions` lists the versions the relay speaks. This document is version 1.
+- Every address in `endpoints` speaks version 1. A later version that changes an endpoint publishes a new address for it, so the address a client calls states its version.
 - Limits are the values the relay enforces and that endpoints rely on. A relay MUST advertise every limit. Recommended values are shown above.
 
 An authorization server is discovered from the protected resource metadata, then from its own metadata (RFC 8414).
@@ -113,7 +111,7 @@ An unauthenticated request is answered 401 with `WWW-Authenticate: Bearer resour
 
 ### 4.1 Scopes
 
-- `eap:client`: the holder is a client. It may list devices and open, attach to, resume and end connections within its grant.
+- `eap:client`: the holder is a client. It may list devices and open connections within its grant.
 - `eap:device`: the holder is a device. It may open the device WebSocket.
 
 The relay MUST NOT accept an `eap:client` token on the device WebSocket or an `eap:device` token on a client endpoint, and MUST NOT issue both scopes to one OAuth client. A token without the required scope is answered `insufficient_scope`.
@@ -181,18 +179,22 @@ sequenceDiagram
 
 ### 4.4 Grants
 
-A grant limits what a client may reach. A grant is either all of an account's devices, or a list of devices, each with all agents or a list of agent names. How the person chooses a grant is outside EAP.
+A grant limits what a client may reach. A grant is either all of an account's devices, or a list of device ids. A granted device includes every agent it offers, including agents added to it later. How the person chooses a grant is outside EAP.
 
 The relay MUST apply the grant to every operation:
 
-- a device or agent outside the grant is absent from `GET devices` and is answered `target_not_found` when named;
-- when a grant narrows or is revoked, the relay MUST end every connection of that client that the grant no longer permits.
+- a device outside the grant is absent from `GET devices` and is answered `target_not_found` when named;
+- when a grant narrows, the relay MUST end every connection of that client that the grant no longer permits.
 
 A device client has no grant. It can only act as a device.
 
 ### 4.5 Removal and revocation
 
-Removing a device deletes its OAuth client. The relay MUST then close its device socket with `removed` and end its connections. Revoking a client's authorization ends that client's connections.
+The relay MUST close a socket as soon as the authorization behind it ends. A socket MUST NOT outlive the authorization that opened it.
+
+- Removing a device deletes its OAuth client. Revoking a device's authorization, such as when it signs out, ends it too. Either way the relay closes the device socket with `revoked`, which ends the device's connections (section 7).
+- Revoking a client's authorization, or narrowing its grant, closes each attach socket it no longer permits with `revoked`.
+- Disabling an account does both for every device and client of the account.
 
 An access token that expires while a socket is open does not close the socket. A token is checked when an endpoint is called, when a device socket opens, and when a ticket is issued.
 
@@ -212,11 +214,8 @@ An error response has an HTTP status and a JSON body:
 | `unauthorized` | 401 | The token is missing, expired or revoked. |
 | `insufficient_scope` | 403 | The token's scope does not allow this endpoint. |
 | `target_not_found` | 404 | The device is not online, does not offer the agent, or is outside the grant. These cases MUST NOT be distinguishable. |
-| `connection_not_found` | 404 | The connection does not exist, has ended, or belongs to another account or client. |
-| `device_offline` | 503 | The connection's device lost its link and is within `deviceOfflineSeconds`. The response carries `Retry-After`. |
-| `agent_start_failed` | 502 | The device could not start the agent. `message` is the device's reason. |
+| `agent_start_failed` | 502 | The device could not or would not start the agent. `message` is the device's reason. |
 | `device_timeout` | 504 | The device did not answer within `openSeconds`. |
-| `resume_gap` | 409 | The requested frames are no longer held. |
 | `rate_limited` | 429 | Too many requests or connections. |
 | `server_error` | 500 | The relay failed. |
 
@@ -252,35 +251,19 @@ The list is a snapshot. EAP has no events: a client that wants fresh state asks 
 
 ### 6.2 Connections
 
-A connection has this shape:
+`POST {connections}` with `{ "deviceId": "...", "agentName": "..." }` opens a connection.
+
+The relay checks the scope and the grant, finds the online device and its agent, and asks the device to start the agent. It answers after the device reports the result, or `device_timeout` after `openSeconds`. On success, 201:
 
 ```json
 {
-  "id": "tN3rXk0qZ1m9Wc2yPb7aHg",
-  "deviceId": "d8f0c2a1-...",
-  "agentName": "claude",
   "agentType": "claude-acp",
-  "state": "detached"
+  "url": "wss://relay.example.com/eap/attach?ticket=...",
+  "expiresAt": "2026-10-21T08:00:00Z"
 }
 ```
 
-`id` is unguessable: at least 128 bits of randomness, base64url. `state` is one of `opening`, `attached`, `detached`, `device_offline` (section 7). An ended connection is not shown.
-
-A response that issues a ticket includes an attach object:
-
-```json
-{ "url": "wss://relay.example.com/eap/attach?ticket=...", "expiresAt": "2026-10-21T08:00:00Z" }
-```
-
-**Open.** `POST {connections}` with `{ "deviceId": "...", "agentName": "..." }`.
-
-The relay checks the scope and the grant, finds the online device and its agent, creates the connection and asks the device to start the agent. It answers after the device reports the result, or `device_timeout` after `openSeconds`. On success, 201:
-
-```json
-{ "connection": { ... }, "attach": { "url": "...", "expiresAt": "..." } }
-```
-
-The ticket replays the agent's frames from index 0. Errors: `target_not_found`, `agent_start_failed`, `device_timeout`, `rate_limited`.
+`url` is the attach address, carrying the ticket. `expiresAt` is when the ticket lapses. Errors: `invalid_request`, `target_not_found`, `agent_start_failed`, `device_timeout`, `rate_limited`.
 
 ```mermaid
 sequenceDiagram
@@ -293,9 +276,8 @@ sequenceDiagram
   Relay->>Device: open (connectionId, agentName)
   Device->>Agent: start the process
   Device-->>Relay: opened
-  Relay-->>Client: 201 connection and attach ticket
+  Relay-->>Client: 201 attach address with ticket
   Client->>Relay: dial the attach address
-  Relay->>Device: attach (from 0)
   loop frames, one to one and in order
     Client->>Relay: frame
     Relay->>Device: frame
@@ -304,77 +286,44 @@ sequenceDiagram
     Device-->>Relay: frame
     Relay-->>Client: frame
   end
-  Client->>Relay: DELETE connection
+  Client->>Relay: close the socket
   Relay->>Device: close
   Device->>Agent: stop the process
 ```
 
-**List.** `GET {connections}` returns `{ "connections": [ ... ] }`: the connections of the caller's account that this client opened. A page that reloaded uses it to find its agents.
-
-**Get.** `GET {connections}/{id}` returns the connection, or `connection_not_found`.
-
-**Attach.** `POST {connections}/{id}/attach` with an optional body `{ "resumeFrom": N }` returns a new ticket, 200:
-
-```json
-{ "attach": { "url": "...", "expiresAt": "..." }, "received": 12, "emitted": 340 }
-```
-
-- `received` is how many client frames the device has accepted for this connection.
-- `emitted` is how many frames the agent has produced.
-- With `resumeFrom` the socket will replay the agent's frames from index N. Without it, from `emitted`: the client joins the live stream and misses nothing from the moment of the response.
-- Errors: `connection_not_found`, `device_offline`, `resume_gap`.
-
-Attach takes a round trip to the device (section 8). Only a connection in state `detached` or `attached` can be attached to. Attaching to an `attached` connection is allowed; the new socket supersedes the old one.
-
-**End.** `DELETE {connections}/{id}` ends the connection and its agent. 204, or `connection_not_found`.
+A connection has no other HTTP operation. A client ends it by closing its socket.
 
 ## 7. Connection lifecycle
-
-| State | Meaning |
-| --- | --- |
-| `opening` | The device was asked to start the agent. |
-| `detached` | The agent runs, and no client socket is attached. |
-| `attached` | One client socket is attached. |
-| `device_offline` | The device socket is gone. The agent may still run on the device. |
 
 ```mermaid
 stateDiagram-v2
   [*] --> opening: POST connections
-  opening --> detached: opened
-  opening --> ended: open_failed or openSeconds
-  detached --> attached: socket attaches with a ticket
-  attached --> detached: socket closes
-  detached --> device_offline: device socket closes
-  attached --> device_offline: device socket closes
-  device_offline --> detached: device reconnects and lists it in hello
-  detached --> ended: detachSeconds, DELETE, agent exit, removal, grant change
-  attached --> ended: DELETE, agent exit, removal, grant change
-  device_offline --> ended: deviceOfflineSeconds, DELETE, removal, grant change
+  opening --> issued: opened
+  opening --> ended: open_failed, or openSeconds pass
+  issued --> attached: a socket dials the ticket
+  issued --> ended: ticketSeconds pass
+  attached --> ended: the socket closes, the agent exits, the device socket closes, revocation
   ended --> [*]
 ```
 
-Transitions:
-
-- `opening` → `detached` when the device reports `opened`. `opening` ends if the device reports `open_failed` or does not answer within `openSeconds`.
-- `detached` → `attached` when a socket attaches with a valid ticket.
-- `attached` → `detached` when that socket closes for any reason.
-- any → `device_offline` when the device socket closes. An attached client socket is closed with `device_offline`.
-- `device_offline` → `detached` when the device reconnects and lists the connection in `hello`.
+- `opening`: the device was asked to start the agent.
+- `issued`: the agent runs and the ticket is out. No socket is attached.
+- `attached`: one socket is attached and frames flow.
 
 A connection ends when:
 
-- the client calls `DELETE`;
+- the device reports `open_failed`, or does not answer within `openSeconds`;
+- its ticket is not dialed within `ticketSeconds`;
+- its socket closes, for any reason;
 - the agent exits (the device sends `close`);
-- it has been `detached` for `detachSeconds`;
-- it has been `device_offline` for `deviceOfflineSeconds`;
-- the device is removed;
-- the grant no longer permits it.
+- the device socket closes, including when the device is removed or revoked;
+- the client's authorization or grant no longer permits it (section 4.5).
 
-An `attached` connection has no time limit: while a client socket is open, the agent may think or run a command for as long as it takes. `detachSeconds` counts only the time since the last client socket closed, whatever the agent is doing. The relay does not see agent activity, so an agent in the middle of a long turn is ended like an idle one. Attaching a socket stops the count, and losing it starts it again from zero. `deviceOfflineSeconds` counts the time since the device socket closed in the same way.
+An attached connection has no time limit: while its socket is open, the agent may think or run a command for as long as it takes.
 
-When a connection ends the relay tells the device to `close` it, if reachable, and closes any attached socket.
+When a connection ends the relay tells the device to `close` it, if the device socket is open, and closes the attach socket if one is attached. The device stops the agent.
 
-Connection state is held in memory by the relay. A relay that loses it ends every connection. Clients and devices MUST handle that: a client opens a new connection and restores the conversation with ACP `session/load` or `session/resume`.
+**Reconnecting.** A connection is never resumed. A client that loses its socket, and a page that reloads, opens a new connection and sends `initialize` on it. It continues a conversation with ACP `session/resume` or `session/load`, when the agent advertises them. A request that had no response when the socket closed has no outcome the client can learn. The agent was stopped, and may have done part of it.
 
 ## 8. Attach socket
 
@@ -382,105 +331,37 @@ A client dials the attach `url` as a WebSocket. It sends no `Authorization` head
 
 **Tickets.**
 
-- A ticket is bound to one connection and one `resumeFrom` position, and is single-use.
-- It is valid for `ticketSeconds` and has at least 128 bits of randomness.
-- A ticket used twice, expired or unknown is answered by closing the socket with `ticket_rejected`. The client then asks `POST .../attach` for a new one. A dial made by mistake, such as a double mount, therefore costs one ticket and nothing else.
+- A ticket is bound to one connection and is single-use: dialing it consumes it.
+- It is valid for `ticketSeconds` from when it is issued, and has at least 128 bits of randomness.
+- A ticket that is used, expired or unknown is answered by closing the socket with `ticket_rejected`. The ticket's connection is not affected. A client that still wants an agent opens a new connection.
 
-**One socket.** A connection has at most one attached socket. A newer attach closes the older one with `superseded`.
+A client MUST dial each ticket at most once. A client that may mount twice, such as a page under a framework that remounts components, keeps one socket per connection itself. A second dial does not reach the agent; it costs a second connection.
 
 **Frames.**
 
 - Each WebSocket text message is one frame, and each frame carries one ACP JSON-RPC message without a raw newline.
 - Binary messages are refused: the relay closes with 1003. A frame larger than `frameBytes` closes the socket with 1009.
-- While a socket is attached the relay forwards frames in both directions one to one, in order, without joining, splitting, dropping or inspecting them.
+- The relay forwards frames in both directions one to one, in order, without joining, splitting, dropping or inspecting them.
+- Frames the agent writes before the socket attaches are held by the relay and sent first, in order. A relay MAY end a connection whose held frames pass `frameBytes` in total.
 - The relay MUST NOT send anything on the attach socket that is not a frame.
 
-**Lifecycle.**
+**Flow.** One device socket carries every connection of its device, so one slow attach socket must not stall the others. The relay MUST NOT stop reading the device socket because an attach socket is slow. When an attach socket has more unsent data than a bound the relay chooses, at least twice `frameBytes`, the relay closes it with 1013, which ends the connection.
 
-1. The relay consumes the ticket and tells the device `attach` with the position to replay from.
-2. The device replays the agent's frames from that position, then continues live.
-3. When the socket closes, the relay tells the device `detach` and the connection is `detached`.
+An ACP client with a WebSocket transport can use the attach address as its agent address as it stands.
 
-A client that does not need to resume dials the first ticket and ignores everything in section 9. An ACP client with a WebSocket transport can use the attach address as its agent address as it stands.
-
-## 9. Resume
-
-Resuming lets a client survive a lost socket and a device survive a lost link without losing a frame. The two endpoints, the client and the device, own the stream. The relay forwards and keeps nothing.
-
-**Counting.** For each connection and each direction, an endpoint numbers frames from 0 in the order they were sent. Numbers are implicit: they do not appear on the wire.
-
-- The device counts frames the agent produced: `emitted`.
-- The client counts frames it received on any socket of this connection: its resume position.
-- The client counts frames it sent: `sent`.
-- The device counts frames it accepted from the relay for the agent: `received`.
-
-**Rings.** Each endpoint keeps the most recent frames it sent, at least `ringBytes` of them. A frame that has left the ring cannot be replayed.
-
-**Resume sequence.**
-
-1. The socket is lost. The client MAY have received N agent frames.
-2. The client calls `POST .../attach` with `{ "resumeFrom": N }`.
-3. The relay asks the device `resume`. The device answers with `received`, `emitted` and whether frame N is still held.
-4. If it is not held, the relay answers `resume_gap`. The connection cannot be resumed without loss. The client SHOULD end it and open a new one.
-5. Otherwise the relay answers with the ticket, `received` and `emitted`.
-6. The client dials the ticket. The device replays its frames from N, then continues live.
-7. Before sending anything new, the client sends again the frames numbered `received` and above that its own ring holds. If its ring no longer holds them, the client MUST end the connection.
-
-```mermaid
-sequenceDiagram
-  participant Client
-  participant Relay
-  participant Device
-
-  Note over Client,Relay: attach socket lost
-  Relay->>Device: detach
-  Note over Device: agent keeps running, frames go to the ring
-  Client->>Relay: POST attach (resumeFrom N)
-  Relay->>Device: resume (from N)
-  Device-->>Relay: resumed (received, emitted, available)
-  Relay-->>Client: ticket, received, emitted
-  Client->>Relay: dial the ticket
-  Relay->>Device: attach (from N)
-  Device-->>Relay: frames from N, then live frames
-  Relay-->>Client: frames
-  Client->>Relay: its own frames from received upward, then new frames
-  Relay->>Device: frames
-```
-
-The device keeps counting while no socket is attached and keeps its frames in the ring. The relay keeps none.
-
-**Device link loss.** If the device socket closes, the device keeps its agents for at most `deviceOfflineSeconds` and keeps counting. When it reconnects, it lists the connections it holds in `hello`. The relay returns each to `detached`, and clients resume as above. During the window `POST .../attach` answers `device_offline` with `Retry-After`.
-
-```mermaid
-sequenceDiagram
-  participant Client
-  participant Relay
-  participant Device
-  participant Agent as ACP agent
-
-  Note over Device,Relay: device socket lost
-  Relay-->>Client: close attach socket, 4104 device_offline
-  Note over Device,Agent: agent keeps running, frames go to the ring
-  Client->>Relay: POST attach
-  Relay-->>Client: 503 device_offline, Retry-After
-  Device->>Relay: open the device socket
-  Device->>Relay: hello (connections)
-  Note over Relay: the connection returns to detached
-  Client->>Relay: POST attach (resumeFrom N)
-  Note over Client,Device: continues as in the resume sequence
-```
-
-A device ends an agent at once when it is stopped by its owner, when it is told to `close`, or when its window passes.
-
-## 10. Device socket
+## 9. Device socket
 
 A device opens the device WebSocket at the `deviceSocket` endpoint with a bearer token that has `eap:device`. A device has at most one device socket: a newer one closes the older with `replaced`.
 
-Every message is a JSON text message with a `type` field. A receiver MUST ignore a message type or a field it does not know.
+Every message is a JSON text message with a `type` field. A receiver MUST ignore a message type or a field it does not know. A message carries a frame JSON-escaped, so it can be larger than the frame: a receiver MUST accept device socket messages up to `6 × frameBytes + 4096` bytes.
 
-### 10.1 Device to relay
+A message that names a `connectionId` the receiver does not hold is not an error. The relay answers it with `close` for that id, unless it is itself a `close`. The device ignores it. An `opened` that arrives after the relay gave up on the open is answered this way, so the device stops the agent.
 
-`hello`: sent first, and again whenever any field changes. It replaces what the relay knew.
+When the device socket closes, the relay ends every connection of the device and the device stops every agent it started for them.
+
+### 9.1 Device to relay
+
+`hello`: sent first, and again whenever any field changes. It replaces what the relay knew about the device. Any other message before the first `hello` is invalid.
 
 ```json
 {
@@ -489,77 +370,80 @@ Every message is a JSON text message with a `type` field. A receiver MUST ignore
   "hostname": "studio-mac",
   "platform": "macos",
   "workingDirectory": "/Users/person/.local/share/exterior/workspace",
-  "agents": [{ "name": "claude", "agentType": "claude-acp" }],
-  "connections": ["tN3rXk0qZ1m9Wc2yPb7aHg"]
+  "agents": [{ "name": "claude", "agentType": "claude-acp" }]
 }
 ```
 
-`connections` lists every connection whose agent the device still runs. The relay returns the matching `device_offline` connections to `detached`, ends the other `device_offline` connections of the device, and answers `close` for any listed id it does not know. A change to `agents` does not end running agents.
+`agents` lists at most 32 agents. A change to `agents` does not end running agents.
 
 `opened`: `{ "type": "opened", "connectionId": "..." }`. The agent started.
 
 `open_failed`: `{ "type": "open_failed", "connectionId": "...", "message": "..." }`. `message` is 1 to 500 characters.
 
-`frame`: `{ "type": "frame", "connectionId": "...", "payload": "<frame text>" }`. `payload` is the frame exactly as the agent wrote it, at most `frameBytes`.
+`frame`: `{ "type": "frame", "connectionId": "...", "payload": "<frame text>" }`. `payload` is one line the agent wrote, at most `frameBytes`.
 
-`resumed`: `{ "type": "resumed", "connectionId": "...", "received": 12, "emitted": 340, "available": true }`. The answer to `resume`.
+`close`: `{ "type": "close", "connectionId": "..." }`. The agent ended.
 
-`close`: `{ "type": "close", "connectionId": "..." }`. The agent ended, or the device does not hold the connection.
+### 9.2 Relay to device
 
-### 10.2 Relay to device
-
-`open`: `{ "type": "open", "connectionId": "...", "agentName": "..." }`. Start that agent. The device answers `opened` or `open_failed`.
+`open`: `{ "type": "open", "connectionId": "...", "agentName": "..." }`. Start that agent. The device answers `opened` or `open_failed`. It answers `open_failed` for an agent it does not offer, and MAY answer it when it already runs as many agents as it allows. An `open` for a connection id the device already holds is ignored.
 
 `frame`: as above, from the client to the agent.
 
-`resume`: `{ "type": "resume", "connectionId": "...", "from": 0 }`. Answer with `resumed`. `available` is true when frames from `from` are still held. This does not change any state.
+`close`: `{ "type": "close", "connectionId": "..." }`. Stop the agent.
 
-`attach`: `{ "type": "attach", "connectionId": "...", "from": 0 }`. A client socket is attached. Send frames from index `from`, then live frames.
+`connectionId` is unguessable: at least 128 bits of randomness, base64url.
 
-`detach`: `{ "type": "detach", "connectionId": "..." }`. No socket is attached. Stop sending `frame` for the connection, keep them in the ring.
+### 9.3 Agent carriage
 
-`close`: `{ "type": "close", "connectionId": "..." }`. End the agent.
+The device runs the agent as an ACP stdio agent.
 
-### 10.3 Agent carriage
-
-The device runs the agent as an ACP stdio agent. A frame received from the relay is written to the agent's standard input followed by a newline. Each line the agent writes to standard output is a frame. Standard error is not forwarded. The device refuses a frame that contains a raw newline, and ends an agent whose output line exceeds `frameBytes`.
+- A frame received from the relay is written to the agent's standard input followed by a newline. The device refuses a frame that contains a raw newline.
+- The device reads standard output as UTF-8, replacing invalid sequences with U+FFFD. Each line is a frame, without its line ending: LF, or CR LF. Empty lines are dropped.
+- A device ends an agent whose output line exceeds `frameBytes`. It MUST NOT stop reading the device socket because one agent is slow: it ends an agent whose unread input passes a bound it chooses.
+- Standard error is not forwarded.
 
 The working directory of the agent process is the device's `workingDirectory`. Which directory an ACP session works in is the client's request inside ACP, not an EAP field.
 
-## 11. Heartbeat and close codes
+## 10. Heartbeat and close codes
 
-Both WebSocket kinds use protocol-level ping and pong. A relay SHOULD ping every 30 seconds. A side that has not answered the previous ping when the next is due MUST be treated as gone, and its socket terminated.
+Both socket kinds use protocol-level ping and pong. The relay MUST ping every socket, and a device MUST ping its device socket, every 30 seconds. A side whose previous ping is unanswered when the next is due MUST terminate the socket. A browser cannot send a ping; it answers the relay's.
 
-Application close codes. Each code is unique across EAP and each socket kind has its own range, so a code identifies the socket kind and the condition in a log. The reason string is the name.
+Application close codes. Each code is unique across EAP and each socket kind has its own range, so a code identifies the socket kind and the condition in a log. The reason string is the name. Every close of an attach socket ends its connection.
 
 Attach socket, 4100 to 4199:
 
 | Code | Name | Meaning |
 | --- | --- | --- |
-| 4100 | `ticket_rejected` | The ticket is used, expired or unknown. Ask for a new one. |
-| 4101 | `superseded` | A newer socket attached to this connection. |
-| 4102 | `agent_exited` | The agent ended. The connection is over. |
-| 4103 | `connection_ended` | The connection ended for another reason. |
-| 4104 | `device_offline` | The device lost its link. Retry attach. |
+| 4100 | `ticket_rejected` | The ticket is used, expired or unknown. Open a new connection. |
+| 4101 | `agent_exited` | The agent ended. |
+| 4102 | `device_gone` | The device socket closed, or the device was removed. |
+| 4103 | `revoked` | The client's authorization or grant no longer permits this connection. Do not open another before signing in again. |
 
-A relay MAY close a socket that cannot keep up with 1013. The connection becomes `detached` and can be resumed. Standard codes 1003 and 1009 apply as stated in section 8.
+Standard codes: 1001 when the relay shuts down, 1003 and 1009 as stated in section 8, and 1013 for a socket that cannot keep up.
 
 Device socket, 4200 to 4299:
 
 | Code | Name | Meaning |
 | --- | --- | --- |
 | 4200 | `replaced` | A newer device socket for this device took over. |
-| 4201 | `removed` | The device was removed. It must sign in again. |
+| 4201 | `revoked` | The device was removed or its authorization revoked. It must sign in again. |
 | 4202 | `unsupported_version` | The relay does not speak the `hello` version. |
-| 4203 | `invalid_message` | The device sent a message that does not follow section 10. |
+| 4203 | `invalid_message` | The device sent a message that does not follow section 9. |
 
-An upgrade refused before the socket opens is answered 401 or 403 as in section 4. A device told `removed` MUST NOT reconnect until it signs in again. A device told `replaced` SHOULD wait the longest of its retry delays before connecting again.
+An upgrade refused before the socket opens is answered 401 or 403 as in section 4. A device told `revoked` MUST NOT reconnect until it signs in again. A device told `replaced` SHOULD wait the longest of its retry delays before connecting again.
+
+## 11. Deployment
+
+A relay keeps devices and connections in memory. One relay address is served by one process, or by several that route every request for a device to the process that holds its device socket. A relay that restarts ends every connection: devices connect again, and clients open new connections as in section 7.
 
 ## 12. Security considerations
 
-**The grant is the trust boundary.** A client within its grant can run any of the granted agents with the device owner's permissions. The relay MUST present this to the person when they choose a grant: which client, which devices and agents, and that the client can act with their permissions.
+**The grant is the trust boundary.** A client within its grant can run the granted devices' agents with the device owner's permissions. The relay MUST present this to the person when they choose a grant: which client and which devices, that the client can act with their permissions, and that a granted device includes agents added to it later.
 
 **`cwd` is not a boundary.** ACP carries a working directory in `session/new` and similar requests. The device does not read ACP messages, and an agent can read any path its user can. A device that needs a boundary runs the agent inside an operating-system sandbox. ACP tool permission requests protect against a misbehaving agent, not a malicious client, because the client answers them.
+
+**`workingDirectory` names a path.** It often contains the person's user name on the device, and every client in the grant reads it.
 
 **The relay sees every frame in plaintext.** EAP has no end-to-end encryption. A person who does not trust a relay does not point their devices at it.
 
@@ -579,10 +463,8 @@ An upgrade refused before the socket opens is answered 401 or 403 as in section 
 
 The version is an integer. Within a version, changes are additive: new optional fields, new message types, new error codes. A receiver ignores what it does not know, except an unknown error `code`, which it treats like `server_error`.
 
-A device states its version in `hello`. A relay that does not speak it closes the device socket with `unsupported_version`. A client reads `protocolVersions` from the metadata document and uses the highest version it also speaks.
+A device states its version in `hello`. A relay that does not speak it closes the device socket with `unsupported_version`. A client reads `protocolVersions` from the metadata document, uses the highest version it also speaks, and calls the endpoints published for that version (section 3).
 
 ## 14. Conformance
 
-A relay conforms when it meets every MUST and SHOULD in this document addressed to it. A client conforms when it uses only discovered addresses, decides by error `code`, and follows sections 8 and 9 when it resumes. A device conforms when it follows sections 4.3, 9 and 10.
-
-An endpoint that skips resume still conforms: it dials, uses the connection until the socket drops, and opens another.
+A relay, a client or a device conforms when it meets every MUST and MUST NOT in this document addressed to it. SHOULD statements are recommendations and do not affect conformance.
