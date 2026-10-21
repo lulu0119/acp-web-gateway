@@ -82,7 +82,7 @@ async function fixture(viewport, signedIn = true) {
         case "initialize":
           reply({
             protocolVersion: 1,
-            agentCapabilities: { loadSession: true, sessionCapabilities: { list: {} } },
+            agentCapabilities: { loadSession: true, sessionCapabilities: { list: {}, delete: {} } },
             agentInfo: { name: "Fixture agent", version: "1" },
           });
           break;
@@ -163,7 +163,22 @@ async function shot(page, name) {
         fillsRow: el.getBoundingClientRect().width >= el.parentElement.getBoundingClientRect().width - 1,
       };
     });
-    assert.equal(title.size, "12px", "A conversation title is smaller than the directory name");
+    const menu = await page.getByRole("button", { name: "Actions for Untitled conversation" }).evaluate((el) => {
+      const title = el.parentElement.querySelector("span");
+      const icon = el.querySelector("svg");
+      const titleBox = title.getBoundingClientRect();
+      const iconBox = icon.getBoundingClientRect();
+      return {
+        titleMid: (titleBox.top + titleBox.bottom) / 2,
+        iconMid: (iconBox.top + iconBox.bottom) / 2,
+        iconSize: iconBox.height,
+      };
+    });
+    const directoryName = await page.getByText("exterior", { exact: true }).evaluate((el) => getComputedStyle(el).fontSize);
+    assert.equal(directoryName, "12px", "The directory name uses the small row size");
+    assert.equal(menu.iconSize, 12, "The conversation menu icon matches the title size");
+    assert.ok(Math.abs(menu.titleMid - menu.iconMid) < 1, "The conversation menu sits on the title");
+    assert.equal(title.size, "12px");
     assert.equal(title.weight, "400");
     assert.equal(title.fillsRow, true);
     await page

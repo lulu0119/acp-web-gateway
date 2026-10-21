@@ -110,7 +110,7 @@ export function WorkspaceTree({
           {workspaces.map((directory) => (
             <SidebarMenuItem key={directory}>
               <div className="flex items-center gap-2 p-2">
-                <div title={directory} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+                <div title={directory} className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium">
                   <FolderIcon className="size-4 shrink-0" />
                   <span className="min-w-0">
                     <span className="block truncate">{folderName(directory)}</span>
@@ -201,9 +201,12 @@ function SessionRow({
       </SidebarMenuSubButton>
       {canDelete && (
         <>
-          <RowMenu label={`Actions for ${title}`}>
+          <RowMenu
+            label={`Actions for ${title}`}
+            className="top-1/2 right-1 size-4 -translate-y-1/2 text-muted-foreground [&>svg]:size-3"
+          >
             <DropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
-              Delete conversation
+              Delete
             </DropdownMenuItem>
           </RowMenu>
           <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
