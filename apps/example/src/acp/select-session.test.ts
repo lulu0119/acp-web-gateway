@@ -77,15 +77,15 @@ function agent() {
     resumes,
     entered: loadEntered,
     release: () => releaseLoad(),
-    update: (
-      text: string,
-      sessionUpdate: "user_message_chunk" | "agent_message_chunk" = "user_message_chunk",
-      messageId?: string,
-    ) => {
+    update: (text: string, messageId?: string) => {
       if (!handlers) throw new Error("ACP connection is not open");
       return handlers.sessionUpdate({
         sessionId,
-        update: { sessionUpdate, content: { type: "text", text }, ...messageId ? { messageId } : {} },
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text },
+          ...(messageId ? { messageId } : {}),
+        },
       });
     },
   };
@@ -98,7 +98,7 @@ test("a conversation is selected while its history is still loading", async () =
   await acp.entered;
   expect(acp.controller.getState().activeSessionId).toBe(sessionId);
   expect(acp.loads).toEqual([sessionId]);
-  await acp.update("hello", "agent_message_chunk");
+  await acp.update("hello");
   expect(acp.controller.getState().sessions[sessionId]?.messages[0]?.status).toEqual({ type: "running" });
   acp.release();
   await selecting;
@@ -116,7 +116,7 @@ test("a conversation is selected while its history is still loading", async () =
     type: "complete",
     stopReason: "end_turn",
   });
-  await acp.update("tail", "agent_message_chunk", "later");
+  await acp.update("tail", "later");
   const projected = projectAcpThreadMessages(acp.controller.getState(), sessionId);
   expect(projected.filter((message) => message.role === "assistant").every((message) => message.status?.type === "complete")).toBe(true);
   expect(acp.controller.getState().activeSessionId).toBe(sessionId);

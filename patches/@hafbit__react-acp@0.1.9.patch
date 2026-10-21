@@ -63,20 +63,16 @@ index 26fef9df8c1f6cc948c2f2a0becca805c2094d2e..487a608a6dc8ce301e8bf5370d709fbb
      this.settledActiveSessionId = sessionId;
      if (notify) this.options.onThreadIdChange?.(sessionId);
    }
-@@ -1332,7 +1343,11 @@ var AcpThreadController = class {
+@@ -1332,7 +1343,7 @@ var AcpThreadController = class {
      const connection = this.requireConnection();
      const snapshot = this.state.sessions[sessionId] ?? createAcpSessionState(sessionId);
      const base = buildSessionRequest(this.options.workspace, this.state.capabilities);
 -    const useResume = options.method === "resume" || !hasAgentCapability(this.state.capabilities, "load") && hasAgentCapability(this.state.capabilities, "resume");
-+    const retained = snapshot.messages.length > 0;
-+    const replaying = options.method === "auto";
-+    const canResume = hasAgentCapability(this.state.capabilities, "resume");
-+    const canLoad = hasAgentCapability(this.state.capabilities, "load");
-+    const useResume = options.method === "resume" || !replaying && (retained && canResume || !canLoad && canResume);
++    const useResume = options.method === "resume" || options.method !== "auto" && hasAgentCapability(this.state.capabilities, "resume") && (snapshot.messages.length > 0 || !hasAgentCapability(this.state.capabilities, "load"));
      if (options.method === "resume" && !hasAgentCapability(this.state.capabilities, "resume")) {
        throw new AcpCapabilityError("session/resume");
      }
-@@ -1354,6 +1369,7 @@ var AcpThreadController = class {
+@@ -1354,6 +1365,7 @@ var AcpThreadController = class {
          throw new AcpError("ACP_DISCONNECTED", "ACP connection changed while attaching a session.");
        }
        this.attachedSessions.add(sessionId);
