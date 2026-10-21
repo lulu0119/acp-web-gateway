@@ -498,6 +498,7 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
   });
   const hello: DaemonMessage = {
     type: "hello",
+    protocolVersion: 1,
     hostname: input.hostname,
     deviceId: input.deviceId,
     workingDirectory: "/home/ada/.local/share/exterior/workspace",
@@ -507,8 +508,8 @@ async function connectDaemon(input: { publicUrl: string; accessToken: string; de
   socket.send(JSON.stringify(hello));
   // Agrees to every session, as a running agent would; nothing reads the frames.
   socket.on("message", (data: Buffer) => {
-    const message = JSON.parse(data.toString()) as { type: string; sessionId?: string };
-    if (message.type === "open") socket.send(JSON.stringify({ type: "opened", sessionId: message.sessionId }));
+    const message = JSON.parse(data.toString()) as { type: string; connectionId?: string };
+    if (message.type === "open") socket.send(JSON.stringify({ type: "opened", connectionId: message.connectionId }));
   });
   return { close: () => socket.close() };
 }

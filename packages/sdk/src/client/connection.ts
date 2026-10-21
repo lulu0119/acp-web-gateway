@@ -1,36 +1,14 @@
-import { ticketCloseReasons } from "../index.js";
-import { openConnection } from "./oauth.js";
+import { openConnection, type OpenedAgent } from "./oauth.js";
 
 export type AgentTarget = { deviceId: string; agentName: string };
-
-export type OpenedAgent = { url: string; agentType: string; agentName: string };
-
-export type TicketCloseReason = (typeof ticketCloseReasons)[keyof typeof ticketCloseReasons];
-
-/**
- * Reads the relay's ticket close reason. The relay closes a rejected agent
- * socket with 1008 and one of these reasons; anything else is not a ticket
- * outcome.
- */
-export function parseTicketCloseReason(reason: string | undefined): TicketCloseReason | undefined {
-  return Object.values(ticketCloseReasons).find((known) => known === reason);
-}
-
-/**
- * Whether the socket died on a ticket outcome, so opening a fresh ticket is
- * the recovery. Every outcome takes a new ticket: sessions are never resumed.
- */
-export function needsFreshTicket(reason: string | undefined): boolean {
-  return parseTicketCloseReason(reason) !== undefined;
-}
 
 export type OpenAgent = (target: AgentTarget) => Promise<OpenedAgent>;
 
 /**
  * Owns the ticket lifecycle for one user intent: single-flight opens so one
- * click never mints two tickets, and fresh tickets on retry so a dead ticket
- * never blocks the next dial. The agent socket and the ACP session stay with
- * the web app; this only hands out ticket URLs, always for a new session.
+ * click never starts two agents, and a new connection on retry, such as after
+ * the socket closed with `ticket_rejected`. The agent socket and the ACP
+ * session stay with the web app; each ticket is for a new connection, dialed once.
  */
 export function createAgentConnector(input: {
   relayUrl: string;

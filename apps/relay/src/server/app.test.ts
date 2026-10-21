@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
-import { daemonCloseCodes } from "@exterioragentprotocol/sdk";
+import { attachCloseCodes, deviceCloseCodes } from "@exterioragentprotocol/sdk";
 import { headerAccess, openTestRelay } from "./testing.js";
 import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 
@@ -26,7 +26,7 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
     await once(daemon, "open");
     const denied = await fetch(`${base}/api/devices`);
     assert.equal(denied.status, 401);
-    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const listed = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
     assert.deepEqual(await listed.json(), {
@@ -38,10 +38,11 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
     });
-    assert.equal(opened.status, 200);
-    const body = (await opened.json()) as { url: string; agentType: string };
-    const sessionId = await openedSession;
+    assert.equal(opened.status, 201);
+    const body = (await opened.json()) as { url: string; agentType: string; expiresAt: string };
+    const connectionId = await openedSession;
     assert.equal(body.agentType, "opencode");
+    assert.ok(Date.parse(body.expiresAt) > Date.now());
     const ticketUrl = new URL(body.url);
     assert.equal(ticketUrl.protocol, "wss:");
     assert.equal(ticketUrl.host, "relay.example.test");
@@ -53,7 +54,7 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
     browser.send('{"id":1}');
     assert.equal(JSON.parse(await fromBrowser).payload, '{"id":1}');
     const fromDaemon = nextText(browser);
-    daemon.send(JSON.stringify({ type: "frame", sessionId, payload: '{"id":2}' }));
+    daemon.send(JSON.stringify({ type: "frame", connectionId, payload: '{"id":2}' }));
     assert.equal(await fromDaemon, '{"id":2}');
     browser.close();
     daemon.close();
@@ -63,7 +64,7 @@ test("an online device accepts one ticket and carries ACP frames", async () => {
   }
 });
 
-test("a socket that dies before any frame can retake the same ticket", async () => {
+test("a second dial on a ticket is rejected, and closing the socket ends the connection", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
   const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
@@ -80,7 +81,7 @@ test("a socket that dies before any frame can retake the same ticket", async () 
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/connections`, {
@@ -88,31 +89,30 @@ test("a socket that dies before any frame can retake the same ticket", async () 
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
     });
-    assert.equal(opened.status, 200);
     const body = (await opened.json()) as { url: string };
-    await openedSession;
+    const connectionId = await openedSession;
     const ticket = new URL(body.url).searchParams.get("ticket");
     assert.ok(ticket);
 
-    const ghost = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
-    await once(ghost, "open");
-    ghost.close();
-    await once(ghost, "close");
-    // No ACP frame flowed, so the device was never told to close.
-    const retake = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
-    await once(retake, "open");
-    const fromBrowser = nextText(daemon);
-    retake.send('{"id":1}');
-    assert.equal(JSON.parse(await fromBrowser).payload, '{"id":1}');
-    retake.close();
-    daemon.close();
+    const live = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
+    await once(live, "open");
+    const second = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
+    const [code, reason] = await new Promise<[number, string]>((resolve) => {
+      second.on("close", (closeCode: number, closeReason: Buffer) => resolve([closeCode, closeReason.toString()]));
+    });
+    assert.equal(code, attachCloseCodes.ticket_rejected);
+    assert.equal(reason, "ticket_rejected");
+
+    const told = nextText(daemon);
+    live.close();
+    assert.deepEqual(JSON.parse(await told), { type: "close", connectionId });
   } finally {
     daemon.close();
     server.close();
   }
 });
 
-test("a second dial on a live ticket closes with ticket-used", async () => {
+test("the device socket ignores an unknown message type and closes on a malformed one, and the agent's exit closes the attach socket", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });
   const { app, injectWebSocket, daemonClientId } = await openTestRelay({
     registry,
@@ -129,34 +129,28 @@ test("a second dial on a live ticket closes with ticket-used", async () => {
   const daemon = new WebSocket(`ws://127.0.0.1:${port}/api/daemon`, { headers: { "x-user-id": "ada", "x-client-id": daemonClientId } });
   try {
     await once(daemon, "open");
-    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
+    daemon.send(JSON.stringify({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }] }));
     const deviceId = await waitForDevice(base);
+    daemon.send(JSON.stringify({ type: "stats", load: 1 }));
     const openedSession = waitForOpen(daemon);
     const opened = await fetch(`${base}/api/connections`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-user-id": "ada" },
       body: JSON.stringify({ deviceId, agentName: "work" }),
     });
-    assert.equal(opened.status, 200);
     const body = (await opened.json()) as { url: string };
-    await openedSession;
-    const ticket = new URL(body.url).searchParams.get("ticket");
-    assert.ok(ticket);
+    const connectionId = await openedSession;
+    const browser = new WebSocket(body.url.replace("wss://relay.example.test", `ws://127.0.0.1:${port}`));
+    await once(browser, "open");
+    const browserClosed = once(browser, "close");
+    daemon.send(JSON.stringify({ type: "close", connectionId }));
+    const [attachCode] = (await browserClosed) as [number];
+    assert.equal(attachCode, attachCloseCodes.agent_exited);
 
-    const live = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
-    await once(live, "open");
-    const fromBrowser = nextText(daemon);
-    live.send('{"id":1}');
-    assert.equal(JSON.parse(await fromBrowser).payload, '{"id":1}');
-
-    const intruder = new WebSocket(`ws://127.0.0.1:${port}/api/acp?ticket=${ticket}`);
-    const [code, reason] = await new Promise<[number, string]>((resolve) => {
-      intruder.on("close", (closeCode: number, closeReason: Buffer) => resolve([closeCode, closeReason.toString()]));
-    });
-    assert.equal(code, 1008);
-    assert.equal(reason, "ticket-used");
-    live.close();
-    daemon.close();
+    const daemonClosed = once(daemon, "close");
+    daemon.send(JSON.stringify({ type: "frame", connectionId }));
+    const [deviceCode] = (await daemonClosed) as [number];
+    assert.equal(deviceCode, deviceCloseCodes.invalid_message);
   } finally {
     daemon.close();
     server.close();
@@ -210,7 +204,7 @@ test("a reconnecting device closes its old socket as replaced, and a socket that
   const base = `http://127.0.0.1:${port}`;
   const daemonUrl = `ws://127.0.0.1:${port}/api/daemon`;
   const headers = { "x-user-id": "ada", "x-client-id": daemonClientId };
-  const hello = JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [] });
+  const hello = JSON.stringify({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-studio-1", workingDirectory: "/home/ada/work", agents: [] });
   const old = new WebSocket(daemonUrl, { headers });
   let silent: WebSocket | undefined;
   try {
@@ -222,7 +216,7 @@ test("a reconnecting device closes its old socket as replaced, and a socket that
     await once(silent, "open");
     silent.send(hello);
     const [code] = (await oldClosed) as [number];
-    assert.equal(code, daemonCloseCodes.replaced);
+    assert.equal(code, deviceCloseCodes.replaced);
     const online = await fetch(`${base}/api/devices`, { headers: { "x-user-id": "ada" } });
     assert.equal(((await online.json()) as { devices: unknown[] }).devices.length, 1);
 
@@ -236,7 +230,7 @@ test("a reconnecting device closes its old socket as replaced, and a socket that
   }
 });
 
-test("a daemon for a device the account has not registered is closed as removed", async () => {
+test("a daemon for a device the account has not registered is closed as revoked", async () => {
   const { app, injectWebSocket, daemonClientId } = await openTestRelay({ publicUrl: "https://relay.example.test", readAccess: headerAccess });
   const { server, port } = await new Promise<{ server: ReturnType<typeof serve>; port: number }>((resolve) => {
     const listening = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, (info) => {
@@ -248,9 +242,9 @@ test("a daemon for a device the account has not registered is closed as removed"
   try {
     await once(daemon, "open");
     const closed = once(daemon, "close");
-    daemon.send(JSON.stringify({ type: "hello", platform: "linux", hostname: "studio", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] }));
+    daemon.send(JSON.stringify({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", deviceId: "device-unknown-1", workingDirectory: "/home/ada/work", agents: [] }));
     const [code] = (await closed) as [number];
-    assert.equal(code, daemonCloseCodes.removed);
+    assert.equal(code, deviceCloseCodes.revoked);
   } finally {
     daemon.close();
     server.close();
@@ -293,11 +287,11 @@ async function waitForDevice(base: string): Promise<string> {
 function waitForOpen(socket: WebSocket): Promise<string> {
   return new Promise((resolve) => {
     socket.on("message", function onMessage(data) {
-      const message = JSON.parse(data.toString()) as { type?: string; sessionId?: string };
-      if (message.type !== "open" || !message.sessionId) return;
+      const message = JSON.parse(data.toString()) as { type?: string; connectionId?: string };
+      if (message.type !== "open" || !message.connectionId) return;
       socket.off("message", onMessage);
-      socket.send(JSON.stringify({ type: "opened", sessionId: message.sessionId }));
-      resolve(message.sessionId);
+      socket.send(JSON.stringify({ type: "opened", connectionId: message.connectionId }));
+      resolve(message.connectionId);
     });
   });
 }

@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import type { AgentSlot, DaemonMessage, DevicePlatform, RelayMessage } from "../index.js";
+import { frameBytes, protocolVersion, type AgentSlot, type DaemonMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 
 export type AgentPipe = {
@@ -30,6 +30,7 @@ export type DeviceHost = {
 };
 
 const maxFailureLength = 500;
+const maxUnreadBytes = 4 * frameBytes;
 
 /** Runs the agents of one device socket: one agent process per session the relay opens. */
 export function createDeviceHost(input: {
@@ -49,6 +50,7 @@ export function createDeviceHost(input: {
     hello() {
       input.send({
         type: "hello",
+        protocolVersion,
         hostname: input.hostname.slice(0, 256),
         deviceId: input.deviceId,
         workingDirectory,
@@ -66,47 +68,47 @@ export function createDeviceHost(input: {
     },
     receive(message) {
       if (message.type === "open") {
-        const { sessionId } = message;
-        if (sessions.has(sessionId)) return;
-        const notConfigured = () => input.send({ type: "open-failed", sessionId, message: "That agent is not configured." });
+        const { connectionId } = message;
+        if (sessions.has(connectionId)) return;
+        const notConfigured = () => input.send({ type: "open_failed", connectionId, message: "That agent is not configured." });
         if (!offered.some((agent) => agent.name === message.agentName)) {
           notConfigured();
           return;
         }
         const current: { pipe?: AgentPipe; opened: boolean } = { opened: false };
-        sessions.set(sessionId, current);
+        sessions.set(connectionId, current);
         current.pipe = input.launch(message.agentName, {
           onReady() {
             current.opened = true;
-            input.send({ type: "opened", sessionId });
+            input.send({ type: "opened", connectionId });
           },
           onFail(text) {
-            sessions.delete(sessionId);
-            input.send({ type: "open-failed", sessionId, message: clip(text) });
+            sessions.delete(connectionId);
+            input.send({ type: "open_failed", connectionId, message: clip(text) });
           },
           onFrame(payload) {
             if (!current.opened) return;
-            input.send({ type: "frame", sessionId, payload });
+            input.send({ type: "frame", connectionId, payload });
           },
           onClose() {
-            const live = sessions.get(sessionId);
-            sessions.delete(sessionId);
-            if (live?.opened) input.send({ type: "close", sessionId });
+            const live = sessions.get(connectionId);
+            sessions.delete(connectionId);
+            if (live?.opened) input.send({ type: "close", connectionId });
           },
         }, workingDirectory);
         if (!current.pipe) {
-          sessions.delete(sessionId);
+          sessions.delete(connectionId);
           notConfigured();
         }
         return;
       }
-      const current = sessions.get(message.sessionId);
+      const current = sessions.get(message.connectionId);
       if (!current?.pipe) return;
       if (message.type === "frame") {
         current.pipe.write(message.payload);
         return;
       }
-      sessions.delete(message.sessionId);
+      sessions.delete(message.connectionId);
       current.pipe.stop();
     },
     close() {
@@ -121,6 +123,7 @@ export function createDeviceHost(input: {
 /**
  * Carries ACP over a started agent's standard streams: each frame is a line on its input, and each line it
  * writes is a frame. Standard error goes to this process's own. `stop` ends the agent and calls back once it has.
+ * An agent that leaves more than a few frames of input unread is stopped, so it cannot hold up the device socket.
  */
 export function carryAgent(child: ChildProcess, hooks: AgentHooks, stopChild: (onStopped: () => void) => void): AgentPipe {
   let settled = false;
@@ -154,7 +157,10 @@ export function carryAgent(child: ChildProcess, hooks: AgentHooks, stopChild: (o
   return {
     write(text) {
       if (settled || !child.stdin?.writable) return;
-      child.stdin.write(webSocketTextToAgentLine(text));
+      const line = webSocketTextToAgentLine(text);
+      if (line === undefined) return;
+      child.stdin.write(line);
+      if (child.stdin.writableLength > maxUnreadBytes) stop();
     },
     stop,
   };

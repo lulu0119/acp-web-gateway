@@ -20,9 +20,9 @@ test("a signed-in account sees its own devices and connections", async () => {
   devices.record({ userId, deviceId: "device-studio-1", hostname: "studio" });
   devices.record({ userId: "someone-else", deviceId: "device-elsewhere", hostname: "elsewhere" });
   const daemon = registry.connectDaemon({ userId, close: () => undefined, send: () => undefined });
-  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
   const other = registry.connectDaemon({ userId: "someone-else", close: () => undefined, send: () => undefined });
-  other.receive({ type: "hello", platform: "linux", hostname: "elsewhere", workingDirectory: "/home/ada/work", deviceId: "device-elsewhere", agents: [] });
+  other.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "elsewhere", workingDirectory: "/home/ada/work", deviceId: "device-elsewhere", agents: [] });
 
   const home = await app.request(`${relayUrl}/`, { headers: { cookie } });
   assert.equal(home.status, 200);
@@ -45,7 +45,7 @@ test("a device stays listed as offline after its daemon disconnects", async () =
   const { app, cookie, devices, registry, userId } = await openSignedInRelay(relayUrl);
   devices.record({ userId, deviceId: "device-studio-1", hostname: "studio" });
   const daemon = registry.connectDaemon({ userId, close: () => undefined, send: () => undefined });
-  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
+  daemon.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [{ name: "work", agentType: "opencode" }] });
   daemon.close();
 
   const [device] = (await readDashboard(app, cookie)).devices;
@@ -54,7 +54,7 @@ test("a device stays listed as offline after its daemon disconnects", async () =
   assert.equal(typeof device?.lastSeenAt, "number");
 
   const again = registry.connectDaemon({ userId, close: () => undefined, send: () => undefined });
-  again.receive({ type: "hello", platform: "linux", hostname: "studio-renamed", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
+  again.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio-renamed", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
   const listed = (await readDashboard(app, cookie)).devices;
   assert.equal(listed.length, 1);
   assert.equal(listed[0]?.hostname, "studio-renamed");
@@ -65,7 +65,7 @@ test("a device stays listed as offline after its daemon disconnects", async () =
 test("a device that reconnects before its old connection closed is listed once", async () => {
   const { app, cookie, devices, registry, userId } = await openSignedInRelay(relayUrl);
   devices.record({ userId, deviceId: "device-studio-1", hostname: "studio" });
-  const hello: DaemonMessage = { type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] };
+  const hello: DaemonMessage = { type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] };
   const stale = registry.connectDaemon({ userId, close: () => undefined, send: () => undefined });
   stale.receive(hello);
   const fresh = registry.connectDaemon({ userId, close: () => undefined, send: () => undefined });
@@ -80,8 +80,8 @@ test("a daemon for a device id another account holds is turned away", async () =
   devices.record({ userId: "someone-else", deviceId: "device-taken-1", hostname: "elsewhere" });
   const closed: string[] = [];
   const daemon = registry.connectDaemon({ userId, close: (reason) => closed.push(reason), send: () => undefined });
-  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-taken-1", agents: [] });
-  assert.deepEqual(closed, ["removed"]);
+  daemon.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-taken-1", agents: [] });
+  assert.deepEqual(closed, ["revoked"]);
   assert.deepEqual((await readDashboard(app, cookie)).devices, []);
 });
 
@@ -91,7 +91,7 @@ test("removing a device takes it off the list and ends its connection", async ()
   devices.record({ userId: "someone-else", deviceId: "device-elsewhere", hostname: "elsewhere" });
   const closed: string[] = [];
   const daemon = registry.connectDaemon({ userId, close: (reason) => closed.push(reason), send: () => undefined });
-  daemon.receive({ type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
+  daemon.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
   const remove = (deviceId: string, headers: Record<string, string> = { cookie }) => app.request(`${relayUrl}/api/devices/remove`, {
     method: "POST",
     headers: { ...headers, "content-type": "application/json" },
@@ -102,12 +102,12 @@ test("removing a device takes it off the list and ends its connection", async ()
   assert.equal((await remove("device-elsewhere")).status, 404);
   assert.equal(devices.list("someone-else").length, 1);
   assert.equal((await remove("device-studio-1")).status, 200);
-  assert.deepEqual(closed, ["removed"]);
+  assert.deepEqual(closed, ["revoked"]);
   assert.deepEqual((await readDashboard(app, cookie)).devices, []);
   // Its daemon cannot put it back by saying hello again.
   const again = registry.connectDaemon({ userId, close: (reason) => closed.push(reason), send: () => undefined });
-  again.receive({ type: "hello", platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
-  assert.deepEqual(closed, ["removed", "removed"]);
+  again.receive({ type: "hello", protocolVersion: 1, platform: "linux", hostname: "studio", workingDirectory: "/home/ada/work", deviceId: "device-studio-1", agents: [] });
+  assert.deepEqual(closed, ["revoked", "revoked"]);
   assert.deepEqual((await readDashboard(app, cookie)).devices, []);
 });
 

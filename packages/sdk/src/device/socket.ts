@@ -1,14 +1,15 @@
 import WebSocket from "ws";
-import { daemonCloseCodes, daemonPath, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "../index.js";
+import { closeReason, daemonPath, deviceCloseCodes, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "../index.js";
 import type { DeviceHost } from "./host.js";
 
 const defaultHeartbeatMs = 30_000;
 
 /**
  * How a device socket ended. `failed`: it never opened. `disconnected`: it closed after opening.
- * `replaced`, `removed`: the relay closed it with that code. `unauthorized`, `forbidden`: the upgrade was refused with 401 or 403.
+ * `replaced`, `revoked`, `unsupported_version`: the relay closed it with that code.
+ * `unauthorized`, `forbidden`: the upgrade was refused with 401 or 403.
  */
-export type DeviceSocketEnd = "failed" | "disconnected" | "replaced" | "removed" | "unauthorized" | "forbidden";
+export type DeviceSocketEnd = "failed" | "disconnected" | "replaced" | "revoked" | "unsupported_version" | "unauthorized" | "forbidden";
 
 /**
  * Opens one device socket and runs a host on it until the socket closes, then stops the host's agents.
@@ -67,8 +68,8 @@ export function connectDevice(input: {
       } catch {
         return;
       }
-      const message = parseRelayMessage(parsed);
-      if (message) host.receive(message);
+      const read = parseRelayMessage(parsed);
+      if (read.ok) host.receive(read.message);
     });
     socket.on("unexpected-response", (_request, response) => {
       if (response.statusCode === 401) unauthorized = true;
@@ -85,10 +86,10 @@ export function connectDevice(input: {
       host.close();
       input.signal?.removeEventListener("abort", stop);
       if (!input.signal?.aborted && !unauthorized && !forbidden) input.inform(`Relay disconnected (code ${code}).`);
+      const reason = closeReason(deviceCloseCodes, code);
       if (unauthorized) resolve("unauthorized");
       else if (forbidden) resolve("forbidden");
-      else if (code === daemonCloseCodes.replaced) resolve("replaced");
-      else if (code === daemonCloseCodes.removed) resolve("removed");
+      else if (reason === "replaced" || reason === "revoked" || reason === "unsupported_version") resolve(reason);
       else resolve(connected ? "disconnected" : "failed");
     });
     input.signal?.addEventListener("abort", stop, { once: true });

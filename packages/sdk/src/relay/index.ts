@@ -3,7 +3,6 @@ export {
   type BrowserLink,
   type BrowserSocket,
   type ConnectionInfo,
-  type DaemonCloseReason,
   type OpenSessionResult,
   type Registry,
   type SeenDevice,

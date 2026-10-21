@@ -15,4 +15,3 @@ The SDK holds what the spec states and nothing the product decides: no GitHub si
 
 - Node-only code is reachable only from `device` and `relay`. The root and `client` entries run in a browser.
 - `ws` is a dependency of the package and is installed for a web app too, unused. `react` is an optional peer.
-- Until EAP v1 is implemented, the SDK speaks the wire the relay and daemon speak today.

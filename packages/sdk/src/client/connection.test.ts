@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import {
-  createAgentConnector,
-  needsFreshTicket,
-  parseTicketCloseReason,
-  type OpenedAgent,
-} from "./connection.js";
+import { createAgentConnector } from "./connection.js";
+import type { OpenedAgent } from "./oauth.js";
 
 test("concurrent opens share one ticket post", async () => {
   let posts = 0;
@@ -58,17 +54,6 @@ test("reopen abandons the queue and mints a fresh ticket", async () => {
   assert.ok(fresh.url.includes("ticket-2"));
 });
 
-test("every ticket outcome wants a fresh ticket, protocol errors do not", () => {
-  assert.equal(parseTicketCloseReason("ticket-used"), "ticket-used");
-  assert.equal(parseTicketCloseReason("ticket-expired"), "ticket-expired");
-  assert.equal(parseTicketCloseReason("ticket-gone"), "ticket-gone");
-  assert.equal(parseTicketCloseReason("ticket"), undefined);
-  assert.equal(parseTicketCloseReason(undefined), undefined);
-  assert.equal(needsFreshTicket("ticket-expired"), true);
-  assert.equal(needsFreshTicket("message"), false);
-  assert.equal(needsFreshTicket(undefined), false);
-});
-
 function opened(n: number): OpenedAgent {
-  return { url: `wss://relay.example.test/api/acp?ticket=ticket-${n}`, agentType: "opencode", agentName: "work" };
+  return { url: `wss://relay.example.test/api/acp?ticket=ticket-${n}`, agentType: "opencode", expiresAt: "2026-10-21T08:00:00Z" };
 }

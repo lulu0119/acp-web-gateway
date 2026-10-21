@@ -7,12 +7,12 @@ todos:
     status: pending
   - id: sdk-split
     content: "Create packages/sdk with root, client, client/react, device and relay entries from @exterior/contract, @exterior/client, the daemon runtime and the relay registry; delete @exterior/client; @exterior/contract keeps only product constants"
-    status: pending
+    status: completed
   - id: device-registration
-    content: Check that better-auth can register a device-code client per device with the eap:device scope; otherwise a relay-side registration step for devices
-    status: pending
+    content: "Checked: better-auth registers a device-code client per device and its client id is the token's azp. It stores the union of registration scopes on every self-registered client, so the relay ties eap:device to the device-code grant, and binds a device client to the first approving account"
+    status: completed
   - id: wire-v1
-    content: "Move relay, daemon, SDK and Example to the spec in place: discovery documents, eap:client and eap:device scopes, device identity from the token, coded errors, close codes in the 4100 and 4200 ranges, a ticket the dial consumes with the SDK keeping one socket per connection across a remount, close for unknown connection ids, 1013 for slow sockets, revocation closing sockets, origin check, sessionId to connectionId"
+    content: "Move relay, daemon, SDK and Example to the spec in place. Done: coded errors, close codes in the 4100 and 4200 ranges, a ticket the dial consumes, close for unknown connection ids, 1013 for slow sockets, sessionId to connectionId, protocolVersion in hello. Left: discovery documents, eap:client and eap:device scopes, device identity from the token, revocation closing sockets, origin check"
     status: pending
   - id: grants
     content: Grants per device chosen at consent, saying that later agents are included, enforced on list and open, ending live connections when a grant narrows or is revoked

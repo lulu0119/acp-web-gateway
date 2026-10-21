@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { AgentSlot, DaemonMessage, Device, DevicePlatform, RelayMessage, ticketCloseReasons } from "../index.js";
+import { frameBytes, protocolVersion, type AgentSlot, type AttachCloseReason, type DaemonMessage, type Device, type DeviceCloseReason, type DevicePlatform, type RelayMessage } from "../index.js";
 
 const defaultTicketTtlMs = 60_000;
 const defaultOpenTimeoutMs = 15_000;
@@ -14,12 +14,12 @@ export type ConnectionInfo = {
 };
 
 export type OpenSessionResult =
-  | { ok: true; ticket: string; agentType: string; agentName: string }
-  | { ok: false; status: 404 | 502 | 503 | 504; message: string };
+  | { ok: true; ticket: string; expiresAt: number; agentType: string; agentName: string }
+  | { ok: false; status: 404 | 502 | 504; code: "target_not_found" | "agent_start_failed" | "device_timeout"; message: string };
 
 export type BrowserSocket = {
   send(payload: string): void;
-  close(): void;
+  close(reason: AttachCloseReason): void;
 };
 
 export type BrowserLink = {
@@ -37,7 +37,7 @@ type LiveDaemon = {
   workingDirectory: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
-  close: (reason: DaemonCloseReason) => void;
+  close: (reason: DeviceCloseReason) => void;
 };
 
 type LiveSession = {
@@ -52,16 +52,14 @@ type LiveSession = {
   ticket: string;
   expiresAt: number;
   ended: boolean;
-  live: boolean;
-  buffer: string[];
+  /** Frames the agent wrote before the socket attached, and their size in bytes. */
+  held: string[];
+  heldBytes: number;
   browser?: BrowserSocket;
   openTimer: ReturnType<typeof setTimeout>;
   ticketTimer?: ReturnType<typeof setTimeout>;
   openResolve?: (result: OpenSessionResult) => void;
 };
-
-/** `replaced`: a newer connection announced the same device id. `removed`: the account has no such device. */
-export type DaemonCloseReason = "replaced" | "removed";
 
 /**
  * Told when a daemon announces itself and when it disconnects, so the device's last-seen time can be kept.
@@ -69,11 +67,12 @@ export type DaemonCloseReason = "replaced" | "removed";
  */
 export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform: DevicePlatform }) => boolean;
 
-export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: keyof typeof ticketCloseReasons };
+/** A ticket that is used, expired or unknown is refused, and the dial ends there. */
+export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false };
 
 export type Registry = {
   /** `close` ends the daemon's socket when the relay turns the daemon away. */
-  connectDaemon(input: { userId: string; send: (message: RelayMessage) => void; close: (reason: DaemonCloseReason) => void }): {
+  connectDaemon(input: { userId: string; send: (message: RelayMessage) => void; close: (reason: DeviceCloseReason) => void }): {
     receive(message: DaemonMessage): void;
     close(): void;
   };
@@ -85,6 +84,12 @@ export type Registry = {
   takeTicket(ticket: string, browser: BrowserSocket): TakeTicketResult;
 };
 
+/**
+ * Why a session ended. `browser`: its socket closed. `timeout`: the device did not answer, or nobody dialed the ticket.
+ * `overflow`: the agent wrote more than a frame's worth before anybody dialed. The others are told to the socket.
+ */
+type Ending = "browser" | "timeout" | "overflow" | AttachCloseReason;
+
 export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number; seen?: SeenDevice }): Registry {
   const now = input?.now ?? Date.now;
   const seen = input?.seen ?? (() => true);
@@ -94,18 +99,22 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
   const sessions = new Map<string, LiveSession>();
   const sessionsByTicket = new Map<string, LiveSession>();
 
-  function finishSession(session: LiveSession, source: "browser" | "daemon" | "timeout"): void {
+  function finishSession(session: LiveSession, ending: Ending): void {
     if (session.ended) return;
     session.ended = true;
     clearTimeout(session.openTimer);
     clearTimeout(session.ticketTimer);
     sessions.delete(session.id);
     sessionsByTicket.delete(session.ticket);
-    if (source !== "daemon") sendToDaemon(session.daemonId, { type: "close", sessionId: session.id });
-    if (source !== "browser") session.browser?.close();
+    if (ending !== "agent_exited" && ending !== "device_gone") sendToDaemon(session.daemonId, { type: "close", connectionId: session.id });
+    if (ending !== "browser" && ending !== "timeout" && ending !== "overflow") session.browser?.close(ending);
     const resolve = session.openResolve;
     session.openResolve = undefined;
-    resolve?.({ ok: false, status: source === "timeout" ? 504 : 503, message: "The device did not start the agent." });
+    resolve?.(
+      ending === "timeout"
+        ? { ok: false, status: 504, code: "device_timeout", message: "The device did not answer." }
+        : { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." },
+    );
   }
 
   function sendToDaemon(daemonId: string, message: RelayMessage): void {
@@ -125,10 +134,10 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
     return undefined;
   }
 
-  function dropDaemon(daemon: LiveDaemon, reason: DaemonCloseReason): void {
+  function dropDaemon(daemon: LiveDaemon, reason: DeviceCloseReason): void {
     daemons.delete(daemon.id);
     for (const session of sessions.values()) {
-      if (session.daemonId === daemon.id) finishSession(session, "daemon");
+      if (session.daemonId === daemon.id) finishSession(session, "device_gone");
     }
     try {
       daemon.close(reason);
@@ -137,31 +146,14 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
     }
   }
 
-  // The first ACP frame in either direction makes the session live and
-  // consumes the ticket. Until then the socket is an infant: it may die or
-  // be superseded without ending the session. The ticket mapping stays so a
-  // retake on a live ticket reports "used"; it leaves with the session.
-  function markLive(session: LiveSession): void {
-    if (session.live || session.ended) return;
-    session.live = true;
-    clearTimeout(session.ticketTimer);
-  }
-
   function linkFor(session: LiveSession, browser: BrowserSocket): BrowserLink {
     return {
       frame(payload) {
         if (session.ended || session.browser !== browser) return;
-        markLive(session);
-        sendToDaemon(session.daemonId, { type: "frame", sessionId: session.id, payload });
+        sendToDaemon(session.daemonId, { type: "frame", connectionId: session.id, payload });
       },
       close() {
         if (session.ended || session.browser !== browser) return;
-        if (!session.live) {
-          // An infant socket died before any ACP frame flowed: detach it
-          // and keep the ticket claimable until it expires.
-          session.browser = undefined;
-          return;
-        }
         finishSession(session, "browser");
       },
     };
@@ -173,12 +165,16 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       return {
         receive(message) {
           if (message.type === "hello") {
+            if (message.protocolVersion !== protocolVersion) {
+              link.close("unsupported_version");
+              return;
+            }
             const current = daemonId ? daemons.get(daemonId) : undefined;
             // Another connection took this one's place, or the device was removed.
             if (daemonId && !current) return;
             if (!seen({ userId: link.userId, deviceId: message.deviceId, hostname: message.hostname, platform: message.platform })) {
-              if (current) dropDaemon(current, "removed");
-              else link.close("removed");
+              if (current) dropDaemon(current, "revoked");
+              else link.close("revoked");
               return;
             }
             // A daemon that reconnects before the relay noticed its old socket die announces the same
@@ -208,9 +204,16 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
             });
             return;
           }
-          if (!daemonId) return;
-          const session = sessions.get(message.sessionId);
-          if (!session || session.daemonId !== daemonId || session.ended) return;
+          if (!daemonId) {
+            link.close("invalid_message");
+            return;
+          }
+          const session = sessions.get(message.connectionId);
+          if (!session || session.daemonId !== daemonId || session.ended) {
+            // The device holds a connection the relay does not, such as one whose open timed out: it stops the agent.
+            if (message.type !== "close") sendToDaemon(daemonId, { type: "close", connectionId: message.connectionId });
+            return;
+          }
           if (message.type === "opened") {
             if (!session.openResolve) return;
             const resolve = session.openResolve;
@@ -218,28 +221,33 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
             clearTimeout(session.openTimer);
             session.expiresAt = now() + ticketTtlMs;
             session.ticketTimer = setTimeout(() => finishSession(session, "timeout"), ticketTtlMs);
-            resolve({ ok: true, ticket: session.ticket, agentType: session.agentType, agentName: session.agentName });
+            resolve({ ok: true, ticket: session.ticket, expiresAt: session.expiresAt, agentType: session.agentType, agentName: session.agentName });
             return;
           }
-          if (message.type === "open-failed") {
+          if (message.type === "open_failed") {
             const resolve = session.openResolve;
             session.openResolve = undefined;
             clearTimeout(session.openTimer);
             session.ended = true;
             sessions.delete(session.id);
             sessionsByTicket.delete(session.ticket);
-            resolve?.({ ok: false, status: 502, message: message.message });
+            resolve?.({ ok: false, status: 502, code: "agent_start_failed", message: message.message });
             return;
           }
           if (message.type === "frame") {
             if (session.browser) {
               session.browser.send(message.payload);
-              markLive(session);
+              return;
             }
-            else if (session.buffer.length < 32) session.buffer.push(message.payload);
+            session.heldBytes += Buffer.byteLength(message.payload);
+            if (session.heldBytes > frameBytes) {
+              finishSession(session, "overflow");
+              return;
+            }
+            session.held.push(message.payload);
             return;
           }
-          finishSession(session, "daemon");
+          finishSession(session, "agent_exited");
         },
         close() {
           if (!daemonId) return;
@@ -249,7 +257,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           seen({ userId: closed.userId, deviceId: closed.deviceId, hostname: closed.hostname, platform: closed.platform });
           daemons.delete(closed.id);
           for (const session of sessions.values()) {
-            if (session.daemonId === closed.id) finishSession(session, "daemon");
+            if (session.daemonId === closed.id) finishSession(session, "device_gone");
           }
         },
       };
@@ -272,10 +280,9 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
     },
     openSession({ userId, clientId, deviceId, agentName }) {
       const daemon = findDaemon(userId, deviceId);
-      if (!daemon) return Promise.resolve({ ok: false, status: 404, message: "That device is not online." });
-      const agent = daemon.agents.find((slot) => slot.name === agentName);
-      if (!agent) return Promise.resolve({ ok: false, status: 404, message: "That agent is not configured on the device." });
-      const id = randomUUID();
+      const agent = daemon?.agents.find((slot) => slot.name === agentName);
+      if (!daemon || !agent) return Promise.resolve({ ok: false, status: 404, code: "target_not_found", message: "That device is not online, or does not offer that agent." });
+      const id = randomBytes(16).toString("base64url");
       const ticket = randomBytes(32).toString("base64url");
       return new Promise((resolve) => {
         const session: LiveSession = {
@@ -289,43 +296,34 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           ticket,
           expiresAt: now() + ticketTtlMs,
           ended: false,
-          live: false,
-          buffer: [],
+          held: [],
+          heldBytes: 0,
           openTimer: setTimeout(() => finishSession(session, "timeout"), openTimeoutMs),
           openResolve: resolve,
         };
         sessions.set(id, session);
         sessionsByTicket.set(ticket, session);
-        sendToDaemon(daemon.id, { type: "open", sessionId: id, agentName });
+        sendToDaemon(daemon.id, { type: "open", connectionId: id, agentName });
       });
     },
     disconnectDevice({ userId, deviceId }) {
       const daemon = findDaemon(userId, deviceId);
-      if (daemon) dropDaemon(daemon, "removed");
+      if (daemon) dropDaemon(daemon, "revoked");
     },
     takeTicket(ticket, browser) {
       const session = sessionsByTicket.get(ticket);
-      if (!session || session.ended) return { ok: false as const, reason: "gone" as const };
+      // Dialing consumes the ticket, whatever happens next.
+      sessionsByTicket.delete(ticket);
+      if (!session || session.ended || session.openResolve) return { ok: false };
       if (session.expiresAt < now()) {
         finishSession(session, "timeout");
-        return { ok: false as const, reason: "expired" as const };
+        return { ok: false };
       }
-      if (session.browser && session.live) return { ok: false as const, reason: "used" as const };
-      if (session.browser) {
-        // An infant socket never went live: supersede it. At most one
-        // browser socket owns the session at a time.
-        try {
-          session.browser.close();
-        } catch {
-          // The stale socket is already gone; the new one still takes over.
-        }
-      }
+      clearTimeout(session.ticketTimer);
       session.browser = browser;
-      const buffered = session.buffer;
-      session.buffer = [];
-      for (const payload of buffered) browser.send(payload);
-      if (buffered.length > 0) markLive(session);
-      return { ok: true as const, link: linkFor(session, browser) };
+      for (const payload of session.held) browser.send(payload);
+      session.held = [];
+      return { ok: true, link: linkFor(session, browser) };
     },
   };
 }

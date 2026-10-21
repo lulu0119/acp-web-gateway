@@ -1,12 +1,4 @@
-export {
-  createAgentConnector,
-  needsFreshTicket,
-  parseTicketCloseReason,
-  type AgentTarget,
-  type OpenAgent,
-  type OpenedAgent,
-  type TicketCloseReason,
-} from "./connection.js";
+export { createAgentConnector, type AgentTarget, type OpenAgent } from "./connection.js";
 export {
   beginBrowserSignIn,
   browserCallbackPath,
@@ -17,8 +9,10 @@ export {
   listDevices,
   openConnection,
   registerBrowserClient,
+  RelayError,
   storedAccessToken,
   type BrowserStore,
+  type OpenedAgent,
 } from "./oauth.js";
 export { refreshAccessToken, RefreshTokenRejectedError, revokeRefreshToken, type Tokens } from "../oauth.js";
-export type { AgentSlot, Device, DevicePlatform } from "../index.js";
+export { attachCloseCodes, closeReason, type AgentSlot, type AttachCloseReason, type Device, type DevicePlatform, type ErrorCode } from "../index.js";

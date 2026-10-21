@@ -4,7 +4,7 @@ import { test } from "vitest";
 import type { DaemonMessage } from "../index.js";
 import { createDeviceHost, devicePlatform, type AgentHooks, type AgentPipe, type LaunchAgent } from "./host.js";
 
-const sessionId = "session-1";
+const connectionId = "connection-1-aaaaaaaaaaa";
 const workingDirectory = join("home", "person", "workspace");
 const work = { name: "work", agentType: "opencode" };
 
@@ -23,7 +23,7 @@ test("hello advertises the offered agents, the device directory, and the platfor
   });
   host.hello();
   assert.deepEqual(sent, [
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "windows", agents: [work] },
+    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "windows", agents: [work] },
   ]);
 });
 
@@ -44,14 +44,14 @@ test("open pipes one agent and the agent exiting tells the relay to close", () =
       return pipe(writes);
     },
   });
-  host.receive({ type: "open", sessionId, agentName: "work" });
+  host.receive({ type: "open", connectionId, agentName: "work" });
   hooks?.onFrame('{"id":1}');
-  host.receive({ type: "frame", sessionId, payload: '{"id":2}' });
+  host.receive({ type: "frame", connectionId, payload: '{"id":2}' });
   hooks?.onClose();
   assert.deepEqual(sent, [
-    { type: "opened", sessionId },
-    { type: "frame", sessionId, payload: '{"id":1}' },
-    { type: "close", sessionId },
+    { type: "opened", connectionId },
+    { type: "frame", connectionId, payload: '{"id":1}' },
+    { type: "close", connectionId },
   ]);
   assert.deepEqual(writes, ['{"id":2}']);
 });
@@ -71,11 +71,11 @@ test("an agent the device does not offer, or cannot launch, fails without a proc
       return undefined;
     },
   });
-  host.receive({ type: "open", sessionId, agentName: "missing" });
-  host.receive({ type: "open", sessionId: "session-2", agentName: "work" });
+  host.receive({ type: "open", connectionId, agentName: "missing" });
+  host.receive({ type: "open", connectionId: "connection-2-aaaaaaaaaaa", agentName: "work" });
   assert.deepEqual(sent, [
-    { type: "open-failed", sessionId, message: "That agent is not configured." },
-    { type: "open-failed", sessionId: "session-2", message: "That agent is not configured." },
+    { type: "open_failed", connectionId, message: "That agent is not configured." },
+    { type: "open_failed", connectionId: "connection-2-aaaaaaaaaaa", message: "That agent is not configured." },
   ]);
   assert.deepEqual(launched, ["work"]);
 });
@@ -96,15 +96,15 @@ test("a new agent list says hello again, and an open session keeps its agent", (
     send: (message) => sent.push(message),
     launch,
   });
-  host.receive({ type: "open", sessionId, agentName: "work" });
+  host.receive({ type: "open", connectionId, agentName: "work" });
   host.setAgents([{ name: "other", agentType: "opencode" }]);
-  host.receive({ type: "open", sessionId: "session-2", agentName: "work" });
-  host.receive({ type: "open", sessionId: "session-3", agentName: "other" });
+  host.receive({ type: "open", connectionId: "connection-2-aaaaaaaaaaa", agentName: "work" });
+  host.receive({ type: "open", connectionId: "connection-3-aaaaaaaaaaa", agentName: "other" });
   assert.deepEqual(sent, [
-    { type: "opened", sessionId },
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "other", agentType: "opencode" }] },
-    { type: "open-failed", sessionId: "session-2", message: "That agent is not configured." },
-    { type: "opened", sessionId: "session-3" },
+    { type: "opened", connectionId },
+    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "other", agentType: "opencode" }] },
+    { type: "open_failed", connectionId: "connection-2-aaaaaaaaaaa", message: "That agent is not configured." },
+    { type: "opened", connectionId: "connection-3-aaaaaaaaaaa" },
   ]);
   assert.deepEqual(stopped, []);
 });

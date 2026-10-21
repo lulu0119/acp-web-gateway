@@ -2,7 +2,7 @@
 
 The [Exterior Agent Protocol](../../docs/protocol/exterior-agent-protocol.md) for each of its roles. A web app signs the person in through a relay, lists devices, and opens agent connections. A device runs agents for the relay. A relay joins the two. It speaks standard OAuth against any relay and never touches Exterior's login cookie.
 
-Until EAP v1 is implemented, the SDK speaks the wire the hosted relay and `exterior` speak today.
+The SDK speaks EAP v1's connections, device messages, close codes and error codes. Discovery, the `eap:client` and `eap:device` scopes, and one OAuth client per device are not implemented yet: it still finds the relay's endpoints at fixed paths and signs devices in through the relay's shared daemon client.
 
 Install (until the npm release):
 
@@ -53,7 +53,9 @@ A redirect to `localhost` is asked every time, even for an approved app: any pro
 
 ## Devices and connections
 
-With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` returns a one-time ticket `{ url, agentType, agentName }` to use as the ACP connection. `createAgentConnector({ relayUrl, accessToken, target })` owns the ticket lifecycle for one user intent: `open()` never mints two tickets for one click, `reopen()` takes a fresh ticket, and sessions are never resumed. `parseTicketCloseReason` reads the relay's `ticket-used` / `ticket-expired` / `ticket-gone` close reasons (`ticketCloseReasons` at the root); `needsFreshTicket` says whether a fresh ticket is the recovery.
+With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` starts the agent and returns `{ url, agentType, expiresAt }`: dial `url` once, before `expiresAt`, and use it as the ACP connection. A request the relay refuses throws `RelayError`; decide by its `code` (`target_not_found`, `agent_start_failed`, `device_timeout`, …).
+
+A connection lasts as long as its socket. When the socket closes, `closeReason(attachCloseCodes, event.code)` says why: `ticket_rejected` (the ticket was dialed already, or expired: open a new connection), `agent_exited`, `device_gone`, or `revoked` (sign in again first). To continue a conversation, open a new connection and use ACP `session/resume` or `session/load`. A page that may mount twice keeps one socket per connection; a second dial on the same ticket is rejected and costs a second agent start. `createAgentConnector({ relayUrl, accessToken, target })` keeps one click to one connection: `open()` shares an open already under way, and `reopen()` opens a new one.
 
 `listDevices` and `openConnection` accept an optional `AbortSignal` as their last argument. Use it to time out a request or cancel it when the person leaves the connection form.
 
@@ -67,9 +69,9 @@ With an access token: `listDevices(relayUrl, accessToken)` lists the account's o
 
 - `beginDeviceAuthorization({ relayUrl, clientId })` and `pollDeviceAuthorization(pending, signal)` sign a device in with a code the person approves (RFC 8628).
 - `createDeviceHost({ hostname, platform, deviceId, workingDirectory, agents, send, launch })` answers the relay's `open`, `frame`, and `close` for one device socket. `launch(agentName, hooks, workingDirectory)` starts an agent and returns its pipe, or `undefined` when it cannot; `carryAgent(child, hooks, stop)` turns a started process's standard streams into that pipe, one frame per line. `setAgents` and `setWorkingDirectory` say hello again; open sessions keep their agent and directory.
-- `connectDevice({ relayUrl, accessToken, host, inform, onConnected, heartbeatMs, signal })` opens one device socket, pings the relay, and resolves with how the socket ended: `replaced` and `removed` are the relay's close codes, `unauthorized` and `forbidden` a refused upgrade. Reconnecting is the caller's.
+- `connectDevice({ relayUrl, accessToken, host, inform, onConnected, heartbeatMs, signal })` opens one device socket, pings the relay, and resolves with how the socket ended: `replaced`, `revoked` and `unsupported_version` are the relay's close codes, `unauthorized` and `forbidden` a refused upgrade. The device's agents stop with the socket. Reconnecting is the caller's.
 - `devicePlatform(process.platform)` names the platform to report.
 
 ## Running a relay
 
-`relay` holds what a relay keeps in memory. `createRegistry({ seen, ticketTtlMs, openTimeoutMs })` tracks online devices and live sessions: `connectDaemon` for a device socket, `openSession` to start an agent and mint its ticket, `takeTicket` for an agent socket, `listDevices` and `listSessions` per account, and `disconnectDevice` when a device is removed. `seen` is told when a device connects and disconnects, and turns away a device the account has not registered. `heartbeat(socket, everyMs)` pings a `ws` socket and ends it when a ping goes unanswered. HTTP routing and authentication stay with the relay's own framework.
+`relay` holds what a relay keeps in memory. `createRegistry({ seen, ticketTtlMs, openTimeoutMs })` tracks online devices and live sessions: `connectDaemon` for a device socket, `openSession` to start an agent and mint its ticket, `takeTicket` for an agent socket (the dial consumes the ticket), `listDevices` and `listSessions` per account, and `disconnectDevice` when a device is removed. `seen` is told when a device connects and disconnects, and turns away a device the account has not registered. `heartbeat(socket, everyMs)` pings a `ws` socket and ends it when a ping goes unanswered. HTTP routing and authentication stay with the relay's own framework.

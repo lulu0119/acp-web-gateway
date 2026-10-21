@@ -14,10 +14,10 @@ export function accessAccount(readAccess: ReadAccess, clients: (clientId: string
   return createMiddleware<RelayEnv>(async (c, next) => {
     const access = await readAccess(c.req.raw);
     if (!access) {
-      return response === "text" ? c.text("Unauthorized", 401) : c.json({ message: "Sign in again." }, 401);
+      return response === "text" ? c.text("Unauthorized", 401) : c.json({ code: "unauthorized", message: "Sign in again." }, 401);
     }
     if (!clients(access.clientId)) {
-      return response === "text" ? c.text("Forbidden", 403) : c.json({ message: "This app cannot use this address." }, 403);
+      return response === "text" ? c.text("Forbidden", 403) : c.json({ code: "insufficient_scope", message: "This app cannot use this address." }, 403);
     }
     c.set("userId", access.userId);
     c.set("clientId", access.clientId);

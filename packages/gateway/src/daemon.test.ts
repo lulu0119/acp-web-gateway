@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { test, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { DeviceRegistrationError } from "@exterior/contract";
-import { daemonCloseCodes } from "@exterioragentprotocol/sdk";
+import { deviceCloseCodes } from "@exterioragentprotocol/sdk";
 import type { GatewayConfig } from "./config.js";
 import { runDaemon } from "./daemon.js";
 import { usableSignIn } from "./login.js";
@@ -349,7 +349,7 @@ test("a connection the relay replaced waits the longest before connecting again"
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   await once(server, "listening");
   const address = server.address() as AddressInfo;
-  server.on("connection", (socket) => socket.once("message", () => socket.close(daemonCloseCodes.replaced, "replaced")));
+  server.on("connection", (socket) => socket.once("message", () => socket.close(deviceCloseCodes.replaced, "replaced")));
   const lines: string[] = [];
   const waiting = new Promise<void>((resolve) => {
     const check = setInterval(() => lines.includes("Retrying in 30s.") && (clearInterval(check), resolve()), 10);
@@ -375,7 +375,7 @@ test("a removed device stops and asks to sign in again", async () => {
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   await once(server, "listening");
   const address = server.address() as AddressInfo;
-  server.on("connection", (socket) => socket.once("message", () => socket.close(daemonCloseCodes.removed, "removed")));
+  server.on("connection", (socket) => socket.once("message", () => socket.close(deviceCloseCodes.revoked, "revoked")));
   const registered: string[] = [];
   try {
     await assert.rejects(

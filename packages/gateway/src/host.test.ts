@@ -7,7 +7,7 @@ import type { DaemonMessage } from "@exterioragentprotocol/sdk/device";
 import type { StoredAgent } from "./config.js";
 import { createDaemonHost } from "./host.js";
 
-const sessionId = "session-1";
+const connectionId = "connection-1-aaaaaaaaaaa";
 const workingDirectory = join("home", "person", "workspace");
 
 test("hello advertises a custom agent only while its command is installed", () => {
@@ -22,7 +22,7 @@ test("hello advertises a custom agent only while its command is installed", () =
     resolveLaunch: () => undefined,
   });
   host.hello();
-  assert.deepEqual(sent, [{ type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] }]);
+  assert.deepEqual(sent, [{ type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] }]);
 });
 
 test("hello omits an agent the registry cannot launch, and opening it fails", () => {
@@ -40,10 +40,10 @@ test("hello omits an agent the registry cannot launch, and opening it fails", ()
     },
   });
   host.hello();
-  host.receive({ type: "open", sessionId, agentName: "work" });
+  host.receive({ type: "open", connectionId, agentName: "work" });
   assert.deepEqual(sent, [
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] },
-    { type: "open-failed", sessionId, message: "That agent is not configured." },
+    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [] },
+    { type: "open_failed", connectionId, message: "That agent is not configured." },
   ]);
 });
 
@@ -60,7 +60,7 @@ test("a new configuration offers the agents it can launch", () => {
   });
   host.setAgents([agent, { name: "mine", agentType: "custom", env: {}, command: "my-agent" }]);
   assert.deepEqual(sent, [
-    { type: "hello", hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "work", agentType: "opencode" }] },
+    { type: "hello", protocolVersion: 1, hostname: "studio", deviceId: "device-studio-1", workingDirectory, platform: "linux", agents: [{ name: "work", agentType: "opencode" }] },
   ]);
 });
 
@@ -78,10 +78,10 @@ test("an argument a batch script cannot take fails the open instead of reaching 
     send: (message) => sent.push(message),
     resolveLaunch: () => ({ executable: { kind: "batch", path: script }, args: ["--flag&echo"], env: {} }),
   });
-  host.receive({ type: "open", sessionId, agentName: "work" });
+  host.receive({ type: "open", connectionId, agentName: "work" });
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.deepEqual(sent, [
-    { type: "open-failed", sessionId, message: 'The argument "--flag&echo" cannot be passed to a batch command.' },
+    { type: "open_failed", connectionId, message: 'The argument "--flag&echo" cannot be passed to a batch command.' },
   ]);
 });
 

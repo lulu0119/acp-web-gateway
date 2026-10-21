@@ -1,4 +1,4 @@
-import { connectionsPath, devicePlatforms, devicesPath, devicesScope, type Device } from "../index.js";
+import { connectionsPath, devicePlatforms, devicesPath, devicesScope, errorCodes, type Device, type ErrorCode } from "../index.js";
 import * as oauth from "oauth4webapi";
 import { discover, httpOptions, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
@@ -59,16 +59,26 @@ export async function exchangeAuthorizationCode(input: {
   return toTokens(tokens);
 }
 
+/** An error response from the relay. Decide by `code`; `message` is for people. */
+export class RelayError extends Error {
+  constructor(readonly code: ErrorCode, readonly status: number, message: string) {
+    super(message);
+    this.name = "RelayError";
+  }
+}
+
+/** A connection the device started: dial `url` once, before `expiresAt`, as the agent's ACP address. */
+export type OpenedAgent = { url: string; agentType: string; expiresAt: string };
+
 export async function listDevices(relayUrl: string, accessToken: string, signal?: AbortSignal): Promise<Device[]> {
   const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
     headers: { authorization: `Bearer ${accessToken}` },
     credentials: "omit",
     signal,
   });
-  if (response.status === 401) throw new Error("Sign in again.");
-  if (!response.ok) throw new Error("Exterior did not list devices.");
   const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || !Array.isArray(body.devices)) throw new Error("Exterior did not list devices.");
+  if (!response.ok) throw relayError(response.status, body, "Exterior did not list devices.");
+  if (!isRecord(body) || !Array.isArray(body.devices)) throw new RelayError("server_error", response.status, "Exterior did not list devices.");
   return body.devices.filter(isDevice);
 }
 
@@ -77,7 +87,7 @@ export async function openConnection(
   accessToken: string,
   input: { deviceId: string; agentName: string },
   signal?: AbortSignal,
-): Promise<{ url: string; agentType: string; agentName: string }> {
+): Promise<OpenedAgent> {
   const response = await fetch(new URL(connectionsPath, originOf(relayUrl)), {
     method: "POST",
     credentials: "omit",
@@ -86,14 +96,17 @@ export async function openConnection(
     signal,
   });
   const body: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) {
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : "Exterior did not open the agent.";
-    throw new Error(message);
+  if (!response.ok) throw relayError(response.status, body, "Exterior did not open the agent.");
+  if (!isRecord(body) || typeof body.url !== "string" || typeof body.agentType !== "string" || typeof body.expiresAt !== "string") {
+    throw new RelayError("server_error", response.status, "Exterior did not open the agent.");
   }
-  if (!isRecord(body) || typeof body.url !== "string" || typeof body.agentType !== "string" || typeof body.agentName !== "string") {
-    throw new Error("Exterior did not open the agent.");
-  }
-  return { url: body.url, agentType: body.agentType, agentName: body.agentName };
+  return { url: body.url, agentType: body.agentType, expiresAt: body.expiresAt };
+}
+
+function relayError(status: number, body: unknown, fallback: string): RelayError {
+  const named = isRecord(body) && typeof body.code === "string" ? errorCodes.find((code) => code === body.code) : undefined;
+  const message = isRecord(body) && typeof body.message === "string" ? body.message : fallback;
+  return new RelayError(named ?? (status === 401 ? "unauthorized" : "server_error"), status, message);
 }
 
 export const browserCallbackPath = "/oauth/callback";

@@ -7,19 +7,50 @@ export const devicesPath = "/api/devices";
 export const connectionsPath = "/api/connections";
 export const devicesScope = "devices offline_access";
 
-/**
- * Why the relay closed a daemon's socket. `replaced`: a newer connection announced the same device id.
- * `removed`: the device is not registered to the account, because it was removed or never registered.
- */
-export const daemonCloseCodes = { replaced: 4001, removed: 4003 } as const;
+export const protocolVersion = 1;
 
-/** Why the relay refused an agent socket's ticket. It closes the socket with 1008 and one of these reasons. */
-export const ticketCloseReasons = { used: "ticket-used", expired: "ticket-expired", gone: "ticket-gone" } as const;
+/** The largest frame, in UTF-8 bytes. */
+export const frameBytes = 1_048_576;
+
+/**
+ * Why the relay closed an attach socket. Every close ends the connection.
+ * `ticket_rejected`: the ticket is used, expired or unknown; open a new connection.
+ * `agent_exited`: the agent ended. `device_gone`: the device socket closed, or the device was removed.
+ * `revoked`: the client's authorization no longer permits the connection; sign in again before opening another.
+ */
+export const attachCloseCodes = { ticket_rejected: 4100, agent_exited: 4101, device_gone: 4102, revoked: 4103 } as const;
+export type AttachCloseReason = keyof typeof attachCloseCodes;
+
+/**
+ * Why the relay closed a device socket. `replaced`: a newer socket for the device took over.
+ * `revoked`: the device was removed or signed out, and must sign in again. `unsupported_version`: the relay does
+ * not speak the `hello` version. `invalid_message`: the device sent a message the protocol does not allow.
+ */
+export const deviceCloseCodes = { replaced: 4200, revoked: 4201, unsupported_version: 4202, invalid_message: 4203 } as const;
+export type DeviceCloseReason = keyof typeof deviceCloseCodes;
+
+/** An error response's `code`. A client decides by it; an unknown one counts as `server_error`. */
+export const errorCodes = [
+  "invalid_request",
+  "unauthorized",
+  "insufficient_scope",
+  "target_not_found",
+  "agent_start_failed",
+  "device_timeout",
+  "rate_limited",
+  "server_error",
+] as const;
+export type ErrorCode = (typeof errorCodes)[number];
+
+/** The name of a close code, or undefined for one EAP does not define. */
+export function closeReason<Codes extends Record<string, number>>(codes: Codes, code: number): keyof Codes | undefined {
+  return (Object.keys(codes) as (keyof Codes)[]).find((name) => codes[name] === code);
+}
 
 const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
 const idPattern = /^[A-Za-z0-9_-]{8,128}$/;
+const connectionIdPattern = /^[A-Za-z0-9_-]{22,128}$/;
 const namePattern = /^[^\r\n\t]{1,128}$/;
-const maxPayloadLength = 1_048_576;
 const maxFailureLength = 500;
 
 /** The operating system a device reports, so a page can show it. */
@@ -33,11 +64,13 @@ const NameSchema = v.pipe(v.string(), v.regex(namePattern));
 const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
 const HostnameSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(256));
 const PathSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(4096));
-const PayloadSchema = v.pipe(v.string(), v.maxLength(maxPayloadLength));
+const ConnectionIdSchema = v.pipe(v.string(), v.regex(connectionIdPattern));
+const PayloadSchema = v.pipe(v.string(), v.maxLength(frameBytes));
 const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureLength));
 
 const HelloSchema = v.object({
   type: v.literal("hello"),
+  protocolVersion: v.pipe(v.number(), v.integer()),
   hostname: HostnameSchema,
   deviceId: IdSchema,
   /**
@@ -51,14 +84,16 @@ const HelloSchema = v.object({
   agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
   platform: PlatformSchema,
 });
-const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
-const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
-const OpenedSchema = v.object({ type: v.literal("opened"), sessionId: IdSchema });
-const OpenFailedSchema = v.object({ type: v.literal("open-failed"), sessionId: IdSchema, message: FailureSchema });
-const OpenSchema = v.object({ type: v.literal("open"), sessionId: IdSchema, agentName: NameSchema });
+const FrameSchema = v.object({ type: v.literal("frame"), connectionId: ConnectionIdSchema, payload: PayloadSchema });
+const CloseSchema = v.object({ type: v.literal("close"), connectionId: ConnectionIdSchema });
+const OpenedSchema = v.object({ type: v.literal("opened"), connectionId: ConnectionIdSchema });
+const OpenFailedSchema = v.object({ type: v.literal("open_failed"), connectionId: ConnectionIdSchema, message: FailureSchema });
+const OpenSchema = v.object({ type: v.literal("open"), connectionId: ConnectionIdSchema, agentName: NameSchema });
 
 const DaemonMessageSchema = v.variant("type", [HelloSchema, FrameSchema, CloseSchema, OpenedSchema, OpenFailedSchema]);
 const RelayMessageSchema = v.variant("type", [OpenSchema, FrameSchema, CloseSchema]);
+const daemonMessageTypes: readonly string[] = ["hello", "frame", "close", "opened", "open_failed"];
+const relayMessageTypes: readonly string[] = ["open", "frame", "close"];
 
 export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
 
@@ -85,12 +120,23 @@ export function relayWebSocketUrl(relayUrl: string, path: string): string {
   return url.toString();
 }
 
-export function parseDaemonMessage(value: unknown): DaemonMessage | undefined {
-  const parsed = v.safeParse(DaemonMessageSchema, value);
-  return parsed.success ? parsed.output : undefined;
+/**
+ * Reads a device socket message. `unknown` is a well-formed message of a type this version does not know,
+ * which a receiver ignores. `invalid` is anything else that does not follow the protocol.
+ */
+export type Parsed<Message> = { ok: true; message: Message } | { ok: false; reason: "unknown" | "invalid" };
+
+export function parseDaemonMessage(value: unknown): Parsed<DaemonMessage> {
+  return parseMessage(DaemonMessageSchema, daemonMessageTypes, value);
 }
 
-export function parseRelayMessage(value: unknown): RelayMessage | undefined {
-  const parsed = v.safeParse(RelayMessageSchema, value);
-  return parsed.success ? parsed.output : undefined;
+export function parseRelayMessage(value: unknown): Parsed<RelayMessage> {
+  return parseMessage(RelayMessageSchema, relayMessageTypes, value);
+}
+
+function parseMessage<Schema extends v.GenericSchema>(schema: Schema, types: readonly string[], value: unknown): Parsed<v.InferOutput<Schema>> {
+  if (typeof value !== "object" || value === null || !("type" in value) || typeof value.type !== "string") return { ok: false, reason: "invalid" };
+  if (!types.includes(value.type)) return { ok: false, reason: "unknown" };
+  const parsed = v.safeParse(schema, value);
+  return parsed.success ? { ok: true, message: parsed.output } : { ok: false, reason: "invalid" };
 }

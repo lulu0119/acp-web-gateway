@@ -108,7 +108,7 @@ async function connectUntilStopped(input: {
     if (input.signal?.aborted) return;
     const result = registered === "registered" ? await connectOnce({ ...input, accessToken, config: input.currentConfig() }) : registered;
     if (input.signal?.aborted) return;
-    if (result === "removed") {
+    if (result === "revoked") {
       throw new DaemonLoginRequiredError(`This device was removed from the account on the relay. ${loginAgain(input.relayUrl)}`);
     }
     if (result === "forbidden") {
@@ -129,6 +129,10 @@ async function connectUntilStopped(input: {
       input.inform("A newer connection with this device's id took its place on the relay. Is this device's configuration copied to another computer?");
       retryMs = maxRetryMs;
       authentication = "ready";
+    }
+    if (result === "unsupported_version") {
+      input.inform("The relay does not speak this version of Exterior's protocol. Update exterior.");
+      retryMs = maxRetryMs;
     }
     await retry();
   }

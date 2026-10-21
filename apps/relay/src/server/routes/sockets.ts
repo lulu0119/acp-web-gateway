@@ -1,4 +1,4 @@
-import { acpPath, daemonCloseCodes, daemonPath, parseDaemonMessage, ticketCloseReasons } from "@exterioragentprotocol/sdk";
+import { acpPath, attachCloseCodes, daemonPath, deviceCloseCodes, frameBytes, parseDaemonMessage } from "@exterioragentprotocol/sdk";
 import { heartbeat, type BrowserLink, type Registry } from "@exterioragentprotocol/sdk/relay";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import type { Hono } from "hono";
@@ -6,6 +6,8 @@ import type { WebSocket } from "ws";
 import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 
 const defaultHeartbeatMs = 30_000;
+/** Unsent bytes past which an attach socket is too slow for its device's other connections, and is closed. */
+const maxUnsentBytes = 2 * frameBytes;
 
 export function mountSockets(app: Hono<RelayEnv>, input: {
   registry: Registry;
@@ -32,18 +34,18 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
               ws.send(JSON.stringify(message));
             },
             close(reason) {
-              ws.close(daemonCloseCodes[reason], reason);
+              ws.close(deviceCloseCodes[reason], reason);
             },
           });
         },
         onMessage(event, ws) {
-          const text = eventText(event.data);
-          const message = text ? parseDaemonMessage(parseJson(text)) : undefined;
-          if (!message || !connection) {
-            ws.close(1008, "message");
+          const read = typeof event.data === "string" ? parseDaemonMessage(parseJson(event.data)) : undefined;
+          if (read?.ok === false && read.reason === "unknown") return;
+          if (!read?.ok || !connection) {
+            ws.close(deviceCloseCodes.invalid_message, "invalid_message");
             return;
           }
-          connection.receive(message);
+          connection.receive(read.message);
         },
         onClose() {
           stopHeartbeat?.();
@@ -64,24 +66,28 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
           const taken = input.registry.takeTicket(ticket, {
             send(payload) {
               ws.send(payload);
+              if ((ws.raw?.bufferedAmount ?? 0) > maxUnsentBytes) ws.close(1013, "slow");
             },
-            close() {
-              ws.close();
+            close(reason) {
+              ws.close(attachCloseCodes[reason], reason);
             },
           });
           if (!taken.ok) {
-            ws.close(1008, ticketCloseReasons[taken.reason]);
+            ws.close(attachCloseCodes.ticket_rejected, "ticket_rejected");
             return;
           }
           link = taken.link;
         },
         onMessage(event, ws) {
-          const text = eventText(event.data);
-          if (!text || !link) {
-            ws.close(1008, "message");
+          if (typeof event.data !== "string") {
+            ws.close(1003, "binary");
             return;
           }
-          link.frame(text);
+          if (Buffer.byteLength(event.data) > frameBytes) {
+            ws.close(1009, "frame");
+            return;
+          }
+          link?.frame(event.data);
         },
         onClose() {
           stopHeartbeat?.();
@@ -103,11 +109,4 @@ function parseJson(text: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-function eventText(data: unknown): string | undefined {
-  if (typeof data === "string") return data;
-  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
-  if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
-  return undefined;
 }

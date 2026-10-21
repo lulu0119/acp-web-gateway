@@ -1,7 +1,9 @@
 export const maxPendingAgentChars = 1_048_576;
 
-export function webSocketTextToAgentLine(text: string): string {
-  return text.endsWith("\n") ? text : `${text}\n`;
+/** The line to write for a frame, or undefined for a frame with a raw newline inside, which the device refuses. */
+export function webSocketTextToAgentLine(text: string): string | undefined {
+  const frame = text.endsWith("\n") ? text.slice(0, -1) : text;
+  return frame.includes("\n") ? undefined : `${frame}\n`;
 }
 
 export function consumeAgentChunk(
