@@ -7,7 +7,14 @@ import { Button, buttonVariants } from "@exterior/ui/button";
 import { cn } from "cn";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 
-export type ConnectedAgent = { agentType: string; url: string; label: string; workingDirectory: string };
+export type ConnectedAgent = {
+  agentType: string;
+  url: string;
+  label: string;
+  workingDirectory: string;
+  deviceId: string;
+  agentName: string;
+};
 type DeviceList = { phase: "loading" | "ready" | "error"; devices: Device[]; error?: string };
 
 export function ConnectForm({
@@ -80,6 +87,8 @@ export function ConnectForm({
           url: opened.url,
           label: `${device.hostname} / ${agent.name}`,
           workingDirectory: device.workingDirectory,
+          deviceId: device.id,
+          agentName: agent.name,
         });
     } catch (error) {
       if (!controller.signal.aborted) setError(requestError(error, "Exterior did not open the agent."));
@@ -280,7 +289,7 @@ export function ManageAgentsLink({ className }: { className?: string }) {
   );
 }
 
-function requestError(error: unknown, fallback: string): string {
+export function requestError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.name === "TimeoutError")
     return "Exterior took too long to respond. Please try again.";
   return error instanceof Error ? error.message : fallback;
