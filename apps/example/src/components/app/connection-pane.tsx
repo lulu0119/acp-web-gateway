@@ -1,4 +1,5 @@
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
+import { openConnection } from "@exterior/client";
 import { AssistantRuntimeProvider, AuiIf, useAui } from "@assistant-ui/react";
 import {
   useAcpAuth,
@@ -15,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowRightIcon,
   BotIcon,
+  CircleAlertIcon,
   Code2Icon,
   FolderSearchIcon,
   GitPullRequestIcon,
@@ -23,15 +25,16 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createDirectoryAdapter } from "@/acp/directory-adapter";
+import { exteriorRelayUrl } from "@/lib/relay-url";
 import { AgentPlan } from "@/components/assistant-ui/elements/agent-plan";
 import { ApprovalCard } from "@/components/assistant-ui/elements/approval-card";
 import { EmptyState, EmptyStateGreeting } from "@/components/assistant-ui/elements/empty-state";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { Button } from "@exterior/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@exterior/ui/empty";
 import { Skeleton } from "@exterior/ui/skeleton";
 import { SidebarTrigger } from "@exterior/ui/sidebar";
-import type { ConnectedAgent } from "./connect-form";
-import { connectionLabels } from "./connection-status";
+import { requestError, type ConnectedAgent } from "./connect-form";
 import { SessionControls } from "./session-controls";
 import { WorkspaceTree } from "./workspace-tree";
 
@@ -42,13 +45,27 @@ export function ConnectionPane({
   connection,
   active,
   treeSlot,
+  accessToken,
+  onRenewed,
   onStatusChange,
 }: {
   connection: Connection;
   active: boolean;
   treeSlot: HTMLElement | null;
+  accessToken: string | undefined;
+  onRenewed: (url: string) => void;
   onStatusChange: (id: string, status: AcpConnectionStatus) => void;
 }) {
+  async function renew() {
+    if (!accessToken) throw new Error("Sign in again.");
+    const opened = await openConnection(
+      exteriorRelayUrl(),
+      accessToken,
+      { deviceId: connection.deviceId, agentName: connection.agentName },
+      AbortSignal.timeout(20_000),
+    );
+    onRenewed(opened.url);
+  }
   const [directories] = useState(() =>
     createDirectoryAdapter(() => createWebSocketStream(connection.url), connection.workingDirectory),
   );
@@ -64,7 +81,7 @@ export function ConnectionPane({
       <StatusReporter id={connection.id} onStatusChange={onStatusChange} />
       <section className={active ? "flex h-dvh min-h-0 flex-col" : "hidden"}>
         <PaneHeader />
-        <PaneBody />
+        <PaneBody renew={renew} />
       </section>
       {active &&
         treeSlot &&
@@ -104,20 +121,45 @@ function PaneHeader() {
   );
 }
 
-function PaneBody() {
-  const { status, error, reconnect } = useAcpConnection();
+function PaneBody({ renew }: { renew: () => Promise<void> }) {
+  const { status } = useAcpConnection();
   const activeSessionId = useAcpThreadState((state) => state.activeSessionId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const renewing = useRef(false);
+
+  async function reconnect() {
+    if (renewing.current) return;
+    renewing.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await renew();
+    } catch (caught) {
+      setError(requestError(caught, "Could not reconnect."));
+      renewing.current = false;
+      setBusy(false);
+    }
+  }
 
   if (status === "auth-required") return <AuthPanel />;
   if (status === "error" || status === "closed") {
-    const message = error instanceof Error ? error.message : connectionLabels[status];
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
-        <p className="text-muted-foreground text-sm">{message}</p>
-        <Button variant="outline" onClick={() => void reconnect()}>
-          Reconnect
-        </Button>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon"><CircleAlertIcon /></EmptyMedia>
+          <EmptyTitle role={error ? "alert" : undefined}>{error || "This conversation ended"}</EmptyTitle>
+          <EmptyDescription>
+            {error ? "This conversation ended." : "Starting again opens a new conversation."}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" disabled={busy} onClick={() => void reconnect()}>
+            {busy && <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />}
+            {busy ? "Reconnecting…" : "Try again"}
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
   if (status !== "ready") {
