@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@hafbit/react-acp@0.1.9':
+    hash: c08f6c9ef268f50955f9a530f45e2a5604bdbe91c9cf7d46df81d2dfc0a07415
+    path: patches/@hafbit__react-acp@0.1.9.patch
+
 importers:
 
   .:
@@ -92,7 +97,7 @@ importers:
         version: 5.3.0
       '@hafbit/react-acp':
         specifier: ^0.1.9
-        version: 0.1.9(@assistant-ui/react@0.15.26(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(@assistant-ui/store@0.3.18(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0))(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(assistant-cloud@0.2.6)(react@19.3.0)
+        version: 0.1.9(patch_hash=c08f6c9ef268f50955f9a530f45e2a5604bdbe91c9cf7d46df81d2dfc0a07415)(@assistant-ui/react@0.15.26(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(@assistant-ui/store@0.3.18(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0))(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(assistant-cloud@0.2.6)(react@19.3.0)
       '@tailwindcss/vite':
         specifier: ^4.1.14
         version: 4.3.3(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15))
@@ -5626,7 +5631,7 @@ snapshots:
       error-stack-parser: 2.1.4
       pathe: 2.0.3
 
-  '@hafbit/react-acp@0.1.9(@assistant-ui/react@0.15.26(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(@assistant-ui/store@0.3.18(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0))(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(assistant-cloud@0.2.6)(react@19.3.0)':
+  '@hafbit/react-acp@0.1.9(patch_hash=c08f6c9ef268f50955f9a530f45e2a5604bdbe91c9cf7d46df81d2dfc0a07415)(@assistant-ui/react@0.15.26(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(@assistant-ui/store@0.3.18(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0))(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(assistant-cloud@0.2.6)(react@19.3.0)':
     dependencies:
       '@agentclientprotocol/sdk': 1.8.0(zod@4.6.5)
       '@assistant-ui/core': 0.3.25(@assistant-ui/store@0.3.18(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0))(@assistant-ui/tap@0.9.22(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(assistant-cloud@0.2.6)(react@19.3.0)
