@@ -11,11 +11,11 @@ Code still missing.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - Unauthenticated endpoints that add rows: rate-limit `POST /api/auth/oauth2/register` and the metadata-document fetch, and decide what "verified" means beyond the redirect host the pages show.
-- Scope redesign: separate a daemon scope from what web apps ask for (list devices, open agents), and let the person pick devices or agents at consent.
-- One daemon client per device: every device's daemon shares one OAuth client, so when a daemon replays a refresh token that was rotated or revoked, the provider revokes the daemon sign-in of every device on the account.
+- Exterior Model Protocol v1 ([spec](protocol/exterior-model-protocol.md)): the relay, the daemon, and `@exterior/client` still speak the earlier wire. Missing: discovery documents, the `emp:client` and `emp:device` scopes, one OAuth client per device, connections that outlive a socket and a device link with resume, grants per device and agent that end live connections when they change, coded errors, and the `sessionId` to `connectionId` rename.
+- Split the protocol out of the product into `@exteriormodelprotocol/protocol`, `client`, `device`, and `relay`, with `apps/relay` and the `exterior` CLI depending on them.
 - Check `Origin` against the app's redirect origins on the web app API and on `/api/acp`, instead of `Access-Control-Allow-Origin: *`.
 - The device approval page shows only the code. Show the requesting device's name and address so a forwarded code is easier to spot.
-- npm release of `exterior-project`, `@exterior/contract`, and `@exterior/client`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
+- npm release of `exterior-project` and the `@exteriormodelprotocol/*` packages: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: update the Coolify application name and the GitHub OAuth app name. The GitHub repo is already [lulu0119/exterior](https://github.com/lulu0119/exterior).
 
 ## Awaiting verification
