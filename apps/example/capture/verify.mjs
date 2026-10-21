@@ -82,7 +82,7 @@ async function fixture(viewport, signedIn = true) {
         case "initialize":
           reply({
             protocolVersion: 1,
-            agentCapabilities: { loadSession: true, sessionCapabilities: { list: {} } },
+            agentCapabilities: { loadSession: true, sessionCapabilities: { list: {}, delete: {} } },
             agentInfo: { name: "Fixture agent", version: "1" },
           });
           break;
@@ -231,6 +231,70 @@ async function shot(page, name) {
   });
 }
 
+async function sidebarWidth(page) {
+  return page.locator('[data-slot="sidebar-container"]').evaluate((el) => el.getBoundingClientRect().width);
+}
+
+async function dragRail(page, deltaX) {
+  const rail = page.locator('[data-sidebar="rail"]');
+  const box = await rail.boundingBox();
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + deltaX, y, { steps: 12 });
+  await page.mouse.up();
+}
+
+async function assertSidebarResizes(page) {
+  const before = await sidebarWidth(page);
+  await dragRail(page, 160);
+  const widened = await sidebarWidth(page);
+  assert.ok(widened >= before + 120, `dragging the rail widens the sidebar (${before} -> ${widened})`);
+  assert.equal(
+    await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"),
+    "expanded",
+    "A drag must not collapse the sidebar",
+  );
+  assert.match(await page.evaluate(() => document.cookie), /sidebar_width=\d+/);
+  await dragRail(page, before - widened);
+  const restored = await sidebarWidth(page);
+  assert.ok(Math.abs(restored - before) <= 2, `dragging back restores the width (${restored} vs ${before})`);
+  await page.locator('[data-sidebar="rail"]').click();
+  assert.equal(await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"), "collapsed");
+  await page.locator('[data-sidebar="rail"]').click();
+  assert.equal(await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"), "expanded");
+}
+
+async function assertConversationRow(page) {
+  const title = await page.getByRole("button", { name: "Untitled conversation", exact: true }).evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      size: style.fontSize,
+      weight: style.fontWeight,
+      fillsRow: el.getBoundingClientRect().width >= el.parentElement.getBoundingClientRect().width - 1,
+    };
+  });
+  const menu = await page.getByRole("button", { name: "Actions for Untitled conversation" }).evaluate((el) => {
+    const title = el.parentElement.querySelector("span");
+    const icon = el.querySelector("svg");
+    const titleBox = title.getBoundingClientRect();
+    const iconBox = icon.getBoundingClientRect();
+    return {
+      titleMid: (titleBox.top + titleBox.bottom) / 2,
+      iconMid: (iconBox.top + iconBox.bottom) / 2,
+      iconSize: iconBox.height,
+    };
+  });
+  const directoryName = await page.getByText("exterior", { exact: true }).evaluate((el) => getComputedStyle(el).fontSize);
+  assert.equal(directoryName, "12px", "The directory name uses the small row size");
+  assert.equal(menu.iconSize, 12, "The conversation menu icon matches the title size");
+  assert.ok(Math.abs(menu.titleMid - menu.iconMid) < 1, "The conversation menu sits on the title");
+  assert.equal(title.size, "12px");
+  assert.equal(title.weight, "400");
+  assert.equal(title.fillsRow, true);
+}
+
 async function expectVisible(locator) {
   await locator.waitFor({ state: "visible", timeout: 5000 });
 }
@@ -288,6 +352,7 @@ try {
   await expectVisible(page.getByRole("button", { name: "Start a conversation", exact: true }));
   assert.equal(state.opens - before, 1, "Double activation must open one connection");
   await shot(page, "connected-desktop");
+  await assertSidebarResizes(page);
   await page.getByRole("button", { name: "Add a connection", exact: true }).click();
   await expectVisible(page.getByRole("dialog"));
   await shot(page, "add-connection-desktop");
@@ -303,6 +368,7 @@ try {
   assert.equal(state.sessions[0].cwd, devices[0].workingDirectory);
   await expectVisible(page.getByRole("button", { name: "Untitled conversation", exact: true }));
   await shot(page, "chat-empty-desktop");
+  await assertConversationRow(page);
   await page.getByRole("button", { name: "Explore this project", exact: true }).click();
   const input = page.getByRole("textbox", { name: "Message input" });
   assert.match(await input.inputValue(), /Explore the project/);
