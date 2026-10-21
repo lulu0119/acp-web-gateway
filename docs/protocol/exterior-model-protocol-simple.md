@@ -465,7 +465,7 @@ sequenceDiagram
   Relay-->>Client: 503 device_offline, Retry-After
   Device->>Relay: open the device socket
   Device->>Relay: hello (connections)
-  Note over Relay: the device link is back; attach works again
+  Note over Relay: the device link is back, attach works again
   Client->>Relay: POST attach (resumeFrom N)
   Note over Client,Device: continues as in the resume sequence
 ```
