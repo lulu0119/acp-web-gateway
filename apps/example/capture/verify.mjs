@@ -155,32 +155,6 @@ async function shot(page, name) {
   );
   await page.screenshot({ path: resolve(output, `${name}.png`), fullPage: true });
   if (name === "chat-empty-desktop") {
-    const title = await page.getByRole("button", { name: "Untitled conversation", exact: true }).evaluate((el) => {
-      const style = getComputedStyle(el);
-      return {
-        size: style.fontSize,
-        weight: style.fontWeight,
-        fillsRow: el.getBoundingClientRect().width >= el.parentElement.getBoundingClientRect().width - 1,
-      };
-    });
-    const menu = await page.getByRole("button", { name: "Actions for Untitled conversation" }).evaluate((el) => {
-      const title = el.parentElement.querySelector("span");
-      const icon = el.querySelector("svg");
-      const titleBox = title.getBoundingClientRect();
-      const iconBox = icon.getBoundingClientRect();
-      return {
-        titleMid: (titleBox.top + titleBox.bottom) / 2,
-        iconMid: (iconBox.top + iconBox.bottom) / 2,
-        iconSize: iconBox.height,
-      };
-    });
-    const directoryName = await page.getByText("exterior", { exact: true }).evaluate((el) => getComputedStyle(el).fontSize);
-    assert.equal(directoryName, "12px", "The directory name uses the small row size");
-    assert.equal(menu.iconSize, 12, "The conversation menu icon matches the title size");
-    assert.ok(Math.abs(menu.titleMid - menu.iconMid) < 1, "The conversation menu sits on the title");
-    assert.equal(title.size, "12px");
-    assert.equal(title.weight, "400");
-    assert.equal(title.fillsRow, true);
     await page
       .locator('[data-slot="sidebar-group"]')
       .filter({ has: page.getByText("Working directories", { exact: true }) })
@@ -292,6 +266,35 @@ async function assertSidebarResizes(page) {
   assert.equal(await page.locator('[data-slot="sidebar"]').first().getAttribute("data-state"), "expanded");
 }
 
+async function assertConversationRow(page) {
+  const title = await page.getByRole("button", { name: "Untitled conversation", exact: true }).evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      size: style.fontSize,
+      weight: style.fontWeight,
+      fillsRow: el.getBoundingClientRect().width >= el.parentElement.getBoundingClientRect().width - 1,
+    };
+  });
+  const menu = await page.getByRole("button", { name: "Actions for Untitled conversation" }).evaluate((el) => {
+    const title = el.parentElement.querySelector("span");
+    const icon = el.querySelector("svg");
+    const titleBox = title.getBoundingClientRect();
+    const iconBox = icon.getBoundingClientRect();
+    return {
+      titleMid: (titleBox.top + titleBox.bottom) / 2,
+      iconMid: (iconBox.top + iconBox.bottom) / 2,
+      iconSize: iconBox.height,
+    };
+  });
+  const directoryName = await page.getByText("exterior", { exact: true }).evaluate((el) => getComputedStyle(el).fontSize);
+  assert.equal(directoryName, "12px", "The directory name uses the small row size");
+  assert.equal(menu.iconSize, 12, "The conversation menu icon matches the title size");
+  assert.ok(Math.abs(menu.titleMid - menu.iconMid) < 1, "The conversation menu sits on the title");
+  assert.equal(title.size, "12px");
+  assert.equal(title.weight, "400");
+  assert.equal(title.fillsRow, true);
+}
+
 async function expectVisible(locator) {
   await locator.waitFor({ state: "visible", timeout: 5000 });
 }
@@ -365,6 +368,7 @@ try {
   assert.equal(state.sessions[0].cwd, devices[0].workingDirectory);
   await expectVisible(page.getByRole("button", { name: "Untitled conversation", exact: true }));
   await shot(page, "chat-empty-desktop");
+  await assertConversationRow(page);
   await page.getByRole("button", { name: "Explore this project", exact: true }).click();
   const input = page.getByRole("textbox", { name: "Message input" });
   assert.match(await input.inputValue(), /Explore the project/);

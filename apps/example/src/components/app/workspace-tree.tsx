@@ -195,7 +195,7 @@ function SessionRow({
         size="sm"
         isActive={active}
         onClick={onSelect}
-        className={`w-full${canDelete ? " pe-6" : ""}`}
+        className={canDelete ? "w-full pe-6" : "w-full"}
       >
         <span>{title}</span>
       </SidebarMenuSubButton>
