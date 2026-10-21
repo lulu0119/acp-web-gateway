@@ -291,6 +291,10 @@ const SpokenText: TextMessagePartComponent = ({ text }) => (
 const SpokenMessage: FC = () => {
   const role = useAuiState((s) => s.message.role);
   const position = useVoiceRunPosition();
+  const isSpeaking = useAuiState(
+    (s) =>
+      s.message.role === "assistant" && s.message.status?.type === "running",
+  );
   const opensExchange = position === "start" || position === "single";
 
   return (
@@ -331,6 +335,16 @@ const SpokenMessage: FC = () => {
         </span>
         <div className="min-w-0 flex-1 wrap-break-word">
           <MessagePrimitive.Parts components={{ Text: SpokenText }} />
+          {isSpeaking && (
+            <span
+              data-slot="aui_spoken-message-indicator"
+              role="status"
+              className="text-muted-foreground ms-1 animate-pulse font-sans"
+              aria-label="Assistant is speaking"
+            >
+              ●
+            </span>
+          )}
         </div>
         <SpokenActionBar />
       </div>
@@ -609,6 +623,16 @@ const AssistantMessage: FC = () => {
                   <div data-slot="aui_assistant-message-image" className="py-1">
                     <Image {...part} />
                   </div>
+                );
+              case "indicator":
+                return (
+                  <span
+                    data-slot="aui_assistant-message-indicator"
+                    className="animate-pulse font-sans"
+                    aria-label="Assistant is working"
+                  >
+                    {"●"}
+                  </span>
                 );
               default:
                 return null;
