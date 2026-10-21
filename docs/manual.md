@@ -1,6 +1,6 @@
 # Manual
 
-Device setup and relay operation. Web app integration lives with the SDK in [`packages/client/README.md`](../packages/client/README.md).
+Device setup and relay operation. Web app integration lives with the SDK in [`packages/sdk/README.md`](../packages/sdk/README.md).
 
 ## Start the relay
 
@@ -63,7 +63,7 @@ Then `systemctl --user enable --now exterior`. A user unit runs while you are lo
 
 ## Previews and Example deploys
 
-Maintainer detail, defined by the workflows: [preview.yml](../.github/workflows/preview.yml) publishes `exterior`, `@exterior/contract`, and `@exterior/client` from `main` via pkg-pr-new; [example-pages.yml](../.github/workflows/example-pages.yml) publishes Example to GitHub Pages. Example bakes `VITE_EXTERIOR_URL` in at build time (default `https://relay.apps.superpowerlulu.win`), so a new address needs a rerun.
+Maintainer detail, defined by the workflows: [preview.yml](../.github/workflows/preview.yml) publishes `exterior` and `@exterioragentprotocol/sdk` from `main` via pkg-pr-new; [example-pages.yml](../.github/workflows/example-pages.yml) publishes Example to GitHub Pages. Example bakes `VITE_EXTERIOR_URL` in at build time (default `https://relay.apps.superpowerlulu.win`), so a new address needs a rerun.
 
 ## Daemon behavior
 

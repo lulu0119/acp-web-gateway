@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { DaemonMessage, RelayMessage } from "@exterior/contract";
+import type { DaemonMessage, RelayMessage } from "../index.js";
 import { createRegistry, type BrowserSocket } from "./registry.js";
 
 test("a device is online only for the account that connected it, under its device id", () => {

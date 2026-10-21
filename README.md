@@ -10,7 +10,7 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
 1. Start the relay with GitHub OAuth credentials (`apps/relay/.env.example`). From a checkout, `pnpm relay` listens on `127.0.0.1:8787`.
 2. Sign in a device so it runs agents: [manual](docs/manual.md).
-3. Connect a web app with `useAccount`: [`@exterior/client`](packages/client/README.md).
+3. Connect a web app with `useAccount`: [`@exterioragentprotocol/sdk`](packages/sdk/README.md).
 4. The app lists the account's online devices and opens one agent over a one-time WebSocket address it uses as the ACP connection.
 
 Decisions: [docs/decisions.md](docs/decisions.md). Manual: [docs/manual.md](docs/manual.md). Roadmap: [docs/open-work.md](docs/open-work.md).

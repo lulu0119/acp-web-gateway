@@ -6,7 +6,7 @@ const documentPath = "oauth-client.json";
  *
  * Where the app is served over https, it names itself with its Client ID Metadata Document, and the
  * relay reads the name, logo, and redirect address from that file. A page served over http is a
- * development one, whose address the relay cannot fetch, so it gets no client id: `@exterior/client`
+ * development one, whose address the relay cannot fetch, so it gets no client id: `@exterioragentprotocol/sdk`
  * registers it with the relay instead and keeps that registration in this browser.
  */
 export function exampleClientId(pageOrigin: string, base: string): string | undefined {

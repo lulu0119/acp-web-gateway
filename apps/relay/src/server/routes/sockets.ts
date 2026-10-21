@@ -1,8 +1,8 @@
-import { acpPath, daemonCloseCodes, daemonPath, parseDaemonMessage } from "@exterior/contract";
+import { acpPath, daemonCloseCodes, daemonPath, parseDaemonMessage, ticketCloseReasons } from "@exterioragentprotocol/sdk";
+import { heartbeat, type BrowserLink, type Registry } from "@exterioragentprotocol/sdk/relay";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import type { Hono } from "hono";
 import type { WebSocket } from "ws";
-import type { BrowserLink, Registry } from "../connections/registry.js";
 import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 
 const defaultHeartbeatMs = 30_000;
@@ -25,7 +25,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
       let stopHeartbeat: (() => void) | undefined;
       return {
         onOpen(_event, ws) {
-          stopHeartbeat = heartbeat(ws.raw, heartbeatMs);
+          stopHeartbeat = pingSocket(ws.raw, heartbeatMs);
           connection = input.registry.connectDaemon({
             userId,
             send(message) {
@@ -60,7 +60,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
       let stopHeartbeat: (() => void) | undefined;
       return {
         onOpen(_event, ws) {
-          stopHeartbeat = heartbeat(ws.raw, heartbeatMs);
+          stopHeartbeat = pingSocket(ws.raw, heartbeatMs);
           const taken = input.registry.takeTicket(ticket, {
             send(payload) {
               ws.send(payload);
@@ -70,7 +70,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
             },
           });
           if (!taken.ok) {
-            ws.close(1008, ticketCloseReason(taken.reason));
+            ws.close(1008, ticketCloseReasons[taken.reason]);
             return;
           }
           link = taken.link;
@@ -92,21 +92,9 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
   );
 }
 
-// A socket whose far end vanished without closing stays open until a ping goes unanswered.
-// Ending it ends the device's connection or the browser's session, which would otherwise linger.
-function heartbeat(socket: WebSocket | undefined, everyMs: number): () => void {
-  if (!socket) return () => undefined;
-  let answered = true;
-  socket.on("pong", () => (answered = true));
-  const timer = setInterval(() => {
-    if (!answered) {
-      socket.terminate();
-      return;
-    }
-    answered = false;
-    socket.ping();
-  }, everyMs);
-  return () => clearInterval(timer);
+// Ending a socket whose far end vanished ends the device's connection or the browser's session, which would otherwise linger.
+function pingSocket(socket: WebSocket | undefined, everyMs: number): () => void {
+  return socket ? heartbeat(socket, everyMs) : () => undefined;
 }
 
 function parseJson(text: string): unknown {
@@ -122,12 +110,4 @@ function eventText(data: unknown): string | undefined {
   if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
   if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
   return undefined;
-}
-
-// Wire contract with web apps: the close reason tells the client whether a
-// fresh ticket is worth opening.
-function ticketCloseReason(reason: "used" | "expired" | "gone"): string {
-  if (reason === "used") return "ticket-used";
-  if (reason === "expired") return "ticket-expired";
-  return "ticket-gone";
 }

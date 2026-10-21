@@ -1,6 +1,6 @@
 import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
 import { randomBytes } from "node:crypto";
-import { devicesScope } from "@exterior/contract";
+import { devicesScope } from "@exterioragentprotocol/sdk";
 import type { ExteriorAuth } from "./auth.js";
 
 const daemonSoftwareId = "exterior-daemon";

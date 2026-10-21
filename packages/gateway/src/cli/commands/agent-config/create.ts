@@ -1,4 +1,5 @@
-import { isAgentType, isEnvName } from "@exterior/contract";
+import { isEnvName } from "@exterior/contract";
+import { isAgentType } from "@exterioragentprotocol/sdk";
 import { acpRegistryCachePath, launchForEntry, loadAcpRegistry, platformTarget } from "../../../acp-registry.js";
 import { addAgentConfig, parseCommandArgv } from "../../../agents.js";
 import { readGatewayConfig, writeGatewayConfig, type StoredAgent } from "../../../config.js";

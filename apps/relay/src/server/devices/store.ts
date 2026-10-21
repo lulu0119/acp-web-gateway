@@ -1,4 +1,4 @@
-import { devicePlatforms, type DevicePlatform } from "@exterior/contract";
+import { devicePlatforms, type DevicePlatform } from "@exterioragentprotocol/sdk";
 import type Database from "better-sqlite3";
 
 /** A device the account has signed in, whether or not its daemon is connected now. */

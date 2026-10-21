@@ -10,8 +10,8 @@
     "test:browser": "node capture/verify.mjs"
   },
   "dependencies": {
-    "@exterior/client": "workspace:*",
     "@exterior/contract": "workspace:*",
+    "@exterioragentprotocol/sdk": "workspace:*",
     "@exterior/ui": "workspace:*",
     "@agentclientprotocol/sdk": "^1.7.0",
     "@assistant-ui/react": "^0.15.26",

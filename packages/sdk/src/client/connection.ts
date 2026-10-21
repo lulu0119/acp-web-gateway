@@ -1,10 +1,11 @@
+import { ticketCloseReasons } from "../index.js";
 import { openConnection } from "./oauth.js";
 
 export type AgentTarget = { deviceId: string; agentName: string };
 
 export type OpenedAgent = { url: string; agentType: string; agentName: string };
 
-export type TicketCloseReason = "ticket-used" | "ticket-expired" | "ticket-gone";
+export type TicketCloseReason = (typeof ticketCloseReasons)[keyof typeof ticketCloseReasons];
 
 /**
  * Reads the relay's ticket close reason. The relay closes a rejected agent
@@ -12,8 +13,7 @@ export type TicketCloseReason = "ticket-used" | "ticket-expired" | "ticket-gone"
  * outcome.
  */
 export function parseTicketCloseReason(reason: string | undefined): TicketCloseReason | undefined {
-  if (reason === "ticket-used" || reason === "ticket-expired" || reason === "ticket-gone") return reason;
-  return undefined;
+  return Object.values(ticketCloseReasons).find((known) => known === reason);
 }
 
 /**

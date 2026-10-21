@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { devicesScope } from "@exterior/contract";
+import { devicesScope } from "@exterioragentprotocol/sdk";
 import Database from "better-sqlite3";
 import { test } from "vitest";
 import { openExteriorAuth } from "../identity/auth.js";

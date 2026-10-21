@@ -6,7 +6,7 @@ Exterior is an account and relay that lets a web app reach an ACP agent on a dev
 
 - `apps/relay` — the relay: Hono server, better-auth (GitHub sign-in, OAuth provider, device authorization), server-rendered account pages (`/sign-in`, `/device`, `/consent`) and the client-rendered dashboard (`/`). Built output: `apps/relay/dist`.
 - `packages/gateway` — the `exterior` CLI (`login`, `agent-config`, `daemon`, `status`, `logout`). Built output: `packages/gateway/dist/bin/exterior.mjs`.
-- `packages/client`, `packages/contract` — SDK and wire contract shared by the above.
+- `packages/sdk` — the EAP SDK (`@exterioragentprotocol/sdk`): wire messages, client, device, and relay entries. `packages/contract` — Exterior's own constants shared by the above.
 - `apps/example` — one web app that uses the SDK.
 
 ## 2. Environment

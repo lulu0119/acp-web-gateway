@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AccountPage } from "../shared/account-web.js";
 import { createAgentCatalog, type AgentCatalog } from "./agents/catalog.js";
-import type { Registry } from "./connections/registry.js";
+import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "./devices/store.js";
 import type { RelayEnv, ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";

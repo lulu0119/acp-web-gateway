@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 import { openExteriorAuth } from "./server/identity/auth.js";
 import { createRelayApp } from "./server/app.js";
 import { ensureDaemonClient } from "./server/identity/clients.js";
-import { createRegistry } from "./server/connections/registry.js";
+import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 import { openDeviceStore } from "./server/devices/store.js";
 
 initLogger(LogLevel.Log, process.env.LOG_FORMAT === "json" ? Format.JSON : Format.Pretty);

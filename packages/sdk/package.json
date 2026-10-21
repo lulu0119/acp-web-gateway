@@ -1,7 +1,7 @@
 {
-  "name": "@exterior/client",
+  "name": "@exterioragentprotocol/sdk",
   "version": "0.1.0-beta.1",
-  "description": "Signs a web app or the Exterior daemon into an account and opens an agent.",
+  "description": "Exterior Agent Protocol for clients, devices, and relays: reach an ACP agent on a machine its user owns.",
   "type": "module",
   "files": [
     "dist"
@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lulu0119/exterior.git",
-    "directory": "packages/client"
+    "directory": "packages/sdk"
   },
   "publishConfig": {
     "access": "public"
@@ -19,9 +19,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./client/react": {
+      "types": "./dist/client/react.d.ts",
+      "import": "./dist/client/react.js"
+    },
+    "./device": {
+      "types": "./dist/device/index.d.ts",
+      "import": "./dist/device/index.js"
+    },
+    "./relay": {
+      "types": "./dist/relay/index.d.ts",
+      "import": "./dist/relay/index.js"
     }
   },
   "scripts": {
@@ -30,16 +42,23 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
-    "@exterior/contract": "workspace:*",
-    "oauth4webapi": "^3.8.8"
+    "oauth4webapi": "^3.8.8",
+    "valibot": "^1.5.0",
+    "ws": "^8.18.3"
   },
   "peerDependencies": {
     "react": "^19"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.6.0",
     "@types/react": "^19.2.0",
+    "@types/ws": "^8.18.1",
     "jsdom": "^30.1.2",
     "react": "^19.2.0",
     "react-dom": "^19.3.0",

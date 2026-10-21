@@ -323,7 +323,7 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
 
 const publicApp = { grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" };
 
-/** Registers an app as `@exterior/client` does (RFC 7591) and returns its client id. */
+/** Registers an app as `@exterioragentprotocol/sdk` does (RFC 7591) and returns its client id. */
 async function registerApp(app: Hono<RelayEnv>, metadata: Record<string, unknown>): Promise<string> {
   const registered = await app.request(`${publicUrl}/api/auth/oauth2/register`, {
     method: "POST",

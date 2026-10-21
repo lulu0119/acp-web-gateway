@@ -24,8 +24,8 @@
     "build:executable": "pnpm run build && node scripts/build-executable.mjs"
   },
   "devDependencies": {
-    "@exterior/client": "workspace:*",
     "@exterior/contract": "workspace:*",
+    "@exterioragentprotocol/sdk": "workspace:*",
     "@types/node": "^24.6.0",
     "@types/ws": "^8.18.1",
     "cac": "^7.1.0",

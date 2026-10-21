@@ -9,25 +9,16 @@ export {
 } from "./connection.js";
 export {
   beginBrowserSignIn,
-  beginDeviceAuthorization,
   browserCallbackPath,
   clearBrowserSignIn,
   createAuthorizationRequest,
-  DeviceRegistrationError,
   exchangeAuthorizationCode,
-  fetchExteriorUser,
-  fetchPublicClients,
   finishBrowserSignIn,
   listDevices,
   openConnection,
-  pollDeviceAuthorization,
-  refreshExteriorAccessToken,
-  RefreshTokenRejectedError,
-  registerDevice,
-  revokeRefreshToken,
   registerBrowserClient,
   storedAccessToken,
   type BrowserStore,
-  type DeviceAuthorization,
-  type ExteriorTokens,
 } from "./oauth.js";
+export { refreshAccessToken, RefreshTokenRejectedError, revokeRefreshToken, type Tokens } from "../oauth.js";
+export type { AgentSlot, Device, DevicePlatform } from "../index.js";

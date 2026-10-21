@@ -2,18 +2,16 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { test } from "vitest";
-import { devicesScope } from "@exterior/contract";
+import { devicesScope } from "../index.js";
+import { beginDeviceAuthorization, pollDeviceAuthorization } from "../device/authorization.js";
+import { revokeRefreshToken } from "../oauth.js";
 import {
   beginBrowserSignIn,
-  beginDeviceAuthorization,
   clearBrowserSignIn,
   createAuthorizationRequest,
-  fetchExteriorUser,
   finishBrowserSignIn,
   listDevices,
   openConnection,
-  revokeRefreshToken,
-  pollDeviceAuthorization,
   type BrowserStore,
 } from "./oauth.js";
 
@@ -144,15 +142,6 @@ test("a web app without a client id registers itself once per browser", async ()
   }
 });
 
-test("the account behind an access token identifies itself", async () => {
-  const relay = await fakeRelay();
-  try {
-    assert.deepEqual(await fetchExteriorUser({ relayUrl: relay.origin, accessToken: "access-1" }), { sub: "user-1" });
-  } finally {
-    relay.close();
-  }
-});
-
 test("signing out clears the stored browser tokens", () => {  const store = memoryStore();
   store.setItem("exterior.accessToken", "access-1");
   store.setItem("exterior.refreshToken", "refresh-1");
@@ -249,7 +238,6 @@ async function fakeRelay(): Promise<{
       registrations.push(JSON.parse(raw));
       return json(response, { client_id: `registered-client-${registrations.length}`, token_endpoint_auth_method: "none" }, 201);
     }
-    if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
       return json(response, {
         device_code: "device-code-1",

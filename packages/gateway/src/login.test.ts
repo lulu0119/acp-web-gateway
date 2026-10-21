@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DeviceRegistrationError, registerDevice } from "@exterior/client";
+import { DeviceRegistrationError, registerDevice } from "@exterior/contract";
 import { beforeEach, test, vi } from "vitest";
 import { readDeviceId } from "./device-ids.js";
 import { deviceIdFor, signInDaemon } from "./login.js";
 import { removeSignIn } from "./sign-ins.js";
 
-vi.mock("@exterior/client", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@exterior/client")>()),
+vi.mock("@exterior/contract", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@exterior/contract")>()),
   fetchPublicClients: vi.fn(async () => ({ daemonClientId: "daemon-client" })),
+  registerDevice: vi.fn(async () => undefined),
+}));
+vi.mock("@exterioragentprotocol/sdk/device", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@exterioragentprotocol/sdk/device")>()),
   beginDeviceAuthorization: vi.fn(async () => ({ verificationUri: "https://relay.example/device", userCode: "ABCD-EFGH", expiresAt: Date.now() + 600_000 })),
   pollDeviceAuthorization: vi.fn(async () => ({ accessToken: "access-1", refreshToken: "refresh-1", expiresAt: Date.now() + 3_600_000 })),
-  registerDevice: vi.fn(async () => undefined),
 }));
 
 const relayUrl = "https://relay.example";

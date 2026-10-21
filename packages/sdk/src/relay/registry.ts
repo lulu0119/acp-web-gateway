@@ -1,9 +1,17 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { AgentSlot, DaemonMessage, Device, DevicePlatform, RelayMessage } from "@exterior/contract";
-import type { LiveSessionInfo } from "../../shared/account-web.js";
+import type { AgentSlot, DaemonMessage, Device, DevicePlatform, RelayMessage, ticketCloseReasons } from "../index.js";
 
 const defaultTicketTtlMs = 60_000;
 const defaultOpenTimeoutMs = 15_000;
+
+/** A live session, as an account's own pages list it. */
+export type ConnectionInfo = {
+  deviceId: string;
+  agentName: string;
+  agentType: string;
+  /** The web app that opened the session. */
+  clientId: string;
+};
 
 export type OpenSessionResult =
   | { ok: true; ticket: string; agentType: string; agentName: string }
@@ -61,7 +69,7 @@ export type DaemonCloseReason = "replaced" | "removed";
  */
 export type SeenDevice = (input: { userId: string; deviceId: string; hostname: string; platform: DevicePlatform }) => boolean;
 
-export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: "used" | "expired" | "gone" };
+export type TakeTicketResult = { ok: true; link: BrowserLink } | { ok: false; reason: keyof typeof ticketCloseReasons };
 
 export type Registry = {
   /** `close` ends the daemon's socket when the relay turns the daemon away. */
@@ -70,7 +78,7 @@ export type Registry = {
     close(): void;
   };
   listDevices(userId: string): Device[];
-  listSessions(userId: string): LiveSessionInfo[];
+  listSessions(userId: string): ConnectionInfo[];
   openSession(input: { userId: string; clientId: string; deviceId: string; agentName: string }): Promise<OpenSessionResult>;
   /** Ends the device's connection and its sessions, as the device was removed. */
   disconnectDevice(input: { userId: string; deviceId: string }): void;

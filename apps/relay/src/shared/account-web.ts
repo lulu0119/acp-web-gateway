@@ -1,12 +1,8 @@
-import type { AgentSlot, DevicePlatform } from "@exterior/contract";
+import type { AgentSlot, DevicePlatform } from "@exterioragentprotocol/sdk";
+import type { ConnectionInfo } from "@exterioragentprotocol/sdk/relay";
 
-export type LiveSessionInfo = {
-  deviceId: string;
-  agentName: string;
-  agentType: string;
-  /** The web app that opened the session; Authorized apps names it. */
-  clientId: string;
-};
+/** A live session; Authorized apps names the web app that opened it. */
+export type LiveSessionInfo = ConnectionInfo;
 
 /** A signed-in device as the dashboard shows it. `online` while its daemon is connected; `agents` only then. */
 export type DeviceView = {

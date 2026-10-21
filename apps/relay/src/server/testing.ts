@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { createAgentCatalog } from "./agents/catalog.js";
 import { createRelayApp } from "./app.js";
-import { createRegistry, type Registry } from "./connections/registry.js";
+import { createRegistry, type Registry } from "@exterioragentprotocol/sdk/relay";
 import { openDeviceStore } from "./devices/store.js";
 import type { ReadAccess } from "./http.js";
 import { openExteriorAuth, type ExteriorAuth } from "./identity/auth.js";

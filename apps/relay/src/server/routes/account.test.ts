@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { devicesPath, devicesScope } from "@exterior/contract";
+import { devicesPath, devicesScope } from "@exterioragentprotocol/sdk";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";

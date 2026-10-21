@@ -5,7 +5,7 @@ Product narrative: [README.md](README.md). Decisions: [docs/decisions.md](docs/d
 ## Homes
 
 - What the product does stays in README.
-- Device setup and relay operation go in `docs/manual.md`; the web app SDK is documented in `packages/client/README.md` beside the code.
+- Device setup and relay operation go in `docs/manual.md`; the SDK is documented in `packages/sdk/README.md` beside the code.
 - The protocol's wire contract is [docs/protocol/exterior-agent-protocol.md](docs/protocol/exterior-agent-protocol.md). It states only what a conforming implementation does.
 - Every `docs/adr/NNNN-slug.md` is listed in `docs/decisions.md` with its status.
 - A research note carries a `Status` line: consumed by an ADR, partially applied with a pointer, or rejected with the reason.

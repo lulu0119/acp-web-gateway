@@ -1,4 +1,5 @@
-import { fetchPublicClients, revokeRefreshToken } from "@exterior/client";
+import { fetchPublicClients } from "@exterior/contract";
+import { revokeRefreshToken } from "@exterioragentprotocol/sdk/device";
 import { removeSignIn } from "../../sign-ins.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";

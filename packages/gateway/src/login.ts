@@ -1,13 +1,6 @@
 import { randomBytes } from "node:crypto";
-import {
-  beginDeviceAuthorization,
-  DeviceRegistrationError,
-  fetchPublicClients,
-  pollDeviceAuthorization,
-  refreshExteriorAccessToken,
-  RefreshTokenRejectedError,
-  registerDevice,
-} from "@exterior/client";
+import { DeviceRegistrationError, fetchPublicClients, registerDevice } from "@exterior/contract";
+import { beginDeviceAuthorization, pollDeviceAuthorization, refreshAccessToken, RefreshTokenRejectedError } from "@exterioragentprotocol/sdk/device";
 import { readDeviceId, writeDeviceId } from "./device-ids.js";
 import { readSignIn, writeSignIn, type SignIn } from "./sign-ins.js";
 
@@ -109,7 +102,7 @@ export async function usableSignIn(input: {
   const timeout = AbortSignal.timeout(10_000);
   const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
   const clients = await fetchPublicClients(relayUrl, signal);
-  const tokens = await refreshExteriorAccessToken({
+  const tokens = await refreshAccessToken({
     relayUrl,
     clientId: clients.daemonClientId,
     refreshToken: signIn.refreshToken,

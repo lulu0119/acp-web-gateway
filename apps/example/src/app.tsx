@@ -7,7 +7,7 @@ import type { Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
 import { WelcomePage } from "@/components/app/welcome-page";
-import { useAccount } from "@exterior/client/react";
+import { useAccount } from "@exterioragentprotocol/sdk/client/react";
 import { Button } from "@exterior/ui/button";
 import { accountPaths } from "@/lib/account-paths";
 import { exampleClientId, exampleLogoUri } from "@/lib/client-id";

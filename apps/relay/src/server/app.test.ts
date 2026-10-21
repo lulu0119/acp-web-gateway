@@ -3,9 +3,9 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
-import { daemonCloseCodes } from "@exterior/contract";
+import { daemonCloseCodes } from "@exterioragentprotocol/sdk";
 import { headerAccess, openTestRelay } from "./testing.js";
-import { createRegistry } from "./connections/registry.js";
+import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 
 test("an online device accepts one ticket and carries ACP frames", async () => {
   const registry = createRegistry({ openTimeoutMs: 2_000 });

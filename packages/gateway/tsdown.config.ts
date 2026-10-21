@@ -14,7 +14,7 @@ export default defineConfig({
   define: { __EXTERIOR_VERSION__: JSON.stringify(version) },
   // ws loads these native speedups only when they are installed.
   deps: {
-    onlyBundle: ["@exterior/client", "@exterior/contract", "cac", "oauth4webapi", "valibot", "ws"],
+    onlyBundle: ["@exterior/contract", "@exterioragentprotocol/sdk", "cac", "oauth4webapi", "valibot", "ws"],
     neverBundle: ["bufferutil", "utf-8-validate"],
   },
 });

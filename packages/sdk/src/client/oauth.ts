@@ -1,67 +1,8 @@
-import {
-  devicePlatforms,
-  devicesPath,
-  exampleCallbackPath,
-  devicesScope,
-  isRecord,
-  publicClientsPath,
-  connectionsPath,
-  type Device,
-  type DeviceRegistration,
-  type PublicClients,
-} from "@exterior/contract";
+import { connectionsPath, devicePlatforms, devicesPath, devicesScope, type Device } from "../index.js";
 import * as oauth from "oauth4webapi";
-
-export type ExteriorTokens = {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt: number;
-};
-
-export class RefreshTokenRejectedError extends Error {
-  constructor() {
-    super("Sign in again.");
-    this.name = "RefreshTokenRejectedError";
-  }
-}
-
-/**
- * The relay did not register the device. 401: the access token expired. 403: the refresh token is not a live
- * sign-in of this account, such as one revoked by removing the device. 409: another account holds the device id.
- */
-export class DeviceRegistrationError extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message);
-    this.name = "DeviceRegistrationError";
-  }
-}
-
-export type DeviceAuthorization = {
-  relayUrl: string;
-  clientId: string;
-  deviceCode: string;
-  userCode: string;
-  verificationUri: string;
-  /** The verification address with the code filled in, when Exterior offers one. */
-  verificationUriComplete?: string;
-  expiresAt: number;
-  intervalSeconds: number;
-};
+import { discover, httpOptions, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
 const refreshWindowMs = 60_000;
-
-export async function fetchPublicClients(relayUrl: string, signal?: AbortSignal): Promise<PublicClients> {
-  const response = await fetch(new URL(publicClientsPath, originOf(relayUrl)), { signal }).catch((error: unknown) => {
-    if (signal?.aborted) throw error;
-    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`, { cause: error });
-  });
-  if (!response.ok) throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
-  const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || typeof body.daemonClientId !== "string") {
-    throw new Error("Exterior did not list its clients.");
-  }
-  return { daemonClientId: body.daemonClientId };
-}
 
 export async function createAuthorizationRequest(input: {
   relayUrl: string;
@@ -92,7 +33,7 @@ export async function exchangeAuthorizationCode(input: {
   codeVerifier: string;
   state: string;
   clientSecret?: string;
-}): Promise<ExteriorTokens> {
+}): Promise<Tokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
   const callback = new URL(input.callbackUrl);
@@ -116,115 +57,6 @@ export async function exchangeAuthorizationCode(input: {
     throw new Error(oauthMessage(error, "Sign in again."));
   });
   return toTokens(tokens);
-}
-
-export async function refreshExteriorAccessToken(input: {
-  relayUrl: string;
-  clientId: string;
-  refreshToken: string;
-  clientSecret?: string;
-  signal?: AbortSignal;
-}): Promise<ExteriorTokens> {
-  const server = await discover(input.relayUrl, input.signal);
-  const client = publicClient(input.clientId);
-  const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
-  const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, {
-    ...requestOptions(input.relayUrl, originOf(input.relayUrl)),
-    signal: input.signal,
-  });
-  const tokens = await oauth.processRefreshTokenResponse(server, client, response).catch((error: unknown) => {
-    if (error instanceof oauth.ResponseBodyError && ["invalid_grant", "invalid_client", "unauthorized_client", "access_denied"].includes(error.error)) {
-      throw new RefreshTokenRejectedError();
-    }
-    throw new Error(oauthMessage(error, "Sign in again."));
-  });
-  return toTokens(tokens, input.refreshToken);
-}
-
-/** Revokes a refresh token, so it no longer signs anything in. */
-export async function revokeRefreshToken(input: { relayUrl: string; clientId: string; refreshToken: string; signal?: AbortSignal }): Promise<void> {
-  const server = await discover(input.relayUrl, input.signal);
-  const response = await oauth.revocationRequest(server, publicClient(input.clientId), oauth.None(), input.refreshToken, {
-    ...httpOptions(input.relayUrl),
-    additionalParameters: { token_type_hint: "refresh_token" },
-    signal: input.signal,
-  });
-  await oauth.processRevocationResponse(response).catch((error: unknown) => {
-    throw new Error(oauthMessage(error, "Exterior did not revoke the sign-in."));
-  });
-}
-
-export async function beginDeviceAuthorization(input: { relayUrl: string; clientId: string }): Promise<DeviceAuthorization> {
-  const server = await discover(input.relayUrl);
-  const client = publicClient(input.clientId);
-  const response = await oauth.deviceAuthorizationRequest(
-    server,
-    client,
-    oauth.None(),
-    new URLSearchParams({ scope: devicesScope, resource: originOf(input.relayUrl) }),
-    httpOptions(input.relayUrl),
-  );
-  const device = await oauth.processDeviceAuthorizationResponse(server, client, response).catch((error: unknown) => {
-    throw new Error(oauthMessage(error, "Exterior did not start device sign-in."));
-  });
-  return {
-    relayUrl: originOf(input.relayUrl),
-    clientId: input.clientId,
-    deviceCode: device.device_code,
-    userCode: device.user_code,
-    verificationUri: device.verification_uri,
-    verificationUriComplete: device.verification_uri_complete,
-    expiresAt: Date.now() + device.expires_in * 1000,
-    intervalSeconds: device.interval ?? 5,
-  };
-}
-
-export async function pollDeviceAuthorization(pending: DeviceAuthorization, signal?: AbortSignal): Promise<ExteriorTokens> {
-  const server = await discover(pending.relayUrl);
-  const client = publicClient(pending.clientId);
-  let intervalMs = pending.intervalSeconds * 1000;
-  while (Date.now() < pending.expiresAt) {
-    await delay(intervalMs, signal);
-    try {
-      const response = await oauth.deviceCodeGrantRequest(
-        server,
-        client,
-        oauth.None(),
-        pending.deviceCode,
-        requestOptions(pending.relayUrl, originOf(pending.relayUrl)),
-      );
-      const tokens = await oauth.processDeviceCodeResponse(server, client, response);
-      const stored = toTokens(tokens);
-      if (!stored.refreshToken) throw new Error("Exterior did not return a refresh token.");
-      return stored;
-    } catch (error) {
-      if (!(error instanceof oauth.ResponseBodyError)) throw error;
-      if (error.error === "authorization_pending") continue;
-      if (error.error === "slow_down") {
-        intervalMs += 5_000;
-        continue;
-      }
-      if (error.error === "access_denied") throw new Error("The device was not approved.");
-      if (error.error === "expired_token") throw new Error("The sign-in code expired.");
-      throw new Error(error.error_description ?? "Sign-in failed.");
-    }
-  }
-  throw new Error("The sign-in code expired.");
-}
-
-/** Tells the relay which device a daemon sign-in belongs to. A daemon connects only as a registered device. */
-export async function registerDevice(relayUrl: string, accessToken: string, device: DeviceRegistration, signal?: AbortSignal): Promise<void> {
-  const response = await fetch(new URL(devicesPath, originOf(relayUrl)), {
-    method: "POST",
-    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify(device),
-    signal,
-  });
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => undefined);
-    const message = isRecord(body) && typeof body.message === "string" ? body.message : `Exterior did not record this device (HTTP ${response.status}).`;
-    throw new DeviceRegistrationError(response.status, message);
-  }
 }
 
 export async function listDevices(relayUrl: string, accessToken: string, signal?: AbortSignal): Promise<Device[]> {
@@ -264,7 +96,7 @@ export async function openConnection(
   return { url: body.url, agentType: body.agentType, agentName: body.agentName };
 }
 
-export const browserCallbackPath = exampleCallbackPath;
+export const browserCallbackPath = "/oauth/callback";
 
 export type BrowserStore = {
   getItem(key: string): string | null;
@@ -279,16 +111,6 @@ const signInRegistrationKey = "exterior.signInRegistration";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
-
-export async function fetchExteriorUser(input: { relayUrl: string; accessToken: string }): Promise<{ sub: string }> {
-  const response = await fetch(new URL("/api/auth/oauth2/userinfo", originOf(input.relayUrl)), {
-    headers: { authorization: `Bearer ${input.accessToken}` },
-  });
-  if (!response.ok) throw new Error("Exterior did not identify the account.");
-  const body: unknown = await response.json().catch(() => undefined);
-  if (!isRecord(body) || typeof body.sub !== "string") throw new Error("Exterior did not identify the account.");
-  return { sub: body.sub };
-}
 
 /**
  * Registers a web app that has no client id of its own (RFC 7591), as a public client that returns
@@ -379,7 +201,7 @@ export async function finishBrowserSignIn(input: {
   registrations?: BrowserStore;
   clientId?: string;
   clientSecret?: string;
-}): Promise<ExteriorTokens> {
+}): Promise<Tokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
   const clientId = input.clientId ?? input.store.getItem(signInClientKey) ?? cachedClientId(input.store, input.relayUrl);
@@ -417,7 +239,7 @@ export async function finishBrowserSignIn(input: {
   return run;
 }
 
-const pendingCallbackExchanges = new Map<string, Promise<ExteriorTokens>>();
+const pendingCallbackExchanges = new Map<string, Promise<Tokens>>();
 
 function callbackCode(callbackUrl: string): string | undefined {
   try {
@@ -436,7 +258,7 @@ export async function storedAccessToken(input: { relayUrl: string; store: Browse
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
   try {
-    const tokens = await refreshExteriorAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
+    const tokens = await refreshAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
     writeBrowserTokens(input.store, tokens);
     return tokens.accessToken;
   } catch {
@@ -449,44 +271,7 @@ export function clearBrowserSignIn(store: BrowserStore): void {
   clearBrowserTokens(store);
 }
 
-async function discover(relayUrl: string, signal?: AbortSignal): Promise<oauth.AuthorizationServer> {
-  const issuer = new URL("/api/auth", originOf(relayUrl));
-  let response: Response;
-  try {
-    response = await oauth.discoveryRequest(issuer, { ...httpOptions(relayUrl), signal });
-  } catch {
-    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
-  }
-  const server = await oauth.processDiscoveryResponse(issuer, response).catch(() => {
-    throw new Error(`Exterior did not answer at ${originOf(relayUrl)}.`);
-  });
-  if (!server.device_authorization_endpoint) {
-    return { ...server, device_authorization_endpoint: new URL("/device/code", issuer).href };
-  }
-  return server;
-}
-
-function publicClient(clientId: string): oauth.Client {
-  return { client_id: clientId, token_endpoint_auth_method: "none" };
-}
-
-function requestOptions(relayUrl: string, resource: string): oauth.TokenEndpointRequestOptions {
-  return { ...httpOptions(relayUrl), additionalParameters: { resource } };
-}
-
-function httpOptions(relayUrl: string): { [oauth.allowInsecureRequests]?: true } {
-  return new URL(originOf(relayUrl)).protocol === "http:" ? { [oauth.allowInsecureRequests]: true } : {};
-}
-
-function toTokens(tokens: oauth.TokenEndpointResponse, previousRefresh?: string): ExteriorTokens {
-  return {
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token ?? previousRefresh,
-    expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
-  };
-}
-
-function writeBrowserTokens(store: BrowserStore, tokens: ExteriorTokens): void {
+function writeBrowserTokens(store: BrowserStore, tokens: Tokens): void {
   store.setItem(accessKey, tokens.accessToken);
   store.setItem(expiresKey, String(tokens.expiresAt));
   if (tokens.refreshToken) store.setItem(refreshKey, tokens.refreshToken);
@@ -496,34 +281,6 @@ function clearBrowserTokens(store: BrowserStore): void {
   store.removeItem(accessKey);
   store.removeItem(refreshKey);
   store.removeItem(expiresKey);
-}
-
-function originOf(relayUrl: string): string {
-  return new URL(relayUrl).origin;
-}
-
-function oauthMessage(error: unknown, fallback: string): string {
-  if (error instanceof oauth.ResponseBodyError && error.error_description) return error.error_description;
-  if (error instanceof oauth.AuthorizationResponseError && error.error_description) return error.error_description;
-  return fallback;
-}
-
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error("Sign-in cancelled."));
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(new Error("Sign-in cancelled."));
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 function isDevice(value: unknown): value is Device {

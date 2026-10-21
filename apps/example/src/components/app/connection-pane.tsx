@@ -1,5 +1,5 @@
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import { openConnection } from "@exterior/client";
+import { openConnection } from "@exterioragentprotocol/sdk/client";
 import { AssistantRuntimeProvider, AuiIf, useAui } from "@assistant-ui/react";
 import {
   useAcpAuth,

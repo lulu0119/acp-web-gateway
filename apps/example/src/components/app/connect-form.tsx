@@ -1,6 +1,5 @@
-import { listDevices, openConnection } from "@exterior/client";
-import type { Device } from "@exterior/contract";
-import type { AccountSession } from "@exterior/client/react";
+import { listDevices, openConnection, type Device } from "@exterioragentprotocol/sdk/client";
+import type { AccountSession } from "@exterioragentprotocol/sdk/client/react";
 import { ArrowRightIcon, ArrowUpRightIcon, BotIcon, LaptopIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@exterior/ui/button";

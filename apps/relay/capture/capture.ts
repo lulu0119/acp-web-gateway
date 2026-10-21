@@ -17,8 +17,9 @@ import { mkdir, readFile, rm, symlink, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { beginDeviceAuthorization, fetchPublicClients, pollDeviceAuthorization } from "@exterior/client";
-import { connectionsPath, daemonPath, relayWebSocketUrl, type AgentSlot, type DaemonMessage, type DevicePlatform } from "@exterior/contract";
+import { fetchPublicClients } from "@exterior/contract";
+import { connectionsPath, daemonPath, relayWebSocketUrl, type AgentSlot, type DaemonMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
+import { beginDeviceAuthorization, pollDeviceAuthorization } from "@exterioragentprotocol/sdk/device";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
 import WebSocket from "ws";
@@ -135,7 +136,7 @@ const fixtureApps: { client_name: string; redirect_uris: string[]; logo_uri?: st
   { client_name: "Notes", redirect_uris: ["https://notes.example.test/callback"], application_type: "web" },
 ];
 
-/** Registers a web app with the relay, as `@exterior/client` does (RFC 7591). */
+/** Registers a web app with the relay, as `@exterioragentprotocol/sdk` does (RFC 7591). */
 async function registerApp(publicUrl: string, metadata: Record<string, unknown>): Promise<string> {
   const response = await fetch(`${publicUrl}/api/auth/oauth2/register`, {
     method: "POST",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { DaemonMessage } from "@exterior/contract";
+import type { DaemonMessage } from "@exterioragentprotocol/sdk";
 import type { DashboardData } from "../../shared/account-web.js";
 import { openSignedInRelay } from "../testing.js";
 

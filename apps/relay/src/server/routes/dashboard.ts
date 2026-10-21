@@ -1,10 +1,10 @@
-import { devicesPath } from "@exterior/contract";
+import { devicesPath } from "@exterioragentprotocol/sdk";
 import type { Hono } from "hono";
 import type { RelayEnv } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
 import type { DashboardData, DeviceView } from "../../shared/account-web.js";
 import type { AgentCatalog } from "../agents/catalog.js";
-import type { Registry } from "../connections/registry.js";
+import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "../devices/store.js";
 import { deleteDeviceTokens } from "../identity/device-tokens.js";
 import { readAccount, type Account } from "../identity/session.js";

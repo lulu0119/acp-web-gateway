@@ -1,6 +1,7 @@
-import { acpPath, connectionsPath, devicesPath, parseDeviceRegistration } from "@exterior/contract";
+import { parseDeviceRegistration } from "@exterior/contract";
+import { acpPath, connectionsPath, devicesPath } from "@exterioragentprotocol/sdk";
 import type { Hono } from "hono";
-import type { Registry } from "../connections/registry.js";
+import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "../devices/store.js";
 import type { ExteriorAuth } from "../identity/auth.js";
 import { bindDeviceToken } from "../identity/device-tokens.js";

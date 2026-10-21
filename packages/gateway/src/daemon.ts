@@ -1,6 +1,5 @@
-import { DeviceRegistrationError } from "@exterior/client";
-import { daemonCloseCodes, daemonPath, devicePlatform, parseRelayMessage, relayWebSocketUrl, type DaemonMessage } from "@exterior/contract";
-import WebSocket from "ws";
+import { DeviceRegistrationError } from "@exterior/contract";
+import { connectDevice, devicePlatform, type DeviceSocketEnd } from "@exterioragentprotocol/sdk/device";
 import { loadAcpRegistry, platformTarget, resolveStoredAgent, type RegistryAgent } from "./acp-registry.js";
 import { usableWorkingDirectory, type GatewayConfig } from "./config.js";
 import { createDaemonHost } from "./host.js";
@@ -8,7 +7,6 @@ import { DaemonLoginRequiredError, loginAgain } from "./login.js";
 
 type DaemonHost = ReturnType<typeof createDaemonHost>;
 
-const defaultHeartbeatMs = 30_000;
 const maxRetryMs = 30_000;
 
 export async function runDaemon(input: {
@@ -170,95 +168,38 @@ function connectOnce(input: {
   signal?: AbortSignal;
   catalog: readonly RegistryAgent[];
   heartbeatMs?: number;
-}): Promise<"failed" | "disconnected" | "replaced" | "removed" | "unauthorized" | "forbidden"> {
+}): Promise<DeviceSocketEnd> {
   const platform = devicePlatform(process.platform);
   if (!platform) {
     input.inform("This operating system is not one Exterior reports.");
     return Promise.resolve("failed");
   }
-  const socket = new WebSocket(relayWebSocketUrl(input.relayUrl, daemonPath), {
-    headers: { authorization: `Bearer ${input.accessToken}` },
-    handshakeTimeout: 10_000,
-  });
-  let unauthorized = false;
-  let forbidden = false;
-  let connected = false;
-  let answered = true;
-  // A relay that vanished without closing the socket leaves it open here. Unanswered pings notice.
-  const heartbeat = setInterval(() => {
-    if (!connected) return;
-    if (!answered) {
-      input.inform("The relay stopped answering.");
-      socket.terminate();
-      return;
-    }
-    answered = false;
-    socket.ping();
-  }, input.heartbeatMs ?? defaultHeartbeatMs);
-  const host = createDaemonHost({
-    hostname: input.hostname,
-    platform,
-    deviceId: input.deviceId,
-    workingDirectory: input.config.workingDirectory,
-    agents: input.config.agents,
-    send(message: DaemonMessage) {
-      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
-    },
-    resolveLaunch(agent) {
-      return resolveStoredAgent({
-        agent,
-        agents: input.catalog,
-        platform: platformTarget(),
+  return connectDevice({
+    relayUrl: input.relayUrl,
+    accessToken: input.accessToken,
+    inform: input.inform,
+    onConnected: () => input.onStatus?.("connected"),
+    heartbeatMs: input.heartbeatMs,
+    signal: input.signal,
+    host(send) {
+      const host = createDaemonHost({
+        hostname: input.hostname,
+        platform,
+        deviceId: input.deviceId,
+        workingDirectory: input.config.workingDirectory,
+        agents: input.config.agents,
+        send,
+        resolveLaunch(agent) {
+          return resolveStoredAgent({
+            agent,
+            agents: input.catalog,
+            platform: platformTarget(),
+          });
+        },
       });
+      input.onHost(host);
+      return host;
     },
-  });
-  input.onHost(host);
-  const stop = () => {
-    host.close();
-    socket.terminate();
-  };
-  return new Promise((resolve) => {
-    socket.on("open", () => {
-      connected = true;
-      input.inform("Connected to relay.");
-      input.onStatus?.("connected");
-      host.hello();
-    });
-    socket.on("pong", () => (answered = true));
-    socket.on("message", (data, isBinary) => {
-      if (isBinary) return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data.toString());
-      } catch {
-        return;
-      }
-      const message = parseRelayMessage(parsed);
-      if (message) host.receive(message);
-    });
-    socket.on("unexpected-response", (_request, response) => {
-      if (response.statusCode === 401) unauthorized = true;
-      if (response.statusCode === 403) forbidden = true;
-      input.inform(`Relay handshake failed (HTTP ${response.statusCode}).`);
-      response.resume();
-      socket.terminate();
-    });
-    socket.on("error", () => {
-      if (!unauthorized && !forbidden && !input.signal?.aborted) input.inform("Relay connection failed.");
-    });
-    socket.on("close", (code) => {
-      clearInterval(heartbeat);
-      host.close();
-      input.signal?.removeEventListener("abort", stop);
-      if (!input.signal?.aborted && !unauthorized && !forbidden) input.inform(`Relay disconnected (code ${code}).`);
-      if (unauthorized) resolve("unauthorized");
-      else if (forbidden) resolve("forbidden");
-      else if (code === daemonCloseCodes.replaced) resolve("replaced");
-      else if (code === daemonCloseCodes.removed) resolve("removed");
-      else resolve(connected ? "disconnected" : "failed");
-    });
-    input.signal?.addEventListener("abort", stop, { once: true });
-    if (input.signal?.aborted) stop();
   });
 }
 
