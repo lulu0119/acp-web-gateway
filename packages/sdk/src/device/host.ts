@@ -7,7 +7,10 @@ import { agentSocketPath, frameBytes, maxFailureLength, relayWebSocketUrl, type 
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 import { defaultHeartbeatMs, dialRelay } from "./socket.js";
 
-/** An agent process the device started. `stop` ends it, with its whole tree. */
+/**
+ * An agent process the device started. `stop` ends it, with its whole tree. The device reads its standard output
+ * and nothing else, so a launcher that pipes standard error must drain it.
+ */
 export type StartedAgent = { child: ChildProcess; stop(): void };
 
 /** Starts the named agent in `workingDirectory`, or answers why it cannot, in words the client may show. */
@@ -114,7 +117,7 @@ export function createDeviceHost(input: {
 
 /**
  * Carries ACP between an agent's standard streams and its agent socket: each frame is a line on its input, and
- * each line it writes is a frame. Standard error goes to this process's own. Each side waits for the other to
+ * each line it writes is a frame. Each side waits for the other to
  * catch up, so a slow client slows the agent instead of filling memory. When the agent ends, the socket closes
  * normally; when the socket closes, the agent is stopped. Returns a function that stops both, as the device shuts down.
  */
@@ -127,7 +130,6 @@ export function carryAgent(agent: StartedAgent, socket: WebSocket, heartbeatMs: 
     if (goingAway) socket.close(1001, "device_stopping");
     else socket.close(1000, "agent_exited");
   };
-  child.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk));
   child.once("close", () => {
     exited = true;
     if (socket.readyState === WebSocket.OPEN) closeSocket();

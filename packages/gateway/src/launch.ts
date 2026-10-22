@@ -52,7 +52,8 @@ export function startProcess(input: {
   env: NodeJS.ProcessEnv;
   workingDirectory: string;
 }): { child: ChildProcess; stop: () => void } {
-  const options = { cwd: input.workingDirectory, env: input.env, stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"], windowsHide: true };
+  // The agent writes its own diagnostics to the daemon's standard error.
+  const options = { cwd: input.workingDirectory, env: input.env, stdio: ["pipe", "pipe", "inherit"] as ["pipe", "pipe", "inherit"], windowsHide: true };
   const child =
     input.executable.kind === "batch"
       ? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/v:off", "/s", "/c", `"${batchCommandLine(input.executable.path, input.args)}"`], {
