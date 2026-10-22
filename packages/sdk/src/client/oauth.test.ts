@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import { test } from "vitest";
 import { beginDeviceAuthorization, pollDeviceAuthorization } from "../device/authorization.js";
@@ -132,7 +132,8 @@ test("a web app signs in with its metadata document's address", async () => {
   }
 });
 
-test("signing out clears the stored browser tokens", () => {  const store = memoryStore();
+test("signing out clears the stored browser tokens", () => {
+  const store = memoryStore();
   store.setItem("exterior.accessToken", "access-1");
   store.setItem("exterior.refreshToken", "refresh-1");
   store.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
@@ -160,11 +161,6 @@ test("two racing callback exchanges share one code redemption", async () => {
       callbackUrl: callback.href,
       store,
     };
-    // ROOT CAUSE:
-    //
-    // If the callback mounts twice, two exchanges raced one single-use code
-    // and the loser surfaced invalid_grant. The fix shares one redemption
-    // between racing callers for the same code.
     const [first, second] = await Promise.all([finishBrowserSignIn(input), finishBrowserSignIn(input)]);
     assert.equal(first.accessToken, "access-1");
     assert.equal(second.accessToken, "access-1");
@@ -206,7 +202,7 @@ async function fakeRelay(): Promise<{
       respond(url, new URLSearchParams(raw), raw, response);
     });
   });
-  function respond(url: URL, params: URLSearchParams, raw: string, response: import("node:http").ServerResponse): void {
+  function respond(url: URL, params: URLSearchParams, raw: string, response: ServerResponse): void {
     const address = server.address();
     const port = address && typeof address !== "string" ? address.port : 0;
     const origin = `http://127.0.0.1:${port}`;
@@ -276,7 +272,7 @@ async function fakeRelay(): Promise<{
   };
 }
 
-function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {
+function json(response: ServerResponse, body: unknown, status = 200): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }

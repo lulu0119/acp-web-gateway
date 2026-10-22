@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import { deviceCloseCodes } from "@exterioragentprotocol/sdk";
 import { generateDeviceKey } from "@exterioragentprotocol/sdk/device";
 import { deviceKeyFor } from "./device-keys.js";
@@ -409,9 +409,8 @@ test("a removed device stops and asks to sign in again", async () => {
 test("an agent keeps running while the device socket reconnects, and stopping the daemon stops it", async () => {
   const relay = await daemonRelay();
   const controller = new AbortController();
-  // Answers each line with the same line.
   const echo = { name: "echo", agentType: "custom", env: {}, command: process.execPath, args: ["-e", "process.stdin.pipe(process.stdout)"] };
-  const agentSockets: import("ws").WebSocket[] = [];
+  const agentSockets: WebSocket[] = [];
   let controls = 0;
   relay.sockets.on("connection", (socket, request) => {
     if (request.url?.startsWith("/eap/v1/device/connections/")) {
@@ -431,7 +430,7 @@ test("an agent keeps running while the device socket reconnects, and stopping th
   try {
     await waitFor(() => agentSockets.length === 1);
     const [agent] = agentSockets;
-    if (!agent) throw new Error("expected an agent socket");
+    assert.ok(agent, "expected an agent socket");
     for (const socket of relay.sockets.clients) if (socket !== agent) socket.terminate();
     await waitFor(() => controls === 2);
     agent.send('{"id":1}');

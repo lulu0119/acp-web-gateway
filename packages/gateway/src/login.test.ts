@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { exteriorDeviceClient } from "@exterior/contract";
-import { beginDeviceAuthorization, deviceIdOf, pollDeviceAuthorization, type DeviceKey } from "@exterioragentprotocol/sdk/device";
+import { beginDeviceAuthorization, deviceIdOf, pollDeviceAuthorization } from "@exterioragentprotocol/sdk/device";
 import { beforeEach, test, vi } from "vitest";
 import { readDeviceKey } from "./device-keys.js";
 import { signInDaemon } from "./login.js";
@@ -25,7 +25,9 @@ function signIn(home: string) {
 }
 
 async function polledWith(call: number): Promise<string> {
-  return await deviceIdOf(poll.mock.calls[call]?.[1] as DeviceKey);
+  const args = poll.mock.calls[call];
+  assert.ok(args);
+  return await deviceIdOf(args[1]);
 }
 
 test("a device signs in as Exterior's device software, with a key it keeps through signing out", async () => {

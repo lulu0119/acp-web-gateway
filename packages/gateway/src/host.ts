@@ -15,9 +15,17 @@ export function createDaemonHost(input: {
   spawnAgent?: (launch: AgentLaunch, workingDirectory: string) => StartedAgent | string;
   heartbeatMs?: number;
 }) {
-  let configured = input.agents;
-  const offered = (): AgentSlot[] =>
-    configured.flatMap((agent) => (input.resolveLaunch(agent) ? [{ name: agent.name, agentType: agent.agentType }] : []));
+  // Each agent is resolved once per configuration, so the device launches exactly what it offered.
+  function resolveAll(agents: readonly StoredAgent[]): Map<string, { agent: StoredAgent; launch: AgentLaunch }> {
+    return new Map(
+      agents.flatMap((agent) => {
+        const launch = input.resolveLaunch(agent);
+        return launch ? [[agent.name, { agent, launch }] as const] : [];
+      }),
+    );
+  }
+  let launchable = resolveAll(input.agents);
+  const offered = (): AgentSlot[] => [...launchable.values()].map(({ agent }) => ({ name: agent.name, agentType: agent.agentType }));
   const host = createDeviceHost({
     relayUrl: input.relayUrl,
     deviceKey: input.deviceKey,
@@ -27,15 +35,15 @@ export function createDaemonHost(input: {
     agents: offered(),
     heartbeatMs: input.heartbeatMs,
     launch(agentName, workingDirectory) {
-      const agent = configured.find((item) => item.name === agentName);
-      const launch = agent ? input.resolveLaunch(agent) : undefined;
-      return launch ? (input.spawnAgent ?? startAgent)(launch, workingDirectory) : "That agent is not configured.";
+      const offer = launchable.get(agentName);
+      if (!offer) return "That agent is not configured.";
+      return (input.spawnAgent ?? startAgent)(offer.launch, workingDirectory);
     },
   });
   return {
     ...host,
     setAgents(agents: readonly StoredAgent[]) {
-      configured = agents;
+      launchable = resolveAll(agents);
       host.setAgents(offered());
     },
   };

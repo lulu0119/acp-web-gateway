@@ -100,11 +100,8 @@ export type Registry = {
   revokeClient(input: { userId: string; clientId: string }): void;
 };
 
-/**
- * Why a connection ended. `client`: its attach socket closed. `timeout`: the device did not dial, or nobody dialed the ticket.
- * `failed`: the device answered `open_failed`. The others are told to the attach socket.
- */
-type Ending = "client" | "timeout" | "failed" | AttachCloseReason;
+const notStarted: OpenConnectionResult = { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." };
+const deviceTimeout: OpenConnectionResult = { ok: false, status: 504, code: "device_timeout", message: "The device did not answer." };
 
 export function createRegistry(input?: { now?: () => number; ticketTtlMs?: number; openTimeoutMs?: number; seen?: SeenDevice }): Registry {
   const now = input?.now ?? Date.now;
@@ -115,22 +112,21 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
   const connections = new Map<string, Connection>();
   const byTicket = new Map<string, Connection>();
 
-  /** Closes whichever of the connection's sockets are still open, and answers an open still waiting. */
-  function end(connection: Connection, ending: Ending, answer?: OpenConnectionResult): void {
+  /**
+   * Closes whichever of the connection's sockets are still open, telling the attach socket `close`, and answers an
+   * open still waiting with `answer`.
+   */
+  function end(connection: Connection, close?: AttachCloseReason, answer = notStarted): void {
     if (connection.state === "ended") return;
     connection.state = "ended";
     clearTimeout(connection.timer);
     connections.delete(connection.id);
     byTicket.delete(connection.ticket);
     connection.agent?.close();
-    if (ending !== "client" && ending !== "timeout" && ending !== "failed") connection.client?.close(ending);
+    if (close) connection.client?.close(close);
     const resolve = connection.resolve;
     connection.resolve = undefined;
-    resolve?.(
-      answer ?? (ending === "timeout"
-        ? { ok: false, status: 504, code: "device_timeout", message: "The device did not answer." }
-        : { ok: false, status: 502, code: "agent_start_failed", message: "The device did not start the agent." }),
-    );
+    resolve?.(answer);
   }
 
   function findDevice(userId: string, deviceId: string): OnlineDevice | undefined {
@@ -200,7 +196,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           }
           const connection = connections.get(message.connectionId);
           if (connection?.state !== "opening" || connection.deviceId !== link.deviceId || connection.userId !== link.userId) return;
-          end(connection, "failed", { ok: false, status: 502, code: "agent_start_failed", message: message.message });
+          end(connection, undefined, { ok: false, status: 502, code: "agent_start_failed", message: message.message });
         },
         close() {
           closed = true;
@@ -245,7 +241,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           expiresAt: 0,
           state: "opening",
           held: [],
-          timer: setTimeout(() => end(connection, "timeout"), openTimeoutMs),
+          timer: setTimeout(() => end(connection, undefined, deviceTimeout), openTimeoutMs),
           resolve,
         };
         connections.set(id, connection);
@@ -265,7 +261,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       connection.state = "issued";
       clearTimeout(connection.timer);
       connection.expiresAt = now() + ticketTtlMs;
-      connection.timer = setTimeout(() => end(connection, "timeout"), ticketTtlMs);
+      connection.timer = setTimeout(() => end(connection), ticketTtlMs);
       byTicket.set(connection.ticket, connection);
       const resolve = connection.resolve;
       connection.resolve = undefined;
@@ -288,7 +284,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       const agent = connection?.agent;
       if (!connection || !agent || connection.state !== "issued") return undefined;
       if (connection.expiresAt < now()) {
-        end(connection, "timeout");
+        end(connection);
         return undefined;
       }
       clearTimeout(connection.timer);
@@ -303,7 +299,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
         },
         closed() {
           connection.client = undefined;
-          end(connection, "client");
+          end(connection);
         },
       };
     },

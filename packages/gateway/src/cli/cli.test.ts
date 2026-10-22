@@ -141,7 +141,8 @@ test("logout revokes the sign-in on the relay and keeps the device id", async ()
     assert.deepEqual(revoked, ["device-studio-1 refresh_token r"]);
     assert.equal((await run(["status"], { home })).stdout, "This device is not signed in. Run exterior login --relay <url>.\n");
     const kept = await readDeviceKey(origin, home);
-    assert.equal(kept && (await deviceIdOf(kept)), deviceId);
+    assert.ok(kept);
+    assert.equal(await deviceIdOf(kept), deviceId);
   } finally {
     server.close();
   }

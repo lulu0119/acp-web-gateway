@@ -36,7 +36,7 @@ export async function deviceIdOf(key: DeviceKey): Promise<string> {
  */
 export async function dpopProof(key: DeviceKey, method: string, url: string, accessToken?: string): Promise<string> {
   const target = new URL(url);
-  target.protocol = target.protocol === "wss:" ? "https:" : target.protocol === "ws:" ? "http:" : target.protocol;
+  target.protocol = target.protocol.replace(/^ws/, "http");
   target.search = "";
   target.hash = "";
   const { crv, kty, x, y } = await publicJwk(key);

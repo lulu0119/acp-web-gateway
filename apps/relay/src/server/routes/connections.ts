@@ -26,9 +26,7 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
     const deviceId = recordString(body, "deviceId");
     const agentName = recordString(body, "agentName");
     if (!deviceId || !agentName) return c.json({ code: "invalid_request", message: "Choose a device and an agent." }, 400);
-    if (!(await input.isGranted(c.get("userId"), c.get("clientId")))) {
-      return c.json({ code: "target_not_found", message: "That device is not online, or does not offer that agent." }, 404);
-    }
+    if (!(await input.isGranted(c.get("userId"), c.get("clientId")))) return c.json({ code: "target_not_found", message: "That device is not online, or does not offer that agent." }, 404);
     const result = await input.registry.openConnection({ userId: c.get("userId"), clientId: c.get("clientId"), deviceId, agentName });
     if (!result.ok) return c.json({ code: result.code, message: result.message }, result.status);
     return c.json({ url: attachUrl(input.publicUrl, result.ticket) }, 201);

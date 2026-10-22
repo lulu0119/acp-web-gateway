@@ -82,8 +82,7 @@ const exteriorDocuments = new Map<string, object>([exteriorDeviceClient, example
  */
 function withExteriorDocuments(fetch: ClientMetadataResourceFetch): ClientMetadataResourceFetch {
   return (input, init) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const known = exteriorDocuments.get(url);
+    const known = exteriorDocuments.get(input instanceof Request ? input.url : String(input));
     if (!known) return fetch(input, init);
     return new Response(JSON.stringify(known), { headers: { "content-type": "application/json" } });
   };

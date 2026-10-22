@@ -76,7 +76,6 @@ export function App() {
   const base = import.meta.env.BASE_URL;
   const session = useAccount(exteriorRelayUrl(), {
     ...accountPaths(pageOrigin, base),
-    // Published with Example; its loopback redirect lets a development copy sign in as the same app.
     clientId: exampleClient.client_id,
   });
 
