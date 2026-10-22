@@ -1,4 +1,4 @@
-import { clientScope, connectionsPath, devicePlatforms, devicesPath, errorCodes, type Device, type ErrorCode } from "../index.js";
+import { clientScope, connectionsPath, devicesPath, errorCodes, isDevice, type Device, type ErrorCode } from "../index.js";
 import * as oauth from "oauth4webapi";
 import { discover, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
@@ -11,7 +11,7 @@ export async function createAuthorizationRequest(input: {
   redirectUri: string;
 }): Promise<{ url: string; codeVerifier: string; state: string }> {
   const server = await discover(input.relayUrl);
-  if (!server.authorization_endpoint) throw new Error("Exterior did not publish a sign-in address.");
+  if (!server.authorization_endpoint) throw new Error("The relay did not publish a sign-in address.");
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const state = oauth.generateRandomState();
   const url = new URL(server.authorization_endpoint);
@@ -33,7 +33,6 @@ export async function exchangeAuthorizationCode(input: {
   callbackUrl: string;
   codeVerifier: string;
   state: string;
-  clientSecret?: string;
 }): Promise<Tokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
@@ -44,11 +43,10 @@ export async function exchangeAuthorizationCode(input: {
   } catch (error) {
     throw new Error(oauthMessage(error, "Sign in again."));
   }
-  const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
   const response = await oauth.authorizationCodeGrantRequest(
     server,
     client,
-    auth,
+    oauth.None(),
     params,
     input.redirectUri,
     input.codeVerifier,
@@ -78,8 +76,8 @@ export async function listDevices(relayUrl: string, accessToken: string, signal?
     signal,
   });
   const body: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw relayError(response.status, body, "Exterior did not list devices.");
-  if (!isRecord(body) || !Array.isArray(body.devices)) throw new RelayError("server_error", response.status, "Exterior did not list devices.");
+  if (!response.ok) throw relayError(response.status, body, "The relay did not list devices.");
+  if (!isRecord(body) || !Array.isArray(body.devices)) throw new RelayError("server_error", response.status, "The relay did not list devices.");
   return body.devices.filter(isDevice);
 }
 
@@ -97,8 +95,8 @@ export async function openConnection(
     signal,
   });
   const body: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw relayError(response.status, body, "Exterior did not open the agent.");
-  if (!isRecord(body) || typeof body.url !== "string") throw new RelayError("server_error", response.status, "Exterior did not open the agent.");
+  if (!response.ok) throw relayError(response.status, body, "The relay did not open the agent.");
+  if (!isRecord(body) || typeof body.url !== "string") throw new RelayError("server_error", response.status, "The relay did not open the agent.");
   return { url: body.url };
 }
 
@@ -118,22 +116,9 @@ export type BrowserStore = {
 
 const verifierKey = "exterior.codeVerifier";
 const stateKey = "exterior.state";
-const signInClientKey = "exterior.signInClientId";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
-
-function cachedClientId(store: BrowserStore, relayUrl: string): string | undefined {
-  return store.getItem(clientIdKey(originOf(relayUrl))) ?? undefined;
-}
-
-function cacheClientId(store: BrowserStore, relayUrl: string, clientId: string): void {
-  store.setItem(clientIdKey(originOf(relayUrl)), clientId);
-}
-
-function clientIdKey(origin: string): string {
-  return `exterior.clientId:${origin}`;
-}
 
 /**
  * Starts a sign-in and returns the relay address to send the person to. `clientId` is the https address of the
@@ -143,7 +128,6 @@ export async function beginBrowserSignIn(input: { relayUrl: string; redirectUri:
   const request = await createAuthorizationRequest({ relayUrl: input.relayUrl, clientId: input.clientId, redirectUri: input.redirectUri });
   input.store.setItem(verifierKey, request.codeVerifier);
   input.store.setItem(stateKey, request.state);
-  input.store.setItem(signInClientKey, input.clientId);
   return request.url;
 }
 
@@ -152,33 +136,28 @@ export async function finishBrowserSignIn(input: {
   redirectUri: string;
   callbackUrl: string;
   store: BrowserStore;
-  clientId?: string;
-  clientSecret?: string;
+  clientId: string;
 }): Promise<Tokens> {
   const codeVerifier = input.store.getItem(verifierKey);
   const state = input.store.getItem(stateKey);
-  const clientId = input.clientId ?? input.store.getItem(signInClientKey) ?? cachedClientId(input.store, input.relayUrl);
-  if (!codeVerifier || !state || !clientId) throw new Error("Sign in again.");
+  if (!codeVerifier || !state) throw new Error("Sign in again.");
   // A code redeems once, but a framework may mount the callback twice:
   // racing callers for the same code share one redemption.
-  const key = `${input.redirectUri}\n${callbackCode(input.callbackUrl) ?? ""}`;
+  const key = `${input.redirectUri}\n${new URL(input.callbackUrl).searchParams.get("code") ?? ""}`;
   const racing = pendingCallbackExchanges.get(key);
   if (racing) return racing;
   const run = exchangeAuthorizationCode({
     relayUrl: input.relayUrl,
-    clientId,
+    clientId: input.clientId,
     redirectUri: input.redirectUri,
     callbackUrl: input.callbackUrl,
     codeVerifier,
     state,
-    clientSecret: input.clientSecret,
   })
     .then((tokens) => {
       writeBrowserTokens(input.store, tokens);
-      cacheClientId(input.store, input.relayUrl, clientId);
       input.store.removeItem(verifierKey);
       input.store.removeItem(stateKey);
-      input.store.removeItem(signInClientKey);
       return tokens;
     })
     .finally(() => {
@@ -190,34 +169,20 @@ export async function finishBrowserSignIn(input: {
 
 const pendingCallbackExchanges = new Map<string, Promise<Tokens>>();
 
-function callbackCode(callbackUrl: string): string | undefined {
-  try {
-    return new URL(callbackUrl).searchParams.get("code") ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore; clientId?: string; clientSecret?: string }): Promise<string | undefined> {
-  const clientId = input.clientId ?? cachedClientId(input.store, input.relayUrl);
-  if (!clientId) return undefined;
+export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore; clientId: string }): Promise<string | undefined> {
   const accessToken = input.store.getItem(accessKey);
   const expiresAt = Number(input.store.getItem(expiresKey));
   if (accessToken && Number.isFinite(expiresAt) && expiresAt - Date.now() > refreshWindowMs) return accessToken;
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
   try {
-    const tokens = await refreshAccessToken({ relayUrl: input.relayUrl, clientId, refreshToken, clientSecret: input.clientSecret });
+    const tokens = await refreshAccessToken({ relayUrl: input.relayUrl, clientId: input.clientId, refreshToken });
     writeBrowserTokens(input.store, tokens);
     return tokens.accessToken;
   } catch {
-    clearBrowserTokens(input.store);
+    clearBrowserSignIn(input.store);
     return undefined;
   }
-}
-
-export function clearBrowserSignIn(store: BrowserStore): void {
-  clearBrowserTokens(store);
 }
 
 function writeBrowserTokens(store: BrowserStore, tokens: Tokens): void {
@@ -226,15 +191,8 @@ function writeBrowserTokens(store: BrowserStore, tokens: Tokens): void {
   if (tokens.refreshToken) store.setItem(refreshKey, tokens.refreshToken);
 }
 
-function clearBrowserTokens(store: BrowserStore): void {
+export function clearBrowserSignIn(store: BrowserStore): void {
   store.removeItem(accessKey);
   store.removeItem(refreshKey);
   store.removeItem(expiresKey);
-}
-
-function isDevice(value: unknown): value is Device {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.hostname !== "string" || !Array.isArray(value.agents)) return false;
-  if (typeof value.workingDirectory !== "string") return false;
-  if (!(devicePlatforms as readonly unknown[]).includes(value.platform)) return false;
-  return value.agents.every((agent) => isRecord(agent) && typeof agent.name === "string" && typeof agent.agentType === "string");
 }

@@ -47,7 +47,7 @@ test("an agent the device does not offer, or cannot start, fails with the reason
   const launch: LaunchAgent = (agentName) => {
     launched.push(agentName);
     if (agentName === "work") return "That agent is not installed.";
-    return { child: spawn(join(workingDirectory, "missing-agent")), stop: (stopped) => stopped() };
+    return { child: spawn(join(workingDirectory, "missing-agent")), stop: () => undefined };
   };
   const host = createDeviceHost({ deviceKey, relayUrl: "http://127.0.0.1:1", hostname: "studio", platform: "linux", workingDirectory, agents: [work, { name: "gone", agentType: "opencode" }], launch });
   host.attach((message) => sent.push(message));
@@ -100,10 +100,7 @@ test("the relay closing an agent socket stops its agent, and stopping the device
       platform: "linux",
       workingDirectory,
       agents: [work],
-      launch: () => {
-        const agent = echo();
-        return { child: agent.child, stop: (done) => agent.stop(() => (stopped.push("stopped"), done())) };
-      },
+      launch: () => echo(() => stopped.push("stopped")),
     });
     host.attach(() => undefined);
     host.receive({ type: "open", connectionId, agentName: "work" });
@@ -129,16 +126,17 @@ test("a device reports the platforms EAP names", () => {
   assert.equal(devicePlatform("freebsd"), undefined);
 });
 
-function echo(): StartedAgent {
+/** `onStopped` hears when a stop has ended the agent. */
+function echo(onStopped = (): void => undefined): StartedAgent {
   const child = spawn(process.execPath, ["-e", echoAgent], { stdio: ["pipe", "pipe", "pipe"] });
   return {
     child,
-    stop(stopped) {
+    stop() {
       if (child.exitCode !== null) {
-        stopped();
+        onStopped();
         return;
       }
-      child.once("exit", () => stopped());
+      child.once("exit", onStopped);
       child.kill();
     },
   };

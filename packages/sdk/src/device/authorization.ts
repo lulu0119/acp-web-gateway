@@ -9,7 +9,7 @@ export type DeviceAuthorization = {
   deviceCode: string;
   userCode: string;
   verificationUri: string;
-  /** The verification address with the code filled in, when Exterior offers one. */
+  /** The verification address with the code filled in, when the relay offers one. */
   verificationUriComplete?: string;
   expiresAt: number;
   intervalSeconds: number;
@@ -26,7 +26,7 @@ export async function beginDeviceAuthorization(input: { relayUrl: string; client
     httpOptions(input.relayUrl),
   );
   const device = await oauth.processDeviceAuthorizationResponse(server, client, response).catch((error: unknown) => {
-    throw new Error(oauthMessage(error, "Exterior did not start device sign-in."));
+    throw new Error(oauthMessage(error, "The relay did not start device sign-in."));
   });
   return {
     relayUrl: originOf(input.relayUrl),
@@ -58,7 +58,7 @@ export async function pollDeviceAuthorization(pending: DeviceAuthorization, key:
       );
       const tokens = await oauth.processDeviceCodeResponse(server, client, response);
       const stored = toTokens(tokens);
-      if (!stored.refreshToken) throw new Error("Exterior did not return a refresh token.");
+      if (!stored.refreshToken) throw new Error("The relay did not return a refresh token.");
       return stored;
     } catch (error) {
       // The server asked for a nonce, which the handle now holds for the next poll.

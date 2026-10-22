@@ -1,18 +1,25 @@
 import WebSocket from "ws";
 import { dpopProof, type DeviceKey } from "../dpop.js";
 import { heartbeat } from "../heartbeat.js";
-import { closeReason, deviceCloseCodes, deviceSocketPath, parseRelayMessage, relayWebSocketUrl } from "../index.js";
+import { closeReason, deviceCloseCodes, deviceSocketPath, parseRelayMessage, relayWebSocketUrl, type DeviceCloseReason } from "../index.js";
 import type { DeviceHost } from "./host.js";
 
-const defaultHeartbeatMs = 30_000;
-const refusals = new Map<number, "unauthorized" | "forbidden" | "unsupported_version">([[401, "unauthorized"], [403, "forbidden"], [404, "unsupported_version"]]);
+export const defaultHeartbeatMs = 30_000;
+
+/** Dials a relay socket, giving up on an upgrade that has not answered in ten seconds. */
+export function dialRelay(url: string, headers: Record<string, string>): WebSocket {
+  return new WebSocket(url, { headers, handshakeTimeout: 10_000 });
+}
+
+type Refusal = "unauthorized" | "forbidden" | "unsupported_version";
+const refusals = new Map<number, Refusal>([[401, "unauthorized"], [403, "forbidden"], [404, "unsupported_version"]]);
 
 /**
  * How a device socket ended. `failed`: it never opened. `disconnected`: it closed after opening.
  * `replaced`, `revoked`: the relay closed it with that code. `unauthorized`, `forbidden`: the upgrade was
  * refused with 401 or 403. `unsupported_version`: the relay has no device socket at this version's path (404).
  */
-export type DeviceSocketEnd = "failed" | "disconnected" | "replaced" | "revoked" | "unsupported_version" | "unauthorized" | "forbidden";
+export type DeviceSocketEnd = "failed" | "disconnected" | DeviceCloseReason | Refusal;
 
 /**
  * Opens one device socket and attaches the host to it until it closes. The host's agents keep running across
@@ -31,11 +38,8 @@ export async function connectDevice(input: {
   signal?: AbortSignal;
 }): Promise<DeviceSocketEnd> {
   const url = relayWebSocketUrl(input.relayUrl, deviceSocketPath);
-  const socket = new WebSocket(url, {
-    headers: { authorization: `DPoP ${input.accessToken}`, dpop: await dpopProof(input.deviceKey, "GET", url, input.accessToken) },
-    handshakeTimeout: 10_000,
-  });
-  let refused: "unauthorized" | "forbidden" | "unsupported_version" | undefined;
+  const socket = dialRelay(url, { authorization: `DPoP ${input.accessToken}`, dpop: await dpopProof(input.deviceKey, "GET", url, input.accessToken) });
+  let refused: Refusal | undefined;
   let connected = false;
   const stop = () => socket.terminate();
   return new Promise((resolve) => {
@@ -75,7 +79,7 @@ export async function connectDevice(input: {
       if (!input.signal?.aborted && !refused) input.inform(`Relay disconnected (code ${code}).`);
       const reason = closeReason(deviceCloseCodes, code);
       if (refused) resolve(refused);
-      else if (reason === "replaced" || reason === "revoked") resolve(reason);
+      else if (reason) resolve(reason);
       else resolve(connected ? "disconnected" : "failed");
     });
     input.signal?.addEventListener("abort", stop, { once: true });

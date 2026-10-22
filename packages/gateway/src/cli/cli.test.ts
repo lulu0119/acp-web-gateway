@@ -170,7 +170,7 @@ test("login names the relay when nothing answers", async () => {
   const result = await run(["login"], { env: { EXTERIOR_RELAY: "127.0.0.1:9" } });
   assert.equal(result.code, 1);
   assert.equal(result.stdout, "Signing in to http://127.0.0.1:9.\n");
-  assert.equal(result.stderr, "Exterior did not answer at http://127.0.0.1:9.\n");
+  assert.equal(result.stderr, "The relay did not answer at http://127.0.0.1:9.\n");
 });
 
 test("agent-config create stores a custom command with its environment", async () => {

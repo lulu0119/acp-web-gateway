@@ -48,7 +48,7 @@ There is no anonymous registration. For local development, list a loopback redir
 
 ## Without React
 
-`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId, clientSecret })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId, clientSecret })` returns a live access token, refreshing within the last minute of expiry, or `undefined`. `clearBrowserSignIn(store)` signs out.
+`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId })` returns a live access token, refreshing within the last minute of expiry, or `undefined`. `clearBrowserSignIn(store)` signs out.
 
 ## Devices and connections
 

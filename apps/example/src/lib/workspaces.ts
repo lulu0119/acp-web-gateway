@@ -18,13 +18,13 @@ export function removeWorkspace(workspaces: readonly string[], path: string): st
   return workspaces.filter((workspace) => workspace !== path);
 }
 
-function storageKey(agentType: string): string {
-  return `exterior.workspaces.${agentType}`;
+function storageKey(deviceId: string, agentName: string): string {
+  return `exterior.workspaces.${deviceId}.${agentName}`;
 }
 
-function readStoredWorkspaces(agentType: string): string[] {
+function readStoredWorkspaces(key: string): string[] {
   try {
-    const stored = window.localStorage.getItem(storageKey(agentType));
+    const stored = window.localStorage.getItem(key);
     const parsed: unknown = stored ? JSON.parse(stored) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((item): item is string => typeof item === "string" && isAbsolutePath(item));
@@ -33,17 +33,21 @@ function readStoredWorkspaces(agentType: string): string[] {
   }
 }
 
-/** Working directories the person added for one agent type, kept in this browser only. */
-export function useWorkspaces(agentType: string): {
+/** Working directories the person added for one agent on one device, kept in this browser only. */
+export function useWorkspaces(
+  deviceId: string,
+  agentName: string,
+): {
   workspaces: readonly string[];
   add(path: string): void;
   remove(path: string): void;
 } {
-  const [workspaces, setWorkspaces] = useState(() => readStoredWorkspaces(agentType));
+  const key = storageKey(deviceId, agentName);
+  const [workspaces, setWorkspaces] = useState(() => readStoredWorkspaces(key));
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey(agentType), JSON.stringify(workspaces));
-  }, [agentType, workspaces]);
+    window.localStorage.setItem(key, JSON.stringify(workspaces));
+  }, [key, workspaces]);
 
   return {
     workspaces,

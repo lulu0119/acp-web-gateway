@@ -18,15 +18,13 @@ export async function refreshAccessToken(input: {
   relayUrl: string;
   clientId: string;
   refreshToken: string;
-  clientSecret?: string;
   /** The key a device's tokens are bound to. The new tokens are bound to it too. */
   deviceKey?: DeviceKey;
   signal?: AbortSignal;
 }): Promise<Tokens> {
   const server = await discover(input.relayUrl, input.signal);
   const client = publicClient(input.clientId);
-  const auth = input.clientSecret ? oauth.ClientSecretPost(input.clientSecret) : oauth.None();
-  const response = await oauth.refreshTokenGrantRequest(server, client, auth, input.refreshToken, {
+  const response = await oauth.refreshTokenGrantRequest(server, client, oauth.None(), input.refreshToken, {
     ...requestOptions(input.relayUrl, originOf(input.relayUrl)),
     ...(input.deviceKey ? { DPoP: oauth.DPoP(client, input.deviceKey) } : {}),
     signal: input.signal,
@@ -49,7 +47,7 @@ export async function revokeRefreshToken(input: { relayUrl: string; clientId: st
     signal: input.signal,
   });
   await oauth.processRevocationResponse(response).catch((error: unknown) => {
-    throw new Error(oauthMessage(error, "Exterior did not revoke the sign-in."));
+    throw new Error(oauthMessage(error, "The relay did not revoke the sign-in."));
   });
 }
 
@@ -59,7 +57,7 @@ export async function revokeRefreshToken(input: { relayUrl: string; clientId: st
  */
 export async function discover(relayUrl: string, signal?: AbortSignal): Promise<oauth.AuthorizationServer> {
   const origin = originOf(relayUrl);
-  const unreachable = () => new Error(`Exterior did not answer at ${origin}.`);
+  const unreachable = () => new Error(`The relay did not answer at ${origin}.`);
   let issuer: URL;
   try {
     const resource = await oauth.processResourceDiscoveryResponse(new URL(origin), await oauth.resourceDiscoveryRequest(new URL(origin), { ...httpOptions(relayUrl), signal }));

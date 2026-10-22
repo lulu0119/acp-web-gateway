@@ -11,7 +11,6 @@ test("a callback under a custom base signs in and returns to the app root", asyn
   try {
     window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
     window.sessionStorage.setItem("exterior.state", "state-1");
-    window.sessionStorage.setItem("exterior.signInClientId", "example-client");
     const redirectUri = `${relay.origin}/playground/oauth/callback`;
     const callback = new URL(redirectUri);
     callback.searchParams.set("code", "code-1");
@@ -35,7 +34,6 @@ test("without a redirect address the callback stays at the root path", async () 
   try {
     window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
     window.sessionStorage.setItem("exterior.state", "state-1");
-    window.sessionStorage.setItem("exterior.signInClientId", "example-client");
     const callback = new URL("/oauth/callback", window.location.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", "state-1");

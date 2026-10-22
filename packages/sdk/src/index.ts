@@ -58,7 +58,9 @@ export function closeReason<Codes extends Record<string, number>>(codes: Codes, 
 const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
 const connectionIdPattern = /^[A-Za-z0-9_-]{22,128}$/;
 const namePattern = /^[^\r\n\t]{1,128}$/;
-const maxFailureLength = 500;
+
+/** The longest `open_failed` message, in characters. */
+export const maxFailureLength = 500;
 
 /** The operating system a device reports, so a page can show it. */
 export const devicePlatforms = ["macos", "windows", "linux"] as const;
@@ -93,16 +95,18 @@ const OpenSchema = v.object({ type: v.literal("open"), connectionId: ConnectionI
 const DeviceMessageSchema = v.variant("type", [HelloSchema, OpenFailedSchema]);
 const deviceMessageTypes: readonly string[] = ["hello", "open_failed"];
 
+const DeviceSchema = v.object({
+  id: v.pipe(v.string(), v.minLength(1)),
+  hostname: HostnameSchema,
+  workingDirectory: PathSchema,
+  agents: v.pipe(v.array(AgentSlotSchema), v.readonly()),
+  platform: PlatformSchema,
+});
+
 export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
 
-/** An online device as web apps see it. `id` is its device id, which is its OAuth client id. */
-export type Device = {
-  id: string;
-  hostname: string;
-  workingDirectory: string;
-  agents: readonly AgentSlot[];
-  platform: DevicePlatform;
-};
+/** An online device as web apps see it. `id` is its device id, the thumbprint of its key. */
+export type Device = v.InferOutput<typeof DeviceSchema>;
 
 /** What a device sends on its device socket. */
 export type DeviceMessage = v.InferOutput<typeof DeviceMessageSchema>;
@@ -112,6 +116,10 @@ export type RelayMessage = v.InferOutput<typeof OpenSchema>;
 
 export function isAgentType(value: string): boolean {
   return agentTypePattern.test(value);
+}
+
+export function isDevice(value: unknown): value is Device {
+  return v.is(DeviceSchema, value);
 }
 
 export function relayWebSocketUrl(relayUrl: string, path: string): string {

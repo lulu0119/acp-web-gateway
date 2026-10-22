@@ -3,7 +3,7 @@ import { spawnSync, type ChildProcess } from "node:child_process";
 import { chmod, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import { resolveCommand, startProcess } from "./launch.js";
 
 const onWindows = process.platform === "win32";
@@ -64,7 +64,7 @@ test.skipIf(!onWindows)("a batch agent takes a scoped package name and its argum
     workingDirectory: directory,
   });
   const output = await collect(started.child);
-  started.stop(() => undefined);
+  started.stop();
   assert.equal(output.trim(), '-y @scope/name --flag');
 });
 
@@ -82,9 +82,8 @@ test.skipIf(!onWindows)("a stop ends the tree behind a batch script", { timeout:
     workingDirectory: directory,
   });
   const agent = await waitForGrandchild(started.child.pid);
-  await new Promise<void>((resolve) => started.stop(resolve));
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  assert.equal(isAlive(agent), false);
+  started.stop();
+  await vi.waitFor(() => assert.equal(isAlive(agent), false), { timeout: 10_000, interval: 200 });
 });
 
 // An image never meets cmd.exe, so its arguments arrive as they are.
@@ -99,7 +98,7 @@ test("an image agent takes arguments that a command interpreter would read", asy
     workingDirectory: process.cwd(),
   });
   const output = await collect(started.child);
-  started.stop(() => undefined);
+  started.stop();
   assert.equal(output, "-y @scope/name --flag&echo %USERNAME%");
 });
 

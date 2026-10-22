@@ -42,7 +42,7 @@ export async function dpopProof(key: DeviceKey, method: string, url: string, acc
   const { crv, kty, x, y } = await publicJwk(key);
   const header = { typ: "dpop+jwt", alg: "ES256", jwk: { crv, kty, x, y } };
   const claims = {
-    jti: base64url(crypto.getRandomValues(new Uint8Array(16)).buffer),
+    jti: base64url(crypto.getRandomValues(new Uint8Array(16))),
     htm: method,
     htu: target.href,
     iat: Math.floor(Date.now() / 1000),
@@ -57,11 +57,11 @@ async function publicJwk(key: DeviceKey): Promise<JsonWebKey> {
   return await crypto.subtle.exportKey("jwk", key.publicKey);
 }
 
-function json(value: unknown): ArrayBuffer {
-  return new TextEncoder().encode(JSON.stringify(value)).buffer as ArrayBuffer;
+function json(value: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value));
 }
 
-function base64url(bytes: ArrayBuffer): string {
+function base64url(bytes: ArrayBuffer | Uint8Array): string {
   let binary = "";
   for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");

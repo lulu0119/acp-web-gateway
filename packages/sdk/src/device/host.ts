@@ -3,11 +3,12 @@ import { StringDecoder } from "node:string_decoder";
 import WebSocket from "ws";
 import { dpopProof, type DeviceKey } from "../dpop.js";
 import { heartbeat } from "../heartbeat.js";
-import { agentSocketPath, frameBytes, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
+import { agentSocketPath, frameBytes, maxFailureLength, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
+import { defaultHeartbeatMs, dialRelay } from "./socket.js";
 
-/** An agent process the device started. `stop` ends it, with its whole tree, and calls back once it has. */
-export type StartedAgent = { child: ChildProcess; stop(onStopped: () => void): void };
+/** An agent process the device started. `stop` ends it, with its whole tree. */
+export type StartedAgent = { child: ChildProcess; stop(): void };
 
 /** Starts the named agent in `workingDirectory`, or answers why it cannot, in words the client may show. */
 export type LaunchAgent = (agentName: string, workingDirectory: string) => StartedAgent | string;
@@ -24,9 +25,6 @@ export type DeviceHost = {
   /** Stops every agent, as the device is shutting down. */
   stop(): void;
 };
-
-const defaultHeartbeatMs = 30_000;
-const maxFailureLength = 500;
 
 /**
  * Runs a device's agents: one process per connection the relay opens, each carried on its own agent socket.
@@ -88,7 +86,7 @@ export function createDeviceHost(input: {
         fail(connectionId, started);
         return;
       }
-      let stop = (): void => started.stop(() => undefined);
+      let stop = (): void => started.stop();
       running.set(connectionId, () => stop());
       started.child.once("error", (error) => {
         if (started.child.pid !== undefined) return;
@@ -100,7 +98,7 @@ export function createDeviceHost(input: {
         void dpopProof(input.deviceKey, "GET", url).then((proof) => {
           // Stopped while the proof was made.
           if (!running.has(connectionId)) return;
-          const socket = new WebSocket(url, { headers: { dpop: proof }, handshakeTimeout: 10_000 });
+          const socket = dialRelay(url, { dpop: proof });
           stop = carryAgent(started, socket, input.heartbeatMs ?? defaultHeartbeatMs);
           socket.once("close", () => running.delete(connectionId));
         });
@@ -138,7 +136,7 @@ export function carryAgent(agent: StartedAgent, socket: WebSocket, heartbeatMs: 
   const stopAgent = (): void => {
     if (exited || stopping) return;
     stopping = true;
-    agent.stop(() => undefined);
+    agent.stop();
   };
 
   const decoder = new StringDecoder("utf8");

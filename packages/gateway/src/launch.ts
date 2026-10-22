@@ -51,7 +51,7 @@ export function startProcess(input: {
   args: readonly string[];
   env: NodeJS.ProcessEnv;
   workingDirectory: string;
-}): { child: ChildProcess; stop: (onStopped: () => void) => void } {
+}): { child: ChildProcess; stop: () => void } {
   const options = { cwd: input.workingDirectory, env: input.env, stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"], windowsHide: true };
   const child =
     input.executable.kind === "batch"
@@ -61,7 +61,7 @@ export function startProcess(input: {
         })
       : // A POSIX process group lets one signal reach the agent's own children.
         spawn(input.executable.path, [...input.args], { ...options, detached: process.platform !== "win32" });
-  return { child, stop: (onStopped) => stopProcess(child, onStopped) };
+  return { child, stop: () => stopProcess(child) };
 }
 
 const stopGraceMs = 2_000;
@@ -72,22 +72,11 @@ const stopGraceMs = 2_000;
  * An ACP agent exits when its input ends. That also holds when this process
  * dies before the timer runs, because the pipe closes with it.
  */
-function stopProcess(child: ChildProcess, onStopped: () => void): void {
+function stopProcess(child: ChildProcess): void {
   child.stdin?.end();
-  if (child.exitCode !== null || child.signalCode !== null) {
-    onStopped();
-    return;
-  }
-  const exited = (): void => {
-    clearTimeout(timer);
-    onStopped();
-  };
-  const timer = setTimeout(() => {
-    child.off("exit", exited);
-    endTree(child);
-    onStopped();
-  }, stopGraceMs);
-  child.once("exit", exited);
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const timer = setTimeout(() => endTree(child), stopGraceMs);
+  child.once("exit", () => clearTimeout(timer));
 }
 
 function endTree(child: ChildProcess): void {

@@ -60,7 +60,7 @@ export function useAccount(
         window.location.assign(url);
       })
       .catch((error: unknown) => {
-        setError(error instanceof Error ? error.message : "Exterior did not answer.");
+        setError(error instanceof Error ? error.message : "The relay did not answer.");
         setBusy(false);
       });
   }, [relayUrl, redirectUri, clientId]);

@@ -87,7 +87,8 @@ export function ConnectionPane({
         treeSlot &&
         createPortal(
           <WorkspaceTree
-            agentType={connection.label}
+            deviceId={connection.deviceId}
+            agentName={connection.agentName}
             directories={directories}
             defaultDirectory={connection.workingDirectory}
           />,

@@ -33,18 +33,20 @@ import { folderName, useWorkspaces } from "@/lib/workspaces";
 
 /** Working directories of one connection, each with its sessions. */
 export function WorkspaceTree({
-  agentType,
+  deviceId,
+  agentName,
   directories,
   defaultDirectory,
 }: {
-  agentType: string;
+  deviceId: string;
+  agentName: string;
   directories: DirectoryAdapter;
   defaultDirectory: string;
 }) {
   const state = useAcpThreadState();
   const extras = useAcpRuntimeExtras();
   const connection = useAcpConnection();
-  const { workspaces: savedWorkspaces, add, remove } = useWorkspaces(agentType);
+  const { workspaces: savedWorkspaces, add, remove } = useWorkspaces(deviceId, agentName);
   const [adding, setAdding] = useState(false);
   const [creatingDirectory, setCreatingDirectory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);

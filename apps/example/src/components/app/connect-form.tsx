@@ -7,7 +7,6 @@ import { cn } from "cn";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 
 export type ConnectedAgent = {
-  agentType: string;
   url: string;
   label: string;
   workingDirectory: string;
@@ -63,12 +62,11 @@ export function ConnectForm({
 
   async function connect() {
     if (!accessToken || opening.current) return;
-    const device = list.devices.find((device) =>
-      device.agents.some((agent) => selectionOf(device.id, agent.name) === selection),
-    );
-    if (!device) return;
-    const agent = device.agents.find((agent) => selectionOf(device.id, agent.name) === selection);
-    if (!agent) return;
+    const chosen = list.devices
+      .flatMap((device) => device.agents.map((agent) => ({ device, agent })))
+      .find(({ device, agent }) => selectionOf(device.id, agent.name) === selection);
+    if (!chosen) return;
+    const { device, agent } = chosen;
     const controller = new AbortController();
     opening.current = controller;
     setBusy(true);
@@ -82,7 +80,6 @@ export function ConnectForm({
       );
       if (!controller.signal.aborted)
         onConnected({
-          agentType: agent.agentType,
           url: opened.url,
           label: `${device.hostname} / ${agent.name}`,
           workingDirectory: device.workingDirectory,

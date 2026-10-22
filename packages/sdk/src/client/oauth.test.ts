@@ -123,10 +123,8 @@ test("a web app signs in with its metadata document's address", async () => {
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store });
+    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, clientId });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), clientId);
-    assert.equal(store.getItem("exterior.signInClientId"), null);
   } finally {
     relay.close();
   }
