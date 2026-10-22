@@ -4,6 +4,22 @@ import { createMiddleware } from "hono/factory";
 export type RelayEnv = { Variables: { userId: string; clientId: string; deviceId: string | undefined; signedIn: boolean } };
 
 /**
+ * Addresses the request at the relay's canonical origin. A proxy ends TLS and forwards plain HTTP,
+ * so the container sees an http:// address while discovery and DPoP proofs name the public origin;
+ * better-auth checks a proof's htu against the address it sees and would refuse every proof behind
+ * a proxy. The relay has one canonical origin, so this keeps the request it was given otherwise.
+ */
+export function publicRequest(request: Request, publicUrl: string): Request {
+  const url = new URL(request.url);
+  const canonical = new URL(publicUrl);
+  if (url.origin === canonical.origin) return request;
+  url.protocol = canonical.protocol;
+  url.hostname = canonical.hostname;
+  url.port = canonical.port;
+  return new Request(url, request);
+}
+
+/**
  * Who an access token speaks for: the account, the OAuth client it was issued to, and its scopes. `deviceId` is the
  * thumbprint of the key a DPoP-bound token is bound to, which the request proved it holds.
  */

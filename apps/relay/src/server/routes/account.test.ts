@@ -163,6 +163,58 @@ test("a device signs in with a key, connects as that key, and removing it signs 
   // The device polls at the interval the provider names, five seconds.
 }, 20_000);
 
+// A proxy ends TLS and forwards plain HTTP: the container sees an http:// address while discovery
+// and DPoP proofs name the public https:// origin (RFC 9449 §4.2).
+test("a device signs in through a proxy's plain-HTTP address with proofs naming the public origin", async () => {
+  const publicUrl = "https://relay.example.test";
+  const containerUrl = "http://10.0.0.9:8787";
+  const secret = "test-secret-test-secret-test-secret";
+  const exterior = await openExteriorAuth({
+    database: new Database(":memory:"),
+    secret,
+    publicUrl,
+    githubClientId: "github-client",
+    githubClientSecret: "github-secret",
+  });
+  const context = await exterior.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const session = await context.internalAdapter.createSession(user.id);
+  // An https relay serves its session cookie under the `__Secure-` prefix.
+  const cookie = await sessionCookie(session.token, secret, true);
+  const { app } = await createTestApp(exterior);
+
+  const key = await generateDeviceKey();
+  const started = await app.request(`${containerUrl}/api/auth/device/code`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: exteriorDeviceClient.client_id, scope: `${deviceScope} offline_access`, resource: publicUrl }),
+  });
+  assert.equal(started.status, 200, await started.clone().text());
+  const pending = (await started.json()) as { device_code: string; user_code: string };
+  assert.equal((await app.request(`${containerUrl}/device?user_code=${pending.user_code}`, { headers: { cookie } })).status, 200);
+  const approved = await app.request(`${containerUrl}/device`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ userCode: pending.user_code, decision: "approve" }),
+  });
+  assert.match(await approved.text(), /Device connected/);
+  const tokened = await app.request(`${containerUrl}/api/auth/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      dpop: await dpopProof(key, "POST", `${publicUrl}/api/auth/oauth2/token`),
+    },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      device_code: pending.device_code,
+      client_id: exteriorDeviceClient.client_id,
+    }),
+  });
+  const tokens = (await tokened.json()) as { error?: string; error_description?: string; access_token?: string };
+  assert.equal(tokened.status, 200, JSON.stringify(tokens));
+  assert.equal(typeof tokens.access_token, "string");
+});
+
 test("one OAuth client holds one role: device software never signs in through a browser, and a web app never with a device code", async () => {
   const publicUrl = "http://127.0.0.1:8787";
   const exterior = await openExteriorAuth({
@@ -252,11 +304,11 @@ test("a wrong device code keeps the person on the code form with the reason", as
   assert.match(text, /sign in again there for a new one/);
 });
 
-async function sessionCookie(token: string, secret: string): Promise<string> {
+async function sessionCookie(token: string, secret: string, secure = false): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
   const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
-  return `better-auth.session_token=${token}.${encoded}`;
+  return `${secure ? "__Secure-" : ""}better-auth.session_token=${token}.${encoded}`;
 }
 
 async function waitFor(condition: () => Promise<boolean>): Promise<void> {

@@ -9,7 +9,7 @@ import type { AccountPage } from "../shared/account-web.js";
 import { createAgentCatalog, type AgentCatalog } from "./agents/catalog.js";
 import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "./devices/store.js";
-import type { RelayEnv, ReadAccess } from "./http.js";
+import { publicRequest, type RelayEnv, type ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
 import { isBrowserAuthorizeRequest, readBrowserAuthorizeError } from "./identity/authorize-error.js";
 import { guardAuthRequest } from "./identity/clients.js";
@@ -129,7 +129,8 @@ export function createRelayApp(input: {
   });
   app.use("/assets/*", serveStatic({ root: publicDir }));
   app.all("/api/auth/*", async (c) => {
-    const guarded = await guardAuthRequest(input.exterior, c.req.raw);
+    const addressed = publicRequest(c.req.raw, input.exterior.publicUrl);
+    const guarded = await guardAuthRequest(input.exterior, addressed);
     if (guarded instanceof Response) return guarded;
     const response = await input.exterior.auth.handler(guarded);
     const page = await readBrowserAuthorizeError(c.req.raw, response);
