@@ -1,4 +1,4 @@
-import type { DevicePlatform } from "@exterior/contract";
+import type { DevicePlatform } from "@exterioragentprotocol/sdk";
 import { cn } from "cn";
 
 // Full class names, so Tailwind finds each icon in this file.

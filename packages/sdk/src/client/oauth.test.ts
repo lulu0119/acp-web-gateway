@@ -1,19 +1,17 @@
 import assert from "node:assert/strict";
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import { test } from "vitest";
-import { devicesScope } from "@exterior/contract";
+import { beginDeviceAuthorization, pollDeviceAuthorization } from "../device/authorization.js";
+import { generateDeviceKey } from "../dpop.js";
+import { revokeRefreshToken } from "../oauth.js";
 import {
   beginBrowserSignIn,
-  beginDeviceAuthorization,
   clearBrowserSignIn,
   createAuthorizationRequest,
-  fetchExteriorUser,
   finishBrowserSignIn,
   listDevices,
   openConnection,
-  revokeRefreshToken,
-  pollDeviceAuthorization,
   type BrowserStore,
 } from "./oauth.js";
 
@@ -31,7 +29,7 @@ test("a known client builds an authorization url and exchanges the callback", as
     const url = new URL(request.url);
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
-    assert.equal(url.searchParams.get("scope"), devicesScope);
+    assert.equal(url.searchParams.get("scope"), "eap:client offline_access");
     assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
     assert.ok(url.searchParams.get("code_challenge"));
@@ -55,27 +53,33 @@ test("a known client builds an authorization url and exchanges the callback", as
   }
 });
 
-test("device sign-in waits until the code is approved", async () => {
+test("device sign-in waits until the code is approved, proving the device key on every poll", async () => {
   const relay = await fakeRelay();
   try {
-    const pending = await beginDeviceAuthorization({ relayUrl: relay.origin, clientId: "daemon-client" });
+    const pending = await beginDeviceAuthorization({ relayUrl: relay.origin, clientId: "https://exterior.example/device-client.json" });
     assert.equal(pending.userCode, "ABCD-EFGH");
-    const tokens = await pollDeviceAuthorization(pending);
+    const tokens = await pollDeviceAuthorization(pending, await generateDeviceKey());
     assert.equal(tokens.refreshToken, "refresh-1");
+    assert.equal(relay.deviceProofs.length, 2);
+    assert.ok(relay.deviceProofs.every((proof) => proof.split(".").length === 3));
   } finally {
     relay.close();
   }
 });
 
-test("device list and session open use the access token", async () => {
+test("listing devices and opening a connection use the access token", async () => {
   const relay = await fakeRelay();
   try {
     assert.deepEqual(await listDevices(relay.origin, "access-1"), [
       { id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }], platform: "linux" },
     ]);
     const opened = await openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "work" });
-    assert.equal(opened.agentName, "work");
     assert.match(opened.url, /ticket=once/);
+    await assert.rejects(openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "gone" }), {
+      name: "RelayError",
+      code: "target_not_found",
+      status: 404,
+    });
   } finally {
     relay.close();
   }
@@ -84,8 +88,8 @@ test("device list and session open use the access token", async () => {
 test("revoking a refresh token names it as one", async () => {
   const relay = await fakeRelay();
   try {
-    await revokeRefreshToken({ relayUrl: relay.origin, clientId: "daemon-client", refreshToken: "refresh-1" });
-    assert.deepEqual(relay.revoked, [{ token: "refresh-1", hint: "refresh_token", clientId: "daemon-client" }]);
+    await revokeRefreshToken({ relayUrl: relay.origin, clientId: "device-client", refreshToken: "refresh-1" });
+    assert.deepEqual(relay.revoked, [{ token: "refresh-1", hint: "refresh_token", clientId: "device-client" }]);
   } finally {
     relay.close();
   }
@@ -102,58 +106,32 @@ test("a dismissed connection form can cancel device listing and agent opening", 
   }
 });
 
-test("a web app without a client id registers itself once per browser", async () => {
+test("a web app signs in with its metadata document's address", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
-  const registrations = memoryStore();
+  const clientId = "https://app.example.test/oauth-client.json";
   try {
     const redirectUri = `${relay.origin}/oauth/callback`;
-    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, logoUri: `${relay.origin}/logo.png` }));
-    assert.equal(url.searchParams.get("client_id"), "registered-client-1");
+    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, clientId }));
+    assert.equal(url.searchParams.get("client_id"), clientId);
+    assert.equal(url.searchParams.get("scope"), "eap:client offline_access");
+    assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
-    assert.deepEqual(relay.registrations, [{
-      client_name: `Web app at ${relay.origin}`,
-      logo_uri: `${relay.origin}/logo.png`,
-      redirect_uris: [redirectUri],
-      application_type: "native",
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-      scope: devicesScope,
-    }]);
     assert.ok(store.getItem("exterior.codeVerifier"));
     assert.ok(store.getItem("exterior.state"));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, registrations });
+    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, clientId });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "registered-client-1");
-    assert.equal(store.getItem("exterior.signInClientId"), null);
-
-    const again = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations }));
-    assert.equal(again.searchParams.get("client_id"), "registered-client-1");
-    assert.equal(relay.registrations.length, 1);
-
-    const named = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, clientId: "https://app.example.test/oauth-client.json" }));
-    assert.equal(named.searchParams.get("client_id"), "https://app.example.test/oauth-client.json");
-    assert.equal(relay.registrations.length, 1);
   } finally {
     relay.close();
   }
 });
 
-test("the account behind an access token identifies itself", async () => {
-  const relay = await fakeRelay();
-  try {
-    assert.deepEqual(await fetchExteriorUser({ relayUrl: relay.origin, accessToken: "access-1" }), { sub: "user-1" });
-  } finally {
-    relay.close();
-  }
-});
-
-test("signing out clears the stored browser tokens", () => {  const store = memoryStore();
+test("signing out clears the stored browser tokens", () => {
+  const store = memoryStore();
   store.setItem("exterior.accessToken", "access-1");
   store.setItem("exterior.refreshToken", "refresh-1");
   store.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
@@ -181,11 +159,6 @@ test("two racing callback exchanges share one code redemption", async () => {
       callbackUrl: callback.href,
       store,
     };
-    // ROOT CAUSE:
-    //
-    // If the callback mounts twice, two exchanges raced one single-use code
-    // and the loser surfaced invalid_grant. The fix shares one redemption
-    // between racing callers for the same code.
     const [first, second] = await Promise.all([finishBrowserSignIn(input), finishBrowserSignIn(input)]);
     assert.equal(first.accessToken, "access-1");
     assert.equal(second.accessToken, "access-1");
@@ -207,35 +180,40 @@ function memoryStore(): BrowserStore {
 async function fakeRelay(): Promise<{
   origin: string;
   tokenPosts: number;
-  registrations: unknown[];
   revoked: { token: string | null; hint: string | null; clientId: string | null }[];
+  /** The DPoP proof of each device code poll. */
+  deviceProofs: string[];
   close: () => void;
 }> {
+  const deviceProofs: string[] = [];
   let devicePolls = 0;
   let tokenPosts = 0;
   const revoked: { token: string | null; hint: string | null; clientId: string | null }[] = [];
-  const registrations: unknown[] = [];
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
       const raw = Buffer.concat(chunks).toString();
+      const proof = request.headers.dpop;
+      if (typeof proof === "string" && new URLSearchParams(raw).get("grant_type") === "urn:ietf:params:oauth:grant-type:device_code") deviceProofs.push(proof);
       respond(url, new URLSearchParams(raw), raw, response);
     });
   });
-  function respond(url: URL, params: URLSearchParams, raw: string, response: import("node:http").ServerResponse): void {
+  function respond(url: URL, params: URLSearchParams, raw: string, response: ServerResponse): void {
     const address = server.address();
     const port = address && typeof address !== "string" ? address.port : 0;
     const origin = `http://127.0.0.1:${port}`;
     const issuer = `${origin}/api/auth`;
+    if (url.pathname === "/.well-known/oauth-protected-resource") {
+      return json(response, { resource: origin, authorization_servers: [issuer] });
+    }
     if (url.pathname === "/api/auth/.well-known/openid-configuration") {
       return json(response, {
         issuer,
         authorization_endpoint: `${issuer}/oauth2/authorize`,
         token_endpoint: `${issuer}/oauth2/token`,
         revocation_endpoint: `${issuer}/oauth2/revoke`,
-        registration_endpoint: `${issuer}/oauth2/register`,
         device_authorization_endpoint: `${issuer}/device/code`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
@@ -244,12 +222,6 @@ async function fakeRelay(): Promise<{
         token_endpoint_auth_methods_supported: ["none"],
       });
     }
-    if (url.pathname === "/api/clients") return json(response, { daemonClientId: "daemon-client" });
-    if (url.pathname === "/api/auth/oauth2/register") {
-      registrations.push(JSON.parse(raw));
-      return json(response, { client_id: `registered-client-${registrations.length}`, token_endpoint_auth_method: "none" }, 201);
-    }
-    if (url.pathname === "/api/auth/oauth2/userinfo") return json(response, { sub: "user-1" });
     if (url.pathname === "/api/auth/device/code") {
       return json(response, {
         device_code: "device-code-1",
@@ -273,11 +245,12 @@ async function fakeRelay(): Promise<{
       response.end();
       return;
     }
-    if (url.pathname === "/api/devices") {
+    if (url.pathname === "/eap/v1/devices") {
       return json(response, { devices: [{ id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }], platform: "linux" }] });
     }
-    if (url.pathname === "/api/connections") {
-      return json(response, { url: `${origin.replace("http", "ws")}/api/acp?ticket=once`, agentType: "opencode", agentName: "work" });
+    if (url.pathname === "/eap/v1/connections") {
+      if (JSON.parse(raw).agentName !== "work") return json(response, { code: "target_not_found", message: "That device is not online." }, 404);
+      return json(response, { url: `${origin.replace("http", "ws")}/eap/v1/attach?ticket=once` }, 201);
     }
     response.writeHead(404);
     response.end();
@@ -291,13 +264,13 @@ async function fakeRelay(): Promise<{
     get tokenPosts() {
       return tokenPosts;
     },
-    registrations,
     revoked,
+    deviceProofs,
     close: () => server.close(),
   };
 }
 
-function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {
+function json(response: ServerResponse, body: unknown, status = 200): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }

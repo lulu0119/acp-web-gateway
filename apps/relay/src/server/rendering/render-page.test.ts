@@ -50,7 +50,7 @@ test("account forms render on the server and escape approval data", () => {
     clientName: "<script>studio</script>",
     origin: "https://studio.example.test",
     redirectUri: "https://studio.example.test/callback",
-    unverified: true,
+    local: false,
     account: { name: "Ada" },
     permissions,
   });
@@ -61,7 +61,6 @@ test("account forms render on the server and escape approval data", () => {
   assert.match(html, /&lt;script&gt;studio&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /https:\/\/studio\.example\.test/);
-  assert.match(html, /Unverified/);
   assert.match(html, /name="query"/);
 });
 

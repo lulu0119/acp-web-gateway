@@ -21,7 +21,6 @@ import { PendingForm, PendingScope, SubmitButton } from "../components/pending-f
 import { Step } from "../components/step.js";
 import { Avatar, AvatarImage, AvatarFallback } from "@exterior/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@exterior/ui/alert";
-import { Badge } from "@exterior/ui/badge";
 import { buttonVariants } from "@exterior/ui/button";
 import { OTPField } from "@exterior/ui/otp-field";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@exterior/ui/tabs";
@@ -276,22 +275,18 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
           <h1 className="max-w-lg font-display text-2xl font-bold text-balance">
             {name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
           </h1>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-            <span className="font-mono text-foreground">{page.origin || "Unknown address"}</span>
-            {page.unverified ? <Badge variant="outline">Unverified</Badge> : null}
-          </div>
+          <span className="font-mono text-sm text-foreground">{page.origin || "Unknown address"}</span>
         </>
       )}
       footer="You can revoke this app anytime from your Exterior dashboard."
     >
       <SignedInAs account={page.account} />
-      {page.unverified ? (
+      {page.local ? (
         <Alert variant="warning">
           <TriangleAlertIcon />
-          <AlertTitle>Exterior has not verified this app</AlertTitle>
+          <AlertTitle>This app runs on your computer</AlertTitle>
           <AlertDescription>
-            {name ? <>The name “{name}” comes from the app itself. </> : null}
-            Only continue if you started this from <span className="font-mono">{page.origin || "this app"}</span>.
+            Any program on this computer can use <span className="font-mono">{page.origin}</span>, so the name proves nothing. Only continue if you just started this app yourself.
           </AlertDescription>
         </Alert>
       ) : null}

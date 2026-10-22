@@ -1,6 +1,6 @@
 # Manual
 
-Device setup and relay operation. Web app integration lives with the SDK in [`packages/client/README.md`](../packages/client/README.md).
+Device setup and relay operation. Web app integration lives with the SDK in [`packages/sdk/README.md`](../packages/sdk/README.md).
 
 ## Start the relay
 
@@ -59,12 +59,12 @@ Then `systemctl --user enable --now exterior`. A user unit runs while you are lo
 
 ## Relay addresses
 
-`login --relay <url>` signs the device in to an Exterior other than `http://127.0.0.1:8787`. A bare host such as `relay.example.com` means https. A device keeps one sign-in per relay in `~/.config/exterior/sign-ins/`, and can be signed in to several relays. Its id on each relay sits in `~/.config/exterior/devices/`. `logout` revokes the sign-in on the relay and keeps the id, so signing in again lists the same device. Removing the device on the dashboard signs it out too: its daemon stops and asks to sign in again. `daemon` and `logout` act on the only sign-in, or on the one named with `--relay` or `EXTERIOR_RELAY`; with several and none named, they list the choices and stop. One daemon serves one relay, so serving two relays takes two daemons. `status` lists the sign-ins and what each one's daemon last reported: connected, retrying, or stopped and why. A daemon writes that to `~/.local/state/exterior/daemons/`, and `status --json` prints it for the desktop app.
+`login --relay <url>` signs the device in to an Exterior other than `http://127.0.0.1:8787`. A bare host such as `relay.example.com` means https. A device keeps one sign-in per relay in `~/.config/exterior/sign-ins/`, and can be signed in to several relays. The first time it signs in to a relay, the device makes a key for that relay and keeps it in `~/.config/exterior/devices/`; every token it gets there is bound to the key, and the key's thumbprint is its device id. `logout` revokes the sign-in on the relay and keeps the key, so signing in again lists the same device. Removing the device on the dashboard signs it out too: its daemon stops and asks to sign in again, and signing in again brings it back. Deleting the key file makes the computer a new device. `daemon` and `logout` act on the only sign-in, or on the one named with `--relay` or `EXTERIOR_RELAY`; with several and none named, they list the choices and stop. One daemon serves one relay, so serving two relays takes two daemons. `status` lists the sign-ins and what each one's daemon last reported: connected, retrying, or stopped and why. A daemon writes that to `~/.local/state/exterior/daemons/`, and `status --json` prints it for the desktop app.
 
 ## Previews and Example deploys
 
-Maintainer detail, defined by the workflows: [preview.yml](../.github/workflows/preview.yml) publishes `exterior`, `@exterior/contract`, and `@exterior/client` from `main` via pkg-pr-new; [example-pages.yml](../.github/workflows/example-pages.yml) publishes Example to GitHub Pages. Example bakes `VITE_EXTERIOR_URL` in at build time (default `https://relay.apps.superpowerlulu.win`), so a new address needs a rerun.
+Maintainer detail, defined by the workflows: [preview.yml](../.github/workflows/preview.yml) publishes `exterior` and `@exterioragentprotocol/sdk` from `main` via pkg-pr-new; [example-pages.yml](../.github/workflows/example-pages.yml) publishes Example to GitHub Pages. Example bakes `VITE_EXTERIOR_URL` in at build time (default `https://relay.apps.superpowerlulu.win`), so a new address needs a rerun.
 
 ## Daemon behavior
 
-The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials, a second 401 after refresh, or an HTTP 403 for a token issued to another client stop the daemon with instructions to sign in again.
+The daemon checks its saved credentials before each connection attempt and refreshes an access token within one minute of expiry. An established connection stays open; token expiry is handled when reconnecting. Each running agent has its own socket to the relay, so agents keep running while the daemon reconnects. If the relay responds with HTTP 401, the daemon forces one refresh and tries again. Temporary connection or refresh failures retry with delays from one to thirty seconds. Rejected refresh credentials, a second 401 after refresh, or an HTTP 403 for a token that is not a device's stop the daemon with instructions to sign in again.

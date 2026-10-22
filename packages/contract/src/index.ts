@@ -1,110 +1,41 @@
-import * as v from "valibot";
-
 export const defaultRelayUrl = "http://127.0.0.1:8787";
-export const daemonPath = "/api/daemon";
-export const acpPath = "/api/acp";
-/** Web apps list devices here; a daemon registers its device here. */
-export const devicesPath = "/api/devices";
-export const connectionsPath = "/api/connections";
-export const exampleCallbackPath = "/oauth/callback";
 
-export const publicClientsPath = "/api/clients";
 export const clientRegistryPath = "/api/clients/register";
 export const grantsPath = "/api/grants";
-export const devicesScope = "devices offline_access";
+
+/**
+ * The OAuth client the Exterior daemon signs in with on any relay: a Client ID Metadata Document published with
+ * the project, at its own `client_id`. Each device is a key bound to its tokens, not a client of its own.
+ */
+export const exteriorDeviceClient = {
+  client_id: "https://lulu0119.github.io/exterior/device-client.json",
+  client_name: "Exterior",
+  client_uri: "https://lulu0119.github.io/exterior/",
+  grant_types: ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
+  response_types: [],
+  token_endpoint_auth_method: "none",
+  dpop_bound_access_tokens: true,
+} as const;
+
+/**
+ * The OAuth client Example signs in with: a Client ID Metadata Document published with Example itself. Its loopback
+ * redirect, on any port, lets a development copy of Example sign in under the same client.
+ */
+export const exampleClient = {
+  client_id: "https://lulu0119.github.io/exterior/oauth-client.json",
+  client_name: "Example",
+  client_uri: "https://lulu0119.github.io/exterior/",
+  logo_uri: "https://lulu0119.github.io/exterior/oauth-client-logo.png",
+  redirect_uris: ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  grant_types: ["authorization_code", "refresh_token"],
+  response_types: ["code"],
+  token_endpoint_auth_method: "none",
+} as const;
 
 /** The ACP registry the daemon launches from and the relay reads agent icons from. */
 export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 
-/**
- * Why the relay closed a daemon's socket. `replaced`: a newer connection announced the same device id.
- * `removed`: the device is not registered to the account, because it was removed or never registered.
- */
-export const daemonCloseCodes = { replaced: 4001, removed: 4003 } as const;
-
-export type PublicClients = {
-  daemonClientId: string;
-};
-
-const agentTypePattern = /^[a-z][a-z0-9-]{0,63}$/;
 const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const idPattern = /^[A-Za-z0-9_-]{8,128}$/;
-const namePattern = /^[^\r\n\t]{1,128}$/;
-const maxPayloadLength = 1_048_576;
-const maxFailureLength = 500;
-
-/** The operating system a device reports, so a page can show it. */
-export const devicePlatforms = ["macos", "windows", "linux"] as const;
-export type DevicePlatform = (typeof devicePlatforms)[number];
-
-const AgentTypeSchema = v.pipe(v.string(), v.regex(agentTypePattern));
-const PlatformSchema = v.picklist(devicePlatforms);
-const IdSchema = v.pipe(v.string(), v.regex(idPattern));
-const NameSchema = v.pipe(v.string(), v.regex(namePattern));
-const AgentSlotSchema = v.object({ name: NameSchema, agentType: AgentTypeSchema });
-const HostnameSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(256));
-const PathSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(4096));
-const PayloadSchema = v.pipe(v.string(), v.maxLength(maxPayloadLength));
-const FailureSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(maxFailureLength));
-
-const HelloSchema = v.object({
-  type: v.literal("hello"),
-  hostname: HostnameSchema,
-  deviceId: IdSchema,
-  /**
-   * The directory this device works in when a web app names none.
-   *
-   * A web app runs on another computer, so it cannot name a directory here.
-   * It sends this one rather than `/`, which on the device is the root of a
-   * drive or of the whole filesystem.
-   */
-  workingDirectory: PathSchema,
-  agents: v.pipe(v.array(AgentSlotSchema), v.maxLength(32)),
-  platform: PlatformSchema,
-});
-const FrameSchema = v.object({ type: v.literal("frame"), sessionId: IdSchema, payload: PayloadSchema });
-const CloseSchema = v.object({ type: v.literal("close"), sessionId: IdSchema });
-const OpenedSchema = v.object({ type: v.literal("opened"), sessionId: IdSchema });
-const OpenFailedSchema = v.object({ type: v.literal("open-failed"), sessionId: IdSchema, message: FailureSchema });
-const OpenSchema = v.object({ type: v.literal("open"), sessionId: IdSchema, agentName: NameSchema });
-
-// The refresh token proves the sign-in the device id is bound to. Removing the device revokes it.
-const DeviceRegistrationSchema = v.object({
-  deviceId: IdSchema,
-  hostname: HostnameSchema,
-  refreshToken: v.pipe(v.string(), v.minLength(1), v.maxLength(1024)),
-});
-
-const DaemonMessageSchema = v.variant("type", [HelloSchema, FrameSchema, CloseSchema, OpenedSchema, OpenFailedSchema]);
-const RelayMessageSchema = v.variant("type", [OpenSchema, FrameSchema, CloseSchema]);
-
-export type AgentSlot = v.InferOutput<typeof AgentSlotSchema>;
-
-/** An online device as web apps see it. `id` is its device id. */
-export type Device = {
-  id: string;
-  hostname: string;
-  workingDirectory: string;
-  agents: readonly AgentSlot[];
-  platform: DevicePlatform;
-};
-
-/** What a signed-in device tells the relay before its daemon connects. */
-export type DeviceRegistration = v.InferOutput<typeof DeviceRegistrationSchema>;
-
-export type DaemonMessage = v.InferOutput<typeof DaemonMessageSchema>;
-
-export type RelayMessage = v.InferOutput<typeof RelayMessageSchema>;
-
-/** The platform to report for a Node.js `process.platform`, or none for a system Exterior does not name. */
-export function devicePlatform(nodePlatform: string): DevicePlatform | undefined {
-  switch (nodePlatform) {
-    case "darwin": return "macos";
-    case "win32": return "windows";
-    case "linux": return "linux";
-    default: return undefined;
-  }
-}
 
 /** The registry icon address to show for an agent, or undefined when it is not a usable https address. */
 export function registryIconUrl(value: unknown): string | undefined {
@@ -118,33 +49,8 @@ export function registryIconUrl(value: unknown): string | undefined {
   }
 }
 
-export function isAgentType(value: string): boolean {
-  return agentTypePattern.test(value);
-}
-
 export function isEnvName(value: string): boolean {
   return envNamePattern.test(value);
-}
-
-export function relayWebSocketUrl(relayUrl: string, path: string): string {
-  const url = new URL(path, relayUrl);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return url.toString();
-}
-
-export function parseDaemonMessage(value: unknown): DaemonMessage | undefined {
-  const parsed = v.safeParse(DaemonMessageSchema, value);
-  return parsed.success ? parsed.output : undefined;
-}
-
-export function parseDeviceRegistration(value: unknown): DeviceRegistration | undefined {
-  const parsed = v.safeParse(DeviceRegistrationSchema, value);
-  return parsed.success ? parsed.output : undefined;
-}
-
-export function parseRelayMessage(value: unknown): RelayMessage | undefined {
-  const parsed = v.safeParse(RelayMessageSchema, value);
-  return parsed.success ? parsed.output : undefined;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,4 +1,5 @@
-import { isAgentType, isEnvName } from "@exterior/contract";
+import { isEnvName } from "@exterior/contract";
+import { isAgentType } from "@exterioragentprotocol/sdk";
 import type { StoredAgent } from "./config.js";
 
 export function addAgentConfig(input: {

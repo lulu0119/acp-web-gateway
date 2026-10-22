@@ -1,4 +1,4 @@
-import type { AccountSession } from "@exterior/client/react";
+import type { AccountSession } from "@exterioragentprotocol/sdk/client/react";
 import { CheckIcon } from "lucide-react";
 import { ConnectForm, type ConnectedAgent } from "./connect-form";
 import { ExteriorMark } from "@exterior/ui/exterior-mark";

@@ -1,4 +1,5 @@
 import { clientRegistryPath, grantsPath } from "@exterior/contract";
+import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { Hono } from "hono";
 import { readAccount } from "../identity/session.js";
 import type { RelayEnv } from "../http.js";
@@ -6,7 +7,7 @@ import type { ExteriorAuth } from "../identity/auth.js";
 import { parseClientRegistration, registerClient } from "../identity/clients.js";
 import { listGrantedApps, revokeGrant } from "../identity/grants.js";
 
-export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth): void {
+export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, registry: Registry): void {
   app.post(clientRegistryPath, async (c) => {
     const account = await readAccount(c.req.raw, exterior);
     if (!account) return c.json({ message: "Sign in again." }, 401);
@@ -34,6 +35,7 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth): void 
     const clientId = typeof body === "object" && body !== null && "clientId" in body && typeof body.clientId === "string" ? body.clientId : "";
     if (!clientId) return c.json({ message: "Choose an app to revoke." }, 400);
     await revokeGrant(exterior, account, clientId);
+    registry.revokeClient({ userId: account.userId, clientId });
     return c.json({ revoked: true });
   });
 }

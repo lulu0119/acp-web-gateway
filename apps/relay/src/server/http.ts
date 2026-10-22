@@ -1,26 +1,34 @@
 import { createMiddleware } from "hono/factory";
 
-export type RelayEnv = { Variables: { userId: string; clientId: string } };
+/** `deviceId` is the key a device proved; `signedIn`, whether its account still has a sign-in for it. */
+export type RelayEnv = { Variables: { userId: string; clientId: string; deviceId: string | undefined; signedIn: boolean } };
 
-/** Who an access token speaks for: the account, and the OAuth client it was issued to. */
-export type Access = { userId: string; clientId: string };
+/**
+ * Who an access token speaks for: the account, the OAuth client it was issued to, and its scopes. `deviceId` is the
+ * thumbprint of the key a DPoP-bound token is bound to, which the request proved it holds.
+ */
+export type Access = { userId: string; clientId: string; scopes: readonly string[]; deviceId?: string };
 export type ReadAccess = (request: Request) => Promise<Access | undefined>;
 
 /**
- * Requires an access token. `clients` decides which OAuth clients may use the route: the daemon's tokens only reach
- * the daemon socket, and web app tokens only reach the web app API, so neither can stand in for the other.
+ * Requires an access token with `scope`. A client's token reaches only the client endpoints and a device's
+ * only the device socket, so neither can stand in for the other. A missing or dead token is answered with
+ * where to find the authorization server (RFC 9728).
  */
-export function accessAccount(readAccess: ReadAccess, clients: (clientId: string) => boolean, response: "json" | "text" = "json") {
+export function accessAccount(input: { readAccess: ReadAccess; resourceMetadataUrl: string }, scope: string) {
   return createMiddleware<RelayEnv>(async (c, next) => {
-    const access = await readAccess(c.req.raw);
+    const access = await input.readAccess(c.req.raw);
     if (!access) {
-      return response === "text" ? c.text("Unauthorized", 401) : c.json({ message: "Sign in again." }, 401);
+      c.header("WWW-Authenticate", `Bearer resource_metadata="${input.resourceMetadataUrl}"`);
+      return c.json({ code: "unauthorized", message: "Sign in again." }, 401);
     }
-    if (!clients(access.clientId)) {
-      return response === "text" ? c.text("Forbidden", 403) : c.json({ message: "This app cannot use this address." }, 403);
+    if (!access.scopes.includes(scope)) {
+      c.header("WWW-Authenticate", `Bearer error="insufficient_scope", scope="${scope}", resource_metadata="${input.resourceMetadataUrl}"`);
+      return c.json({ code: "insufficient_scope", message: "This token cannot use this address." }, 403);
     }
     c.set("userId", access.userId);
     c.set("clientId", access.clientId);
+    c.set("deviceId", access.deviceId);
     await next();
   });
 }

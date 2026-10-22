@@ -1,6 +1,6 @@
 # A web app registers itself, or names itself by its own document
 
-Status: accepted
+Status: superseded by 0028
 
 A web app with no client of its own used to ask the relay for an approval, and the relay created a client for every sign-in: the app was listed in Authorized apps once per sign-in, revoking one row left the others working, and consent was asked again each time. The relay also had its own way of starting an approval and handing the app a client id, which no other OAuth client knows.
 

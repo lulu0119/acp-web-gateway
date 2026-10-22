@@ -1,6 +1,5 @@
-import { listDevices, openConnection } from "@exterior/client";
-import type { Device } from "@exterior/contract";
-import type { AccountSession } from "@exterior/client/react";
+import { listDevices, openConnection, RelayError, type Device } from "@exterioragentprotocol/sdk/client";
+import type { AccountSession } from "@exterioragentprotocol/sdk/client/react";
 import { ArrowRightIcon, ArrowUpRightIcon, BotIcon, LaptopIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@exterior/ui/button";
@@ -8,14 +7,13 @@ import { cn } from "cn";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 
 export type ConnectedAgent = {
-  agentType: string;
   url: string;
   label: string;
   workingDirectory: string;
   deviceId: string;
   agentName: string;
 };
-type DeviceList = { phase: "loading" | "ready" | "error"; devices: Device[]; error?: string };
+type DeviceList = { phase: "loading" | "ready" | "error"; devices: Device[]; error?: string; signedOut?: boolean };
 
 export function ConnectForm({
   session,
@@ -31,14 +29,16 @@ export function ConnectForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const opening = useRef<AbortController | null>(null);
-  const accessToken = session.account.phase === "signed-in" ? session.account.accessToken : undefined;
+  const signedIn = session.account.phase === "signed-in";
+  const { accessToken } = session;
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!signedIn) return;
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
     setList((current) => ({ phase: "loading", devices: current.devices }));
-    void listDevices(relayUrl, accessToken, signal)
+    void accessToken()
+      .then((token) => listDevices(relayUrl, token, signal))
       .then((devices) => {
         if (controller.signal.aborted) return;
         setList({ phase: "ready", devices });
@@ -55,21 +55,21 @@ export function ConnectForm({
             phase: "error",
             devices: current.devices,
             error: requestError(error, "Could not load your agents."),
+            signedOut: error instanceof RelayError && error.code === "unauthorized",
           }));
       });
     return () => controller.abort();
-  }, [relayUrl, accessToken, refresh]);
+  }, [relayUrl, signedIn, accessToken, refresh]);
 
-  useEffect(() => () => opening.current?.abort(), [accessToken]);
+  useEffect(() => () => opening.current?.abort(), [signedIn]);
 
   async function connect() {
-    if (!accessToken || opening.current) return;
-    const device = list.devices.find((device) =>
-      device.agents.some((agent) => selectionOf(device.id, agent.name) === selection),
-    );
-    if (!device) return;
-    const agent = device.agents.find((agent) => selectionOf(device.id, agent.name) === selection);
-    if (!agent) return;
+    if (!signedIn || opening.current) return;
+    const chosen = list.devices
+      .flatMap((device) => device.agents.map((agent) => ({ device, agent })))
+      .find(({ device, agent }) => selectionOf(device.id, agent.name) === selection);
+    if (!chosen) return;
+    const { device, agent } = chosen;
     const controller = new AbortController();
     opening.current = controller;
     setBusy(true);
@@ -77,13 +77,12 @@ export function ConnectForm({
     try {
       const opened = await openConnection(
         relayUrl,
-        accessToken,
+        await accessToken(),
         { deviceId: device.id, agentName: agent.name },
         AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
       );
       if (!controller.signal.aborted)
         onConnected({
-          agentType: opened.agentType,
           url: opened.url,
           label: `${device.hostname} / ${agent.name}`,
           workingDirectory: device.workingDirectory,
@@ -105,7 +104,7 @@ export function ConnectForm({
         <BotIcon className="size-6" strokeWidth={1.5} aria-hidden />
       </div>
       <h2 className="text-2xl font-semibold tracking-tight">
-        {accessToken ? "Choose your agent" : "Connect your first agent"}
+        {signedIn ? "Choose your agent" : "Connect your first agent"}
       </h2>
       {session.account.phase === "checking" && (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -132,7 +131,7 @@ export function ConnectForm({
           )}
         </div>
       )}
-      {accessToken && (
+      {signedIn && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-muted-foreground">
@@ -167,7 +166,7 @@ export function ConnectForm({
               <Button size="sm" variant="outline" onClick={() => setRefresh((current) => current + 1)}>
                 Try again
               </Button>
-              {list.error === "Sign in again." && (
+              {list.signedOut && (
                 <Button size="sm" disabled={session.busy} onClick={session.signIn}>
                   Sign in again
                 </Button>
@@ -256,7 +255,7 @@ export function ConnectForm({
           )}
         </div>
       )}
-      {accessToken && (
+      {signedIn && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
           <a
             href={relayUrl}

@@ -3,7 +3,8 @@ import { acpRegistryCachePath, loadAcpRegistry } from "../../acp-registry.js";
 import { configuredWorkingDirectory, readGatewayConfig, watchGatewayConfig, type StoredAgent } from "../../config.js";
 import { daemonStateReporter, readDaemonState } from "../../daemon-state.js";
 import { runDaemon } from "../../daemon.js";
-import { DaemonLoginRequiredError, deviceIdFor, registerSignedInDevice, usableSignIn } from "../../login.js";
+import { readDeviceKey } from "../../device-keys.js";
+import { DaemonLoginRequiredError, loginAgain, usableSignIn } from "../../login.js";
 import { loginShellPath } from "../../shell-path.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";
@@ -17,7 +18,7 @@ export const daemon = defineCommand({
   help: [
     "Keep an outbound connection to one relay and start an agent for each connection a web app opens. Connection, refresh, and retry messages go to stderr.",
     "One daemon serves one relay. Run a second daemon to serve a second relay. A second daemon for the same relay exits with 4.",
-    "A change to the agent configurations reaches the relay while the daemon runs. Sessions already open keep their agent.",
+    "A change to the agent configurations reaches the relay while the daemon runs. Agents already running keep running, also while the daemon reconnects.",
     `When the relay rejects this device's sign-in, the daemon exits with ${daemonExit.signInRequired}. --json prints each state change as one JSON line on stdout.`,
     "--stop-when-stdin-closes is for a program that runs the daemon, such as the desktop app: closing the pipe stops it cleanly on every system, and so does that program exiting.",
   ].join("\n\n"),
@@ -63,18 +64,18 @@ export const daemon = defineCommand({
     const shellPath = await loginShellPath({ env: process.env });
     if (shellPath) process.env.PATH = shellPath;
     const lifeline = options.stopWhenStdinCloses ? stdinLifeline(context.signal) : undefined;
-    const deviceId = await deviceIdFor(relayUrl, io.homeDirectory);
     const workingDirectory = configuredWorkingDirectory(config, io.homeDirectory);
     try {
+      const deviceKey = await readDeviceKey(relayUrl, io.homeDirectory);
+      if (!deviceKey) throw new DaemonLoginRequiredError(`This device has no key for ${relayUrl}. ${loginAgain(relayUrl)}`);
       await runDaemon({
+        deviceKey,
         relayUrl,
         getAccessToken: async (forceRefresh, signal) =>
           (await usableSignIn({ relayUrl, homeDirectory: io.homeDirectory, forceRefresh, signal })).accessToken,
         inform,
         onStatus: state.status,
         hostname: hostname(),
-        deviceId,
-        register: (signal) => registerSignedInDevice({ relayUrl, deviceId, hostname: hostname(), homeDirectory: io.homeDirectory, signal }),
         config: { ...config, workingDirectory },
         configUpdates: (listener) =>
           watchGatewayConfig({

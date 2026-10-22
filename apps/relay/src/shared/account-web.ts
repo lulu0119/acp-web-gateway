@@ -1,12 +1,8 @@
-import type { AgentSlot, DevicePlatform } from "@exterior/contract";
+import type { AgentSlot, DevicePlatform } from "@exterioragentprotocol/sdk";
+import type { ConnectionInfo } from "@exterioragentprotocol/sdk/relay";
 
-export type LiveSessionInfo = {
-  deviceId: string;
-  agentName: string;
-  agentType: string;
-  /** The web app that opened the session; Authorized apps names it. */
-  clientId: string;
-};
+/** A live session; Authorized apps names the web app that opened it. */
+export type LiveSessionInfo = ConnectionInfo;
 
 /** A signed-in device as the dashboard shows it. `online` while its daemon is connected; `agents` only then. */
 export type DeviceView = {
@@ -80,8 +76,8 @@ export type AccountPage =
     clientUri?: string;
     /** The logo the app names; the browser loads it from there. */
     logoUri?: string;
-    /** True when the name came from the app itself rather than from an account that registered it. */
-    unverified: boolean;
+    /** True when the app returns to this computer, where any program can listen on the address. */
+    local: boolean;
     account: AccountView;
     permissions: PermissionView[];
   }

@@ -1,4 +1,5 @@
-import { isAgentType, isEnvName } from "@exterior/contract";
+import { isEnvName } from "@exterior/contract";
+import { isAgentType } from "@exterioragentprotocol/sdk";
 import { mkdirSync, watch } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";

@@ -4,8 +4,7 @@ import { Format, LogLevel, initLogger, useLogg } from "@guiiai/logg";
 import Database from "better-sqlite3";
 import { openExteriorAuth } from "./server/identity/auth.js";
 import { createRelayApp } from "./server/app.js";
-import { ensureDaemonClient } from "./server/identity/clients.js";
-import { createRegistry } from "./server/connections/registry.js";
+import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 import { openDeviceStore } from "./server/devices/store.js";
 
 initLogger(LogLevel.Log, process.env.LOG_FORMAT === "json" ? Format.JSON : Format.Pretty);
@@ -31,14 +30,12 @@ const exterior = await openExteriorAuth({
   githubClientId,
   githubClientSecret,
 });
-const daemonClientId = await ensureDaemonClient(exterior);
 const devices = openDeviceStore(database);
-const registry = createRegistry({ seen: (device) => devices.touch(device) });
+const registry = createRegistry({ seen: (device) => devices.record(device) });
 const { app, injectWebSocket } = createRelayApp({
   registry,
   devices,
   exterior,
-  clients: { daemonClientId },
   githubConfigured: githubClientId.length > 0 && githubClientSecret.length > 0,
   devServerUrl: process.env.WEB_DEV_SERVER_URL,
 });

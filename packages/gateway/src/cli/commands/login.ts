@@ -1,4 +1,3 @@
-import { hostname } from "node:os";
 import { defaultRelayUrl } from "@exterior/contract";
 import { signInDaemon } from "../../login.js";
 import { readSignIns, chooseRelay } from "../../sign-ins.js";
@@ -9,7 +8,7 @@ export const login = defineCommand({
   name: "login",
   description: "Sign this device in to an Exterior relay",
   help: [
-    "Sign this device in to an Exterior relay with a device code. Approve the code on the relay after signing in with GitHub. The device then appears on the relay's dashboard.",
+    "Sign this device in to an Exterior relay with a device code. Approve the code on the relay after signing in with GitHub. The device appears on the relay's dashboard once its daemon connects.",
     "A device keeps one sign-in per relay. Signing in to a second relay keeps the first. Signing in again to the same relay replaces its sign-in.",
   ].join("\n\n"),
   options: [relayOption, { flags: "--json", description: "Print the code to approve and the result as JSON lines" }],
@@ -33,7 +32,6 @@ export const login = defineCommand({
     try {
       await signInDaemon({
         relayUrl,
-        hostname: hostname(),
         homeDirectory: io.homeDirectory,
         signal: context.signal,
         inform: say,

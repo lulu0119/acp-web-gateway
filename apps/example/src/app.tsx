@@ -7,10 +7,10 @@ import type { Connection } from "@/components/app/connection-pane";
 import { StatusDot } from "@/components/app/connection-status";
 import { RowMenu } from "@/components/app/row-menu";
 import { WelcomePage } from "@/components/app/welcome-page";
-import { useAccount } from "@exterior/client/react";
+import { useAccount } from "@exterioragentprotocol/sdk/client/react";
 import { Button } from "@exterior/ui/button";
+import { exampleClient } from "@exterior/contract";
 import { accountPaths } from "@/lib/account-paths";
-import { exampleClientId, exampleLogoUri } from "@/lib/client-id";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@exterior/ui/dialog";
 import { DropdownMenuItem } from "@exterior/ui/dropdown-menu";
@@ -55,12 +55,6 @@ export function App() {
     setAdding(false);
   }
 
-  function renewConnection(id: string, url: string) {
-    setConnections((current) =>
-      current.map((connection) => (connection.id === id ? { ...connection, url } : connection)),
-    );
-  }
-
   function disconnect(id: string) {
     const remaining = connections.filter((connection) => connection.id !== id);
     setConnections(remaining);
@@ -76,9 +70,7 @@ export function App() {
   const base = import.meta.env.BASE_URL;
   const session = useAccount(exteriorRelayUrl(), {
     ...accountPaths(pageOrigin, base),
-    clientId: exampleClientId(pageOrigin, base),
-    clientName: "Example",
-    logoUri: exampleLogoUri(pageOrigin, base),
+    clientId: exampleClient.client_id,
   });
 
   const handleSignOut = useCallback(() => {
@@ -177,12 +169,11 @@ export function App() {
           >
             {connections.map((connection) => (
               <ConnectionPane
-                key={connection.url}
+                key={connection.id}
                 connection={connection}
                 active={connection.id === activeId}
                 treeSlot={treeSlot}
-                accessToken={session.account.phase === "signed-in" ? session.account.accessToken : undefined}
-                onRenewed={(url) => renewConnection(connection.id, url)}
+                accessToken={session.accessToken}
                 onStatusChange={reportStatus}
               />
             ))}

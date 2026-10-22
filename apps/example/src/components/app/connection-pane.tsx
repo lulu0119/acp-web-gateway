@@ -1,5 +1,5 @@
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import { openConnection } from "@exterior/client";
+import { openConnection } from "@exterioragentprotocol/sdk/client";
 import { AssistantRuntimeProvider, AuiIf, useAui } from "@assistant-ui/react";
 import {
   useAcpAuth,
@@ -46,29 +46,32 @@ export function ConnectionPane({
   active,
   treeSlot,
   accessToken,
-  onRenewed,
   onStatusChange,
 }: {
   connection: Connection;
   active: boolean;
   treeSlot: HTMLElement | null;
-  accessToken: string | undefined;
-  onRenewed: (url: string) => void;
+  accessToken: () => Promise<string>;
   onStatusChange: (id: string, status: AcpConnectionStatus) => void;
 }) {
-  async function renew() {
-    if (!accessToken) throw new Error("Sign in again.");
-    const opened = await openConnection(
-      exteriorRelayUrl(),
-      accessToken,
-      { deviceId: connection.deviceId, agentName: connection.agentName },
-      AbortSignal.timeout(20_000),
-    );
-    onRenewed(opened.url);
-  }
-  const [directories] = useState(() =>
-    createDirectoryAdapter(() => createWebSocketStream(connection.url), connection.workingDirectory),
-  );
+  const [directories] = useState(() => {
+    // A connection's address is dialed once. The form opened the first; each reconnect opens another.
+    let opened: string | undefined = connection.url;
+    return createDirectoryAdapter(async ({ signal }) => {
+      const url =
+        opened ??
+        (
+          await openConnection(
+            exteriorRelayUrl(),
+            await accessToken(),
+            { deviceId: connection.deviceId, agentName: connection.agentName },
+            AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
+          )
+        ).url;
+      opened = undefined;
+      return createWebSocketStream(url);
+    }, connection.workingDirectory);
+  });
   const runtime = useAcpRuntime({
     connection: { type: "adapter", adapter: directories.adapter },
     // The device's directory, for a session created without a chosen one.
@@ -81,13 +84,14 @@ export function ConnectionPane({
       <StatusReporter id={connection.id} onStatusChange={onStatusChange} />
       <section className={active ? "flex h-dvh min-h-0 flex-col" : "hidden"}>
         <PaneHeader />
-        <PaneBody renew={renew} />
+        <PaneBody />
       </section>
       {active &&
         treeSlot &&
         createPortal(
           <WorkspaceTree
-            agentType={connection.label}
+            deviceId={connection.deviceId}
+            agentName={connection.agentName}
             directories={directories}
             defaultDirectory={connection.workingDirectory}
           />,
@@ -121,23 +125,20 @@ function PaneHeader() {
   );
 }
 
-function PaneBody({ renew }: { renew: () => Promise<void> }) {
-  const { status } = useAcpConnection();
+function PaneBody() {
+  const { status, reconnect } = useAcpConnection();
   const activeSessionId = useAcpThreadState((state) => state.activeSessionId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const renewing = useRef(false);
 
-  async function reconnect() {
-    if (renewing.current) return;
-    renewing.current = true;
+  async function retry() {
     setBusy(true);
     setError("");
     try {
-      await renew();
+      await reconnect();
     } catch (caught) {
       setError(requestError(caught, "Could not reconnect."));
-      renewing.current = false;
+    } finally {
       setBusy(false);
     }
   }
@@ -148,13 +149,13 @@ function PaneBody({ renew }: { renew: () => Promise<void> }) {
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon"><CircleAlertIcon /></EmptyMedia>
-          <EmptyTitle role={error ? "alert" : undefined}>{error || "This conversation ended"}</EmptyTitle>
+          <EmptyTitle role={error ? "alert" : undefined}>{error || "Disconnected from the agent"}</EmptyTitle>
           <EmptyDescription>
-            {error ? "This conversation ended." : "Starting again opens a new conversation."}
+            {error ? "Still disconnected from the agent." : "Trying again reconnects to the agent."}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="outline" disabled={busy} onClick={() => void reconnect()}>
+          <Button variant="outline" disabled={busy} onClick={() => void retry()}>
             {busy && <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />}
             {busy ? "Reconnecting…" : "Try again"}
           </Button>

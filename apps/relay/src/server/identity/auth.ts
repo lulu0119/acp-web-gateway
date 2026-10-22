@@ -3,6 +3,8 @@ import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { oauthDeviceAuthorization, oauthProvider, type ClientMetadataResourceFetch } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
+import { exampleClient, exteriorDeviceClient } from "@exterior/contract";
+import { clientScope, deviceScope } from "@exterioragentprotocol/sdk";
 import { bearer, jwt } from "better-auth/plugins";
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
@@ -43,13 +45,13 @@ function buildExteriorAuth(config: ExteriorAuthConfig) {
       oauthProvider({
         loginPage: "/sign-in",
         consentPage: "/consent",
-        scopes: ["openid", "profile", "email", "offline_access", "devices"],
-        resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: ["devices", "offline_access", "openid", "profile", "email"] }],
-        // A web app registers itself (RFC 7591) or names itself by a metadata document's URL (CIMD).
-        // Either way it can ask for what a web app is granted, against this relay.
-        allowDynamicClientRegistration: true,
-        allowUnauthenticatedClientRegistration: true,
-        clientRegistrationDefaultScopes: ["devices", "offline_access"],
+        scopes: ["openid", "profile", "email", "offline_access", clientScope, deviceScope],
+        resources: [{ identifier: publicUrl, name: "Exterior", allowedScopes: [clientScope, deviceScope, "offline_access", "openid", "profile", "email"] }],
+        // Web apps and device software name themselves by a metadata document's URL (CIMD), or use a client an
+        // account registered; nobody registers anonymously. These shape the clients metadata documents become, and
+        // the relay keeps each to its own role (see guardAuthRequest).
+        clientRegistrationDefaultScopes: [clientScope, "offline_access"],
+        clientRegistrationAllowedScopes: [deviceScope],
         clientRegistrationDefaultResources: [publicUrl],
         // Named here so the relay can find a refresh token's row by the token itself.
         storeTokens: { hash: hashToken },
@@ -57,7 +59,7 @@ function buildExteriorAuth(config: ExteriorAuthConfig) {
       oauthDeviceAuthorization({
         verificationUri: "/device",
       }),
-      cimd({ fetchClientMetadataResource: config.fetchClientMetadataResource ?? fetchClientMetadataResource }),
+      cimd({ fetchClientMetadataResource: withExteriorDocuments(config.fetchClientMetadataResource ?? fetchClientMetadataResource) }),
     ],
   };
   return {
@@ -66,6 +68,23 @@ function buildExteriorAuth(config: ExteriorAuthConfig) {
     resource: publicUrl,
     issuer: `${publicUrl}/api/auth`,
     jwksUrl: `${publicUrl}/api/auth/jwks`,
+    /** The relay's protected resource metadata (RFC 9728), which names the authorization server. */
+    resourceMetadataUrl: `${publicUrl}/.well-known/oauth-protected-resource`,
+  };
+}
+
+const exteriorDocuments = new Map<string, object>([exteriorDeviceClient, exampleClient].map((document) => [document.client_id, document]));
+
+/**
+ * The relay knows the project's own metadata documents, Exterior's device software and Example, without fetching
+ * them, so a relay without internet access still signs in Exterior devices and a development copy of Example.
+ * Every other document is fetched.
+ */
+function withExteriorDocuments(fetch: ClientMetadataResourceFetch): ClientMetadataResourceFetch {
+  return (input, init) => {
+    const known = exteriorDocuments.get(input instanceof Request ? input.url : String(input));
+    if (!known) return fetch(input, init);
+    return new Response(JSON.stringify(known), { headers: { "content-type": "application/json" } });
   };
 }
 

@@ -4,7 +4,7 @@ Status: partially applied. Relay-side logo fetching is rejected (ADR 0021); rate
 
 Date: 2026-10-13. Scope: relay consent page (`/consent`), pending clients (`POST /api/authorize-request`), scopes, CORS, token binding. Code refs are against `main` at `c94dada`. better-auth / @better-auth/oauth-provider are at 1.7.7 in `node_modules`.
 
-Status after `feat/relay-ux`: A1 and A2 fixed by checking `azp` ([ADR 0014](../adr/0014-tokens-are-told-apart-by-client.md)); A8 partly (the consent page leads with the app's origin, an Unverified pill, the account, and named permissions; the client id moved under Details; icons still pending); A9 fixed (no third-party image is loaded); A12 fixed (`frame-ancestors 'none'`); A14 fixed (devices carry a stable id). The rest is in `docs/open-work.md`.
+Status after `feat/relay-ux`: A1 and A2 fixed by checking `azp` ([ADR 0014](../adr/0014-tokens-are-told-apart-by-client.md)); A8 partly (the consent page leads with the app's origin, an Unverified pill, the account, and named permissions; the client id moved under Details; icons still pending); A9 fixed (no third-party image is loaded); A12 fixed (`frame-ancestors 'none'`); A14 fixed (devices carry a stable id). The Unverified pill and the question of what "verified" means were dropped by [ADR 0028](../adr/0028-a-web-app-names-itself.md): consent shows the origin an app returns to and warns only for a loopback redirect. The rest is in `docs/open-work.md`.
 
 ## 0. Audit summary (what the code does today)
 

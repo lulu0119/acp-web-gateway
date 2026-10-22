@@ -16,6 +16,7 @@
     "@better-auth/oauth-provider": "^1.6.0",
     "@exterior/contract": "workspace:*",
     "@exterior/ui": "workspace:*",
+    "@exterioragentprotocol/sdk": "workspace:*",
     "@guiiai/logg": "^1.2.12",
     "@hono/node-server": "^1.19.9",
     "@hono/node-ws": "^1.3.0",
@@ -31,7 +32,6 @@
     "tailwindcss": "^4.1.14"
   },
   "devDependencies": {
-    "@exterior/client": "workspace:*",
     "@tailwindcss/vite": "^4.1.14",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.6.0",

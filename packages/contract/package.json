@@ -1,17 +1,9 @@
 {
   "name": "@exterior/contract",
-  "version": "0.1.0-beta.1",
-  "description": "Shared relay paths, agent types, and daemon messages for Exterior.",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Exterior's own relay paths and agent catalog, shared by the relay, the daemon, and Example.",
   "type": "module",
-  "files": ["dist"],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/lulu0119/exterior.git",
-    "directory": "packages/contract"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,12 +11,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
-    "prepublishOnly": "pnpm run build",
+    "build": "tsc -p tsconfig.json",
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
-  },
-  "dependencies": {
-    "valibot": "^1.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

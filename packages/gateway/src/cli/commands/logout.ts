@@ -1,4 +1,4 @@
-import { fetchPublicClients, revokeRefreshToken } from "@exterior/client";
+import { revokeRefreshToken } from "@exterioragentprotocol/sdk/device";
 import { removeSignIn } from "../../sign-ins.js";
 import { defineCommand } from "../command.js";
 import { relayOption, resolveRelay } from "../relay.js";
@@ -24,8 +24,7 @@ export const logout = defineCommand({
       return 1;
     }
     const signal = AbortSignal.timeout(10_000);
-    const revoked = await fetchPublicClients(signIn.relayUrl, signal)
-      .then((clients) => revokeRefreshToken({ relayUrl: signIn.relayUrl, clientId: clients.daemonClientId, refreshToken: signIn.refreshToken, signal }))
+    const revoked = await revokeRefreshToken({ relayUrl: signIn.relayUrl, clientId: signIn.clientId, refreshToken: signIn.refreshToken, signal })
       .then(() => undefined, (error: unknown) => (error instanceof Error ? error.message : "no reason given"));
     await removeSignIn(chosen.relayUrl, io.homeDirectory);
     if (revoked !== undefined) {

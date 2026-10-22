@@ -1,17 +1,9 @@
-import { DEVICE_CODE_GRANT_TYPE } from "@better-auth/oauth-provider";
 import { randomBytes } from "node:crypto";
-import { devicesScope } from "@exterior/contract";
+import { clientScope, deviceScope } from "@exterioragentprotocol/sdk";
 import type { ExteriorAuth } from "./auth.js";
 
-const daemonSoftwareId = "exterior-daemon";
 const userSoftwarePrefix = "exterior-user-client:";
-export const registeredSoftwarePrefix = userSoftwarePrefix;
-/** A client a web app registered for itself (RFC 7591), once someone has approved it. */
-const openSoftwarePrefix = "exterior-open-client:";
-/** A client a web app registered for itself that nobody has approved yet. */
-const pendingSoftwarePrefix = "exterior-pending:";
 export const maxClientsPerUser = 10;
-const pendingTtlMs = 3_600_000;
 
 export type ClientRegistration = {
   clientName: string;
@@ -79,13 +71,46 @@ function redirectProblem(uri: string): string | undefined {
 
 /**
  * Applies the relay's policy to a request bound for the OAuth provider, which otherwise handles it
- * as the standard says.
+ * as the standard says. One OAuth client holds one EAP role: a client signs in with the authorization
+ * code flow for `eap:client`, and a device with the device authorization grant for `eap:device`.
  */
 export async function guardAuthRequest(exterior: ExteriorAuth, request: Request): Promise<Request | Response> {
   const path = new URL(request.url).pathname;
-  if (request.method === "GET" && path.endsWith("/oauth2/authorize")) return askConsentForLoopback(request);
-  if (request.method === "POST" && path.endsWith("/oauth2/register")) return await claimRegistration(exterior, request);
+  if (request.method === "GET" && path.endsWith("/oauth2/authorize")) {
+    const scopes = scopeList(new URL(request.url).searchParams.get("scope"));
+    if (scopes.includes(deviceScope)) return invalidScope("A device signs in with a device code.");
+    return askConsentForLoopback(request);
+  }
+  if (request.method === "POST" && path.endsWith("/device/code")) {
+    const params = new URLSearchParams(await request.clone().text());
+    const scopes = scopeList(params.get("scope"));
+    if (!scopes.includes(deviceScope) || scopes.includes(clientScope)) return invalidScope(`A device signs in for ${deviceScope}.`);
+    // A client that can also sign in through a browser, such as one named by a metadata document, is not a device.
+    if (await signsInThroughBrowser(exterior, params.get("client_id") ?? "")) return oauthError("unauthorized_client", "This client is not a device.");
+    return request;
+  }
   return request;
+}
+
+async function signsInThroughBrowser(exterior: ExteriorAuth, clientId: string): Promise<boolean> {
+  const context = await exterior.auth.$context;
+  const row = await context.adapter.findOne<{ clientId: string; grantTypes?: string[] | string | null }>({ model: "oauthClient", where: [{ field: "clientId", value: clientId }] });
+  const grantTypes = row?.grantTypes;
+  return Array.isArray(grantTypes) ? grantTypes.includes("authorization_code") : (grantTypes ?? "").includes("authorization_code");
+}
+
+function scopeList(scope: string | null | undefined): string[] {
+  return (scope ?? "").split(" ").filter((item) => item.length > 0);
+}
+
+function invalidScope(description: string): Response {
+  return oauthError("invalid_scope", description);
+}
+
+// Built with `new Response`: the Node server swaps in its own Response class, and the static `json` would make an
+// instance of the original, which fails the caller's `instanceof Response`.
+function oauthError(error: string, description: string): Response {
+  return new Response(JSON.stringify({ error, error_description: description }), { status: 400, headers: { "content-type": "application/json" } });
 }
 
 /**
@@ -105,7 +130,7 @@ function askConsentForLoopback(request: Request): Request {
   return new Request(url, request);
 }
 
-function isLoopbackRedirect(uri: string): boolean {
+export function isLoopbackRedirect(uri: string): boolean {
   try {
     const url = new URL(uri);
     return url.protocol === "http:" && isLoopback(url.hostname);
@@ -131,97 +156,11 @@ function isHttpsUrl(uri: string): boolean {
   }
 }
 
-/**
- * Marks a web app's own registration (RFC 7591) as one nobody has approved yet, so it can be pruned,
- * and so it cannot claim to be the daemon or a client an account registered. Those are told apart by
- * `software_id`, which the relay sets here in place of the app's.
- */
-async function claimRegistration(exterior: ExteriorAuth, request: Request): Promise<Request | Response> {
-  const body: unknown = await request.clone().json().catch(() => undefined);
-  if (typeof body !== "object" || body === null || Array.isArray(body)) return request;
-  const metadata: Record<string, unknown> = { ...body };
-  const name = typeof metadata.client_name === "string" ? metadata.client_name.trim() : "";
-  if (/^exterior/i.test(name)) {
-    return Response.json({ error: "invalid_client_metadata", error_description: "Names starting with Exterior are reserved." }, { status: 400 });
-  }
-  delete metadata.software_statement;
-  delete metadata.software_version;
-  metadata.software_id = `${pendingSoftwarePrefix}${randomBytes(8).toString("hex")}`;
-  await prunePendingClients(exterior);
-  const headers = new Headers(request.headers);
-  headers.delete("content-length");
-  return new Request(request.url, { method: "POST", headers, body: JSON.stringify(metadata) });
-}
-
 function validateClientName(clientName: string): string | undefined {
   if (clientName.length === 0) return "Give the client a name.";
   if (clientName.length > 64) return "Keep the name under 64 characters.";
   if (/^exterior/i.test(clientName)) return "Names starting with Exterior are reserved.";
   return undefined;
-}
-
-/** Keeps a self-registered client once someone approves it, so the id the app cached stays valid. */
-export async function approvePendingClient(exterior: ExteriorAuth, clientId: string): Promise<void> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredClient>({
-    model: "oauthClient",
-    where: [{ field: "clientId", value: clientId }],
-  });
-  const row = rows.find((item) => item.clientId === clientId);
-  const softwareId = row?.softwareId;
-  if (!softwareId?.startsWith(pendingSoftwarePrefix)) return;
-  await context.adapter.update({
-    model: "oauthClient",
-    where: [{ field: "clientId", value: clientId }],
-    update: { softwareId: `${openSoftwarePrefix}${softwareId.slice(pendingSoftwarePrefix.length)}` },
-  });
-}
-
-/** Deletes self-registered clients nobody approved within an hour, since anyone can register one. */
-export async function prunePendingClients(exterior: ExteriorAuth, olderThanMs = pendingTtlMs, now: number = Date.now()): Promise<number> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredClient & { id?: string; createdAt?: Date | string }>({
-    model: "oauthClient",
-    where: [],
-  });
-  let pruned = 0;
-  for (const row of rows) {
-    if (!row.softwareId?.startsWith(pendingSoftwarePrefix)) continue;
-    const createdAt = row.createdAt ? new Date(row.createdAt).getTime() : Number.NaN;
-    if (!Number.isFinite(createdAt) || now - createdAt < olderThanMs) continue;
-    const id = row.id ?? row.clientId;
-    if (!id) continue;
-    await context.adapter.delete({ model: "oauthClient", where: [{ field: row.id ? "id" : "clientId", value: id }] });
-    pruned += 1;
-  }
-  return pruned;
-}
-
-export async function ensureDaemonClient(exterior: ExteriorAuth): Promise<string> {
-  const existing = await findClientId(exterior, daemonSoftwareId);
-  if (existing) {
-    await linkResource(exterior, existing);
-    return existing;
-  }
-  const created = await withOwner(exterior, (headers) =>
-    exterior.auth.api.adminCreateOAuthClient({
-      headers,
-      body: {
-        software_id: daemonSoftwareId,
-        client_name: "Exterior daemon",
-        application_type: "native",
-        redirect_uris: [`${exterior.publicUrl}/device/done`],
-        grant_types: [DEVICE_CODE_GRANT_TYPE, "refresh_token"],
-        token_endpoint_auth_method: "none",
-        response_types: [],
-        scope: devicesScope,
-        skip_consent: false,
-      },
-    }),
-  );
-  if (!created.client_id) throw new Error("Exterior could not register the daemon client.");
-  await linkResource(exterior, created.client_id);
-  return created.client_id;
 }
 
 export async function registerClient(exterior: ExteriorAuth, ownerUserId: string, input: ClientRegistration): Promise<RegisteredClient> {
@@ -241,7 +180,7 @@ export async function registerClient(exterior: ExteriorAuth, ownerUserId: string
         grant_types: ["authorization_code", "refresh_token"],
         token_endpoint_auth_method: input.confidential ? "client_secret_basic" : "none",
         response_types: ["code"],
-        scope: devicesScope,
+        scope: `${clientScope} offline_access`,
         skip_consent: false,
       },
     }),
@@ -261,15 +200,6 @@ async function userClientCount(exterior: ExteriorAuth, ownerUserId: string): Pro
   const context = await exterior.auth.$context;
   const rows = await context.adapter.findMany<StoredClient>({ model: "oauthClient", where: [] });
   return rows.filter((row) => row.softwareId?.startsWith(`${userSoftwarePrefix}${ownerUserId}:`)).length;
-}
-
-async function findClientId(exterior: ExteriorAuth, softwareId: string): Promise<string | undefined> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredClient>({
-    model: "oauthClient",
-    where: [{ field: "softwareId", value: softwareId }],
-  });
-  return rows.find((row) => row.softwareId === softwareId)?.clientId;
 }
 
 async function withOwner<T>(exterior: ExteriorAuth, run: (headers: Headers) => Promise<T>): Promise<T> {
