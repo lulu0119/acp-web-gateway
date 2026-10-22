@@ -7,7 +7,6 @@ export {
   finishBrowserSignIn,
   listDevices,
   openConnection,
-  registerBrowserClient,
   RelayError,
   storedAccessToken,
   type BrowserStore,

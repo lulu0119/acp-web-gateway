@@ -74,7 +74,6 @@ test("listing devices and opening a connection use the access token", async () =
       { id: "device-studio-1", hostname: "studio", workingDirectory: "/home/ada/work", agents: [{ name: "work", agentType: "opencode" }], platform: "linux" },
     ]);
     const opened = await openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "work" });
-    assert.equal(opened.agentType, "opencode");
     assert.match(opened.url, /ticket=once/);
     await assert.rejects(openConnection(relay.origin, "access-1", { deviceId: "device-studio-1", agentName: "gone" }), {
       name: "RelayError",
@@ -107,43 +106,27 @@ test("a dismissed connection form can cancel device listing and agent opening", 
   }
 });
 
-test("a web app without a client id registers itself once per browser", async () => {
+test("a web app signs in with its metadata document's address", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
-  const registrations = memoryStore();
+  const clientId = "https://app.example.test/oauth-client.json";
   try {
     const redirectUri = `${relay.origin}/oauth/callback`;
-    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, logoUri: `${relay.origin}/logo.png` }));
-    assert.equal(url.searchParams.get("client_id"), "registered-client-1");
+    const url = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, clientId }));
+    assert.equal(url.searchParams.get("client_id"), clientId);
+    assert.equal(url.searchParams.get("scope"), "eap:client offline_access");
+    assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
-    assert.deepEqual(relay.registrations, [{
-      client_name: `Web app at ${relay.origin}`,
-      logo_uri: `${relay.origin}/logo.png`,
-      redirect_uris: [redirectUri],
-      application_type: "native",
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-      scope: "eap:client offline_access",
-    }]);
     assert.ok(store.getItem("exterior.codeVerifier"));
     assert.ok(store.getItem("exterior.state"));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, registrations });
+    const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store });
     assert.equal(tokens.accessToken, "access-1");
-    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), "registered-client-1");
+    assert.equal(store.getItem(`exterior.clientId:${relay.origin}`), clientId);
     assert.equal(store.getItem("exterior.signInClientId"), null);
-
-    const again = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations }));
-    assert.equal(again.searchParams.get("client_id"), "registered-client-1");
-    assert.equal(relay.registrations.length, 1);
-
-    const named = new URL(await beginBrowserSignIn({ relayUrl: relay.origin, redirectUri, store, registrations, clientId: "https://app.example.test/oauth-client.json" }));
-    assert.equal(named.searchParams.get("client_id"), "https://app.example.test/oauth-client.json");
-    assert.equal(relay.registrations.length, 1);
   } finally {
     relay.close();
   }
@@ -203,7 +186,6 @@ function memoryStore(): BrowserStore {
 async function fakeRelay(): Promise<{
   origin: string;
   tokenPosts: number;
-  registrations: unknown[];
   revoked: { token: string | null; hint: string | null; clientId: string | null }[];
   /** The DPoP proof of each device code poll. */
   deviceProofs: string[];
@@ -213,7 +195,6 @@ async function fakeRelay(): Promise<{
   let devicePolls = 0;
   let tokenPosts = 0;
   const revoked: { token: string | null; hint: string | null; clientId: string | null }[] = [];
-  const registrations: unknown[] = [];
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const chunks: Buffer[] = [];
@@ -239,7 +220,6 @@ async function fakeRelay(): Promise<{
         authorization_endpoint: `${issuer}/oauth2/authorize`,
         token_endpoint: `${issuer}/oauth2/token`,
         revocation_endpoint: `${issuer}/oauth2/revoke`,
-        registration_endpoint: `${issuer}/oauth2/register`,
         device_authorization_endpoint: `${issuer}/device/code`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
@@ -247,10 +227,6 @@ async function fakeRelay(): Promise<{
         authorization_response_iss_parameter_supported: true,
         token_endpoint_auth_methods_supported: ["none"],
       });
-    }
-    if (url.pathname === "/api/auth/oauth2/register") {
-      registrations.push(JSON.parse(raw));
-      return json(response, { client_id: `registered-client-${registrations.length}`, token_endpoint_auth_method: "none" }, 201);
     }
     if (url.pathname === "/api/auth/device/code") {
       return json(response, {
@@ -280,7 +256,7 @@ async function fakeRelay(): Promise<{
     }
     if (url.pathname === "/eap/v1/connections") {
       if (JSON.parse(raw).agentName !== "work") return json(response, { code: "target_not_found", message: "That device is not online." }, 404);
-      return json(response, { url: `${origin.replace("http", "ws")}/eap/v1/attach?ticket=once`, agentType: "opencode", expiresAt: "2026-10-21T08:00:00Z" }, 201);
+      return json(response, { url: `${origin.replace("http", "ws")}/eap/v1/attach?ticket=once` }, 201);
     }
     response.writeHead(404);
     response.end();
@@ -294,7 +270,6 @@ async function fakeRelay(): Promise<{
     get tokenPosts() {
       return tokenPosts;
     },
-    registrations,
     revoked,
     deviceProofs,
     close: () => server.close(),

@@ -54,6 +54,7 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 - ❌ `c94dada`: the consent card's subject was the client id ("mIBRx… is asking for machines offline_access"). `web/pages/account.tsx`
 - ✅ `feat/relay-ux`: consent leads with the app name, its origin, an Unverified pill, and permissions named for a person; the client id is under Details. `web/pages/account.tsx` (`Consent`), `server/identity/account.ts` (`describeScopes`)
+- ✅ ADR 0028: the Unverified pill went, since nothing was ever checked and an unmarked app read as checked. Consent shows the origin the app returns to under every name, and a loopback redirect gets a warning that any program on this computer can use it. `web/pages/account.tsx` (`Consent`)
 
 ## no-lost-context
 

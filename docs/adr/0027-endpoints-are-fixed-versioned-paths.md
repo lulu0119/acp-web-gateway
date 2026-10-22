@@ -14,4 +14,4 @@ A device used to state a protocol version in `hello`, and a relay that did not s
 ## Consequences
 
 - A relay serves two versions side by side under two paths.
-- The device socket close codes are 4200 `replaced`, 4201 `revoked` and 4202 `invalid_message`.
+- The device socket close codes are 4200 `replaced` and 4201 `revoked`; a message that breaks the protocol closes it with 1008.

@@ -82,7 +82,7 @@ export function ConnectForm({
       );
       if (!controller.signal.aborted)
         onConnected({
-          agentType: opened.agentType,
+          agentType: agent.agentType,
           url: opened.url,
           label: `${device.hostname} / ${agent.name}`,
           workingDirectory: device.workingDirectory,

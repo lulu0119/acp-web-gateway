@@ -2,7 +2,7 @@ import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
 import type { AccountPage, AccountView, PermissionView } from "../../shared/account-web.js";
 import { setupGuide } from "../rendering/setup-guide.js";
 import type { ExteriorAuth } from "./auth.js";
-import { approvePendingClient } from "./clients.js";
+import { isLoopbackRedirect } from "./clients.js";
 import { findClientMeta } from "./grants.js";
 import { readAccount, type Account } from "./session.js";
 
@@ -52,8 +52,7 @@ export async function readConsent(request: Request, exterior: ExteriorAuth): Pro
       redirectUri,
       clientUri: meta?.clientUri,
       logoUri: meta?.logoUri,
-      // A metadata document proves its own origin, so an app returning there is that origin's.
-      unverified: !meta?.registered && !(meta?.metadataDocument && originOf(clientId) === originOf(redirectUri)),
+      local: isLoopbackRedirect(redirectUri),
       account: accountView(account),
       permissions: describeScopes(scopes),
     },
@@ -74,8 +73,6 @@ export async function decideConsent(request: Request, exterior: ExteriorAuth, qu
     return expiredApproval(query);
   }
   if (!result.redirect) return expiredApproval(query);
-  const clientId = new URLSearchParams(query).get("client_id") ?? "";
-  if (accept && clientId) await approvePendingClient(exterior, clientId);
   return { redirect: result.url };
 }
 

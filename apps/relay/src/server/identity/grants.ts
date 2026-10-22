@@ -1,17 +1,12 @@
 import type { ExteriorAuth } from "./auth.js";
 import type { Account } from "./session.js";
 import type { GrantedApp } from "../../shared/account-web.js";
-import { registeredSoftwarePrefix } from "./clients.js";
 
 export type ClientMeta = {
   clientId: string;
   clientName: string;
   clientUri?: string;
   logoUri?: string;
-  /** Whether an account registered the client; otherwise its name is whatever the app sent. */
-  registered: boolean;
-  /** Whether the client is a Client ID Metadata Document: its id is the https address it was read from. */
-  metadataDocument: boolean;
 };
 
 type StoredConsent = {
@@ -28,8 +23,6 @@ type StoredClient = {
   uri?: string | null;
   icon?: string | null;
   redirectUris?: string[] | string | null;
-  softwareId?: string | null;
-  clientDiscoveryId?: string | null;
 };
 
 export async function listGrantedApps(exterior: ExteriorAuth, account: Account): Promise<GrantedApp[]> {
@@ -71,8 +64,6 @@ export async function findClientMeta(exterior: ExteriorAuth, clientId: string): 
     clientName: row.name ?? clientId,
     clientUri: row.uri ?? undefined,
     logoUri: displayableLogo(row.icon),
-    registered: row.softwareId?.startsWith(registeredSoftwarePrefix) ?? false,
-    metadataDocument: Boolean(row.clientDiscoveryId),
   };
 }
 

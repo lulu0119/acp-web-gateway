@@ -25,7 +25,7 @@ A site that redirects the person to Exterior to sign in, then opens an agent.
 _Avoid_: Example (Example is one web app in this repo, not the product)
 
 **Client**:
-The OAuth identity a web app signs in with: a dashboard-registered id, a metadata document address, or a self-registration one browser keeps. One client is one row in Authorized apps.
+The OAuth identity a web app signs in with: its metadata document's address, or an id an account registered. A development copy of the app signs in as the same client through a loopback redirect. One client is one row in Authorized apps.
 _Avoid_: account, device
 
 **Connection**:

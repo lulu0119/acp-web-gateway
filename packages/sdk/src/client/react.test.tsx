@@ -20,7 +20,7 @@ test("a callback under a custom base signs in and returns to the app root", asyn
     act(() => {
       window.history.replaceState({}, "", `${callback.pathname}${callback.search}`);
     });
-    const { result } = renderHook(() => useAccount(relay.origin, { redirectUri, returnTo: "/playground/" }));
+    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client", redirectUri, returnTo: "/playground/" }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     assert.equal(window.location.pathname, "/playground/");
     assert.equal(window.sessionStorage.getItem("exterior.accessToken"), "access-1");
@@ -30,7 +30,7 @@ test("a callback under a custom base signs in and returns to the app root", asyn
   }
 });
 
-test("without options the callback stays at the root path", async () => {
+test("without a redirect address the callback stays at the root path", async () => {
   const relay = await fakeTokenRelay();
   try {
     window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
@@ -43,7 +43,7 @@ test("without options the callback stays at the root path", async () => {
     act(() => {
       window.history.replaceState({}, "", `${callback.pathname}${callback.search}`);
     });
-    const { result } = renderHook(() => useAccount(relay.origin));
+    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client" }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     assert.equal(window.location.pathname, "/");
   } finally {

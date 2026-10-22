@@ -19,5 +19,5 @@ The relay opens a device socket only while the account still has a live refresh 
 - Nothing can act as a device without its key. A phished approval adds a new device to the account; it cannot replace one.
 - One key signed in to two accounts is a device of each, so no rule decides which account holds a device. The relay lists devices per account.
 - A device is listed from its first device socket, not from the approval.
-- The relay knows Exterior's own device metadata document without fetching it, so a relay without internet access still signs in Exterior devices. Other device software is fetched like any metadata document.
+- The relay knows Exterior's own device metadata document without fetching it, so a relay without internet access still signs in Exterior devices (ADR 0028 does the same for Example's). Other device software is fetched like any metadata document.
 - A relay served by several processes needs one store of DPoP proofs already seen.

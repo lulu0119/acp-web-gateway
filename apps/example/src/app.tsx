@@ -9,8 +9,8 @@ import { RowMenu } from "@/components/app/row-menu";
 import { WelcomePage } from "@/components/app/welcome-page";
 import { useAccount } from "@exterioragentprotocol/sdk/client/react";
 import { Button } from "@exterior/ui/button";
+import { exampleClient } from "@exterior/contract";
 import { accountPaths } from "@/lib/account-paths";
-import { exampleClientId, exampleLogoUri } from "@/lib/client-id";
 import { exteriorRelayUrl } from "@/lib/relay-url";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@exterior/ui/dialog";
 import { DropdownMenuItem } from "@exterior/ui/dropdown-menu";
@@ -76,9 +76,8 @@ export function App() {
   const base = import.meta.env.BASE_URL;
   const session = useAccount(exteriorRelayUrl(), {
     ...accountPaths(pageOrigin, base),
-    clientId: exampleClientId(pageOrigin, base),
-    clientName: "Example",
-    logoUri: exampleLogoUri(pageOrigin, base),
+    // Published with Example; its loopback redirect lets a development copy sign in as the same app.
+    clientId: exampleClient.client_id,
   });
 
   const handleSignOut = useCallback(() => {

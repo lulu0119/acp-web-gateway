@@ -5,6 +5,7 @@ export {
   type AttachLink,
   type AttachSocket,
   type ConnectionInfo,
+  type DeviceSocketClose,
   type FrameSocket,
   type OpenConnectionResult,
   type Registry,

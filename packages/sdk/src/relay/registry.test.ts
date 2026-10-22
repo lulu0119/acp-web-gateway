@@ -75,7 +75,6 @@ test("opening answers once the device dials the agent socket, and the ticket joi
   assert.equal(agent.paused, true);
   const result = await pending;
   if (!result.ok) throw new Error("expected a ticket");
-  assert.equal(result.agentType, "opencode");
   assert.equal(registry.acceptAgent({ connectionId, deviceId: "device-studio-1" }, fakeAgent()), undefined);
 
   const client = fakeClient();

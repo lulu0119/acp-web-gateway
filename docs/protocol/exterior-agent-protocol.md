@@ -104,7 +104,9 @@ The relay MUST NOT accept a token on an endpoint its scope does not name, and an
 
 ### 4.2 Clients
 
-A client signs in with the authorization code flow with PKCE (S256), requesting `eap:client` and the relay's `resource`. It identifies itself, in this order of preference, by a client id the relay issued, by the address of its Client ID Metadata Document, or by registering at the authorization server's registration endpoint (RFC 7591) with the authorization code grant. A relay supports at least one of these and SHOULD support metadata documents. A client MAY bind its tokens to a key of its own with DPoP.
+A client signs in with the authorization code flow with PKCE (S256), requesting `eap:client` and the relay's `resource`. It identifies itself by the address of its Client ID Metadata Document, or by a client id the relay issued to it, such as one an account registered. A relay MUST support metadata documents, and MUST NOT let anyone register a client without signing in. A client MAY bind its tokens to a key of its own with DPoP.
+
+A copy of a client running on the person's computer, such as one in development, signs in under the same metadata document when the document lists a loopback redirect (RFC 8252). The relay accepts that redirect on any port. Any program on the computer can listen on a loopback port, so the relay MUST ask the person on every sign-in that returns to one, even for a client they approved before.
 
 ```mermaid
 sequenceDiagram
@@ -135,7 +137,7 @@ Device software is one OAuth client, named by a client id the relay issued or by
 
 The device id is the key's JWK thumbprint (RFC 7638), which is the token's `cnf.jkt`. A device never states its id on the wire, and nobody can act as a device without its key: knowing its id, or holding a token stolen from it, is not enough.
 
-The relay MUST issue `eap:device` only through the device authorization grant, and only to a client that cannot sign in through a browser. It MUST refuse `eap:device` on a token that is not bound to a key. It MUST open a device socket only while the account still has a sign-in for the key: a refresh token bound to it that is neither revoked nor expired.
+The relay MUST issue `eap:device` only through the device authorization grant, and only to a client that cannot sign in through a browser. It MUST refuse `eap:device` on a token that is not bound to a key. Once a device is removed or signs out, the relay MUST refuse its device socket until it signs in again, even with an access token that has not expired.
 
 ```mermaid
 sequenceDiagram
@@ -168,7 +170,7 @@ The relay MUST check the grant on every request, not only when it issues a token
 
 A socket MUST NOT outlive the authorization that opened it.
 
-- When a device is removed from the account, the relay ends its sign-in: it deletes every refresh token bound to its key, so the access token the device still holds no longer opens a device socket. It closes the device socket with `revoked`, and ends the device's connections: their agent sockets close, and their attach sockets close with `device_gone`.
+- When a device is removed from the account, the relay ends its sign-in, so neither its refresh token nor the access token it still holds opens a device socket again. It closes the device socket with `revoked`, and ends the device's connections: their agent sockets close, and their attach sockets close with `device_gone`.
 - When a client's grant is revoked, or narrowed so it no longer covers a device, the relay closes each attach socket it no longer permits with `revoked`.
 
 An access token that expires while a socket is open does not close the socket.
@@ -230,14 +232,10 @@ The list is a snapshot. A client that wants fresh state asks again.
 The relay checks the scope and the grant, finds the online device and its agent, and sends the device `open`. It answers once the device has dialed the agent socket, 201:
 
 ```json
-{
-  "agentType": "claude-acp",
-  "url": "wss://relay.example.com/eap/v1/attach?ticket=...",
-  "expiresAt": "2026-10-21T08:00:00Z"
-}
+{ "url": "wss://relay.example.com/eap/v1/attach?ticket=..." }
 ```
 
-`url` is the attach address, carrying the ticket. `expiresAt` is when the ticket lapses. The relay answers `agent_start_failed` when the device sends `open_failed`, and `device_timeout` when the agent socket does not arrive within a bound it chooses; 15 seconds is recommended. Other errors: `invalid_request`, `target_not_found`.
+`url` is the attach address, carrying the ticket. The client dials it at once (section 9). The relay answers `agent_start_failed` when the device sends `open_failed`, and `device_timeout` when the agent socket does not arrive within a bound it chooses; 15 seconds is recommended. Other errors: `invalid_request`, `target_not_found`.
 
 ```mermaid
 sequenceDiagram
@@ -305,7 +303,7 @@ The attach socket and the agent socket carry frames under the same rules.
 A client dials the attach `url` as a WebSocket. It sends no `Authorization` header: the ticket in the address is the credential, because a browser socket cannot set one.
 
 - A ticket is bound to one connection and is single-use: dialing it consumes it.
-- It lapses at `expiresAt`; 60 seconds after it is issued is recommended. It has at least 128 bits of randomness.
+- It lapses shortly after it is issued; 60 seconds is recommended. It has at least 128 bits of randomness.
 - A ticket that is used, expired or unknown is answered by closing the socket with `ticket_rejected`. A client that still wants an agent opens a new connection.
 
 A client MUST dial each ticket at most once. A client that may mount twice, such as a page under a framework that remounts components, keeps one socket per connection itself. A second dial does not reach the agent; it costs a second connection.
@@ -316,7 +314,7 @@ An ACP client with a WebSocket transport can use the attach address as its agent
 
 A device opens the device socket with its key-bound access token, which has `eap:device`, and a DPoP proof. A device has at most one device socket: a newer one closes the older with `replaced`. While its device socket is open the device is online.
 
-Every message is a JSON text message with a `type` field. A receiver MUST ignore a message type or a field it does not know. A message of a known type that does not follow this section closes the socket with `invalid_message`.
+Every message is a JSON text message with a `type` field. A receiver MUST ignore a message type or a field it does not know. A message of a known type that does not follow this section closes the socket with 1008 and the reason `invalid_message`.
 
 ### 10.1 Device to relay
 
@@ -381,8 +379,9 @@ Device socket, 4200 to 4299:
 | Code | Name | Meaning |
 | --- | --- | --- |
 | 4200 | `replaced` | A newer device socket for this device took over. |
-| 4201 | `revoked` | The device was removed. It must sign in again. |
-| 4202 | `invalid_message` | The device sent a message that does not follow section 10. |
+| 4201 | `revoked` | The device was removed or signed out. It must sign in again. |
+
+A device socket also closes with 1008 `invalid_message` when the device sends a message that does not follow section 10.
 
 Agent socket: 1000 when the connection ends normally, 1001 when the device shuts down, and 1008 for a dial the relay is not waiting for or that comes from another device.
 
@@ -409,8 +408,6 @@ A relay keeps devices and connections in memory. One relay address is served by 
 **Roles are separate, and a device is its key.** The scope check in section 4.1 stops a client from posing as a device and receiving the frames of connections opened on it. A device's id is the key its tokens are bound to, so no client, and no other device of the account, can take its place, even one that learned its id from the device list.
 
 **No ambient credentials.** Every endpoint takes an access token, a ticket, or a connection id with a key proof, never a cookie, so a relay may allow cross-origin calls from any origin.
-
-**Registration is open.** Anyone can register a client. A relay SHOULD delete registrations nobody approved.
 
 **Device authorization can be phished.** A person tricked into approving someone else's code signs in that person's device, with its own key: it appears as a new device of the account, and cannot take the place of one already there. The approval page MUST show the user code to compare with the device's and the account that will hold the device, and tell the person to deny a code they did not start.
 

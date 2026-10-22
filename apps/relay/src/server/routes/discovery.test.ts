@@ -5,7 +5,7 @@ import { test } from "vitest";
 import { openExteriorAuth } from "../identity/auth.js";
 import { createTestApp } from "../testing.js";
 
-test("the relay names its authorization server, which lists sign-in, registration and device sign-in", async () => {
+test("the relay names its authorization server, which lists sign-in and device sign-in", async () => {
   const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
     secret: "test-secret-test-secret-test-secret",
@@ -18,9 +18,8 @@ test("the relay names its authorization server, which lists sign-in, registratio
   assert.deepEqual(resource.authorization_servers, ["http://127.0.0.1:8787/api/auth"]);
   const discovery = await app.request(`${resource.authorization_servers[0]}/.well-known/openid-configuration`);
   assert.equal(discovery.status, 200);
-  const metadata = (await discovery.json()) as { issuer?: string; authorization_endpoint?: string; registration_endpoint?: string; device_authorization_endpoint?: string };
+  const metadata = (await discovery.json()) as { issuer?: string; authorization_endpoint?: string; device_authorization_endpoint?: string };
   assert.equal(metadata.issuer, "http://127.0.0.1:8787/api/auth");
   assert.equal(metadata.authorization_endpoint, "http://127.0.0.1:8787/api/auth/oauth2/authorize");
-  assert.equal(metadata.registration_endpoint, "http://127.0.0.1:8787/api/auth/oauth2/register");
   assert.equal(metadata.device_authorization_endpoint, "http://127.0.0.1:8787/api/auth/device/code");
 });

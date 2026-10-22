@@ -45,7 +45,7 @@ The protocol is written in [docs/protocol/exterior-agent-protocol.md](docs/proto
 The SDK never imports product code, and the product depends on the SDK. The SDK holds what EAP v1 keeps; what v1 removes and only the product uses stays with the product until v1 deletes it.
 
 - Root: wire schemas and parsers, message types, close codes, `Device`, `AgentSlot`, platforms.
-- `client`: browser-safe. Sign-in (authorization code with PKCE, self-registration, stored tokens), `listDevices`, `openConnection`, the connector. `client/react`: `useAccount`.
+- `client`: browser-safe. Sign-in (authorization code with PKCE under a metadata document or a registered client id, stored tokens), `listDevices`, `openConnection`, the connector. `client/react`: `useAccount`.
 - `device`: the device key and its DPoP proofs, device authorization, the host that dials one agent socket per connection and carries an agent process behind a `launch` seam, line framing, and the device socket with its heartbeat and close codes.
 - `relay`: the registry that joins attach and agent sockets, and the socket heartbeat. The app keeps its HTTP framework and plugs the registry into it.
 

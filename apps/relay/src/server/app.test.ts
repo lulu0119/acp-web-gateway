@@ -28,10 +28,8 @@ test("a device dials one agent socket per connection, and the ticket joins it to
     const agentSocket = dialAgentOnOpen(control, relay.ws);
     const opened = await openConnection(relay.http);
     assert.equal(opened.status, 201);
-    const body = (await opened.json()) as { url: string; agentType: string; expiresAt: string };
+    const body = (await opened.json()) as { url: string };
     const agent = await agentSocket;
-    assert.equal(body.agentType, "opencode");
-    assert.ok(Date.parse(body.expiresAt) > Date.now());
     const attachUrl = new URL(body.url);
     assert.equal(attachUrl.protocol, "wss:");
     assert.equal(attachUrl.host, "relay.example.test");
@@ -102,7 +100,7 @@ test("the device socket ignores an unknown message type and closes on a malforme
     const closed = once(control, "close");
     control.send(JSON.stringify({ type: "open_failed", connectionId: "short" }));
     const [code] = (await closed) as [number];
-    assert.equal(code, deviceCloseCodes.invalid_message);
+    assert.equal(code, 1008);
   } finally {
     control.close();
     relay.close();

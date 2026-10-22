@@ -76,8 +76,8 @@ export type AccountPage =
     clientUri?: string;
     /** The logo the app names; the browser loads it from there. */
     logoUri?: string;
-    /** True when the name came from the app itself rather than from an account that registered it. */
-    unverified: boolean;
+    /** True when the app returns to this computer, where any program can listen on the address. */
+    local: boolean;
     account: AccountView;
     permissions: PermissionView[];
   }

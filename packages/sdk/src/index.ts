@@ -32,10 +32,10 @@ export type AttachCloseReason = keyof typeof attachCloseCodes;
 
 /**
  * Why the relay closed a device socket. `replaced`: a newer socket for the device took over.
- * `revoked`: the device was removed, and must sign in again. `invalid_message`: the device sent a message
- * the protocol does not allow.
+ * `revoked`: the device was removed or signed out, and must sign in again. A message the protocol does not allow
+ * closes it with 1008.
  */
-export const deviceCloseCodes = { replaced: 4200, revoked: 4201, invalid_message: 4202 } as const;
+export const deviceCloseCodes = { replaced: 4200, revoked: 4201 } as const;
 export type DeviceCloseReason = keyof typeof deviceCloseCodes;
 
 /** An error response's `code`. A client decides by it; an unknown one counts as `server_error`. */

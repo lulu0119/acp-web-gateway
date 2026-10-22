@@ -17,14 +17,15 @@ import { mkdir, readFile, rm, symlink, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { agentSocketPath, connectionsPath, deviceSocketPath, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
-import { exteriorDeviceClient } from "@exterior/contract";
+import { agentSocketPath, clientScope, connectionsPath, deviceSocketPath, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
+import { exampleClient, exteriorDeviceClient } from "@exterior/contract";
 import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, type DeviceKey } from "@exterioragentprotocol/sdk/device";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
 import WebSocket from "ws";
 import { openDeviceStore } from "../dist/server/devices/store.js";
 import { openExteriorAuth, type ExteriorAuth } from "../dist/server/identity/auth.js";
+import { registerClient } from "../dist/server/identity/clients.js";
 
 const relayRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(relayRoot, "../..");
@@ -80,11 +81,10 @@ const surfaces: Surface[] = [
   {
     name: "consent",
     path: "/",
-    // A web app on this computer asking for the first time.
+    // A development copy of Example, on this computer, asking for the first time.
     ready: async (page) => {
       const origin = new URL(page.url()).origin;
-      const clientId = await registerApp(origin, { client_name: "Example", redirect_uris: ["http://localhost:5173/oauth/callback"], application_type: "native" });
-      await page.goto(authorizeUrl(origin, clientId, "http://localhost:5173/oauth/callback"));
+      await page.goto(authorizeUrl(origin, exampleClient.client_id, "http://localhost:5173/oauth/callback"));
       await page.waitForSelector("text=wants to use agents on your devices");
     },
   },
@@ -123,33 +123,16 @@ const fixtureDevices: { id?: string; hostname: string; platform?: DevicePlatform
   { id: "device-old", hostname: "old-laptop", agents: [], lastSeenMinutesAgo: 60 * 24 * 9 },
 ];
 
-/** The apps the account has authorized: one that named a logo, one that did not. */
-const fixtureApps: { client_name: string; redirect_uris: string[]; logo_uri?: string; application_type: "web" | "native" }[] = [
+/** The apps the account has authorized, registered by the account: one that named a logo, one that did not. */
+const fixtureApps: { clientName: string; redirectUris: string[]; logoUri?: string }[] = [
   {
-    client_name: "Example",
-    redirect_uris: ["https://lulu0119.github.io/exterior/oauth/callback"],
+    clientName: "Example",
+    redirectUris: ["https://lulu0119.github.io/exterior/oauth/callback"],
     // The real app names the logo beside its metadata document; a capture has no internet to load it.
-    logo_uri: fixtureLogo,
-    application_type: "web",
+    logoUri: fixtureLogo,
   },
-  { client_name: "Notes", redirect_uris: ["https://notes.example.test/callback"], application_type: "web" },
+  { clientName: "Notes", redirectUris: ["https://notes.example.test/callback"] },
 ];
-
-/** Registers a web app with the relay, as `@exterioragentprotocol/sdk` does (RFC 7591). */
-async function registerApp(publicUrl: string, metadata: Record<string, unknown>): Promise<string> {
-  const response = await fetch(`${publicUrl}/api/auth/oauth2/register`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-      ...metadata,
-    }),
-  });
-  if (!response.ok) throw new Error(`Registering ${String(metadata.client_name)} failed (HTTP ${response.status}).`);
-  return ((await response.json()) as { client_id: string }).client_id;
-}
 
 /** The address a person is sent to so they can approve an app. */
 function authorizeUrl(publicUrl: string, clientId: string, redirectUri: string): string {
@@ -157,7 +140,7 @@ function authorizeUrl(publicUrl: string, clientId: string, redirectUri: string):
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "devices offline_access");
+  url.searchParams.set("scope", `${clientScope} offline_access`);
   url.searchParams.set("state", randomUUID());
   url.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
   url.searchParams.set("code_challenge_method", "S256");
@@ -172,24 +155,24 @@ const codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
  * Approves each fixture app through the consent page and redeems its code, so Authorized apps lists
  * them and each holds an access token to open agents with. Answers the tokens by app name.
  */
-async function authorizeApps(input: { publicUrl: string; sessionCookie: string }): Promise<Map<string, string>> {
+async function authorizeApps(input: { publicUrl: string; sessionCookie: string; clientIds: Map<string, string> }): Promise<Map<string, string>> {
   const headers = { cookie: input.sessionCookie };
   const tokens = new Map<string, string>();
   for (const fixture of fixtureApps) {
-    const clientId = await registerApp(input.publicUrl, fixture);
-    const url = authorizeUrl(input.publicUrl, clientId, fixture.redirect_uris[0] ?? "");
+    const clientId = input.clientIds.get(fixture.clientName) ?? "";
+    const url = authorizeUrl(input.publicUrl, clientId, fixture.redirectUris[0] ?? "");
     // A request that is not a browser navigation gets the redirect as JSON.
     const prompted = await fetch(url, { headers });
     const redirect = ((await prompted.json().catch(() => ({}))) as { url?: string }).url ?? "";
     const consent = new URL(redirect, input.publicUrl);
-    if (consent.pathname !== "/consent") throw new Error(`Authorizing ${fixture.client_name} did not reach the consent page (HTTP ${prompted.status}).`);
+    if (consent.pathname !== "/consent") throw new Error(`Authorizing ${fixture.clientName} did not reach the consent page (HTTP ${prompted.status}).`);
     const approved = await fetch(`${input.publicUrl}/consent`, {
       method: "POST",
       headers: { ...headers, "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ accept: "yes", query: consent.search.slice(1) }),
       redirect: "manual",
     });
-    if (approved.status !== 302) throw new Error(`Authorizing ${fixture.client_name} failed (HTTP ${approved.status}).`);
+    if (approved.status !== 302) throw new Error(`Authorizing ${fixture.clientName} failed (HTTP ${approved.status}).`);
     const code = new URL(approved.headers.get("location") ?? "", input.publicUrl).searchParams.get("code") ?? "";
     const exchanged = await fetch(`${input.publicUrl}/api/auth/oauth2/token`, {
       method: "POST",
@@ -197,14 +180,14 @@ async function authorizeApps(input: { publicUrl: string; sessionCookie: string }
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: fixture.redirect_uris[0] ?? "",
+        redirect_uri: fixture.redirectUris[0] ?? "",
         client_id: clientId,
         code_verifier: codeVerifier,
         resource: input.publicUrl,
       }),
     });
-    if (!exchanged.ok) throw new Error(`Redeeming ${fixture.client_name}'s code failed (HTTP ${exchanged.status}).`);
-    tokens.set(fixture.client_name, ((await exchanged.json()) as { access_token: string }).access_token);
+    if (!exchanged.ok) throw new Error(`Redeeming ${fixture.clientName}'s code failed (HTTP ${exchanged.status}).`);
+    tokens.set(fixture.clientName, ((await exchanged.json()) as { access_token: string }).access_token);
   }
   return tokens;
 }
@@ -295,15 +278,15 @@ function signSessionToken(token: string): string {
 }
 
 /**
- * Creates the account the captures sign in as, plus its devices.
+ * Creates the account the captures sign in as, plus its devices and the apps it registered.
  *
  * The offline devices are written to the store directly, so the pair shows a fixed set: two online,
  * which sign in later, one that has been gone under an hour, and one that has been gone nine days.
  *
  * Returns both the signed value the browser cookie carries and the `cookie` header the approval
- * request needs, so the harness never has to take its own cookie apart.
+ * request needs, so the harness never has to take its own cookie apart, and the apps' client ids by name.
  */
-async function seedAccount(input: { databasePath: string; publicUrl: string }): Promise<{ value: string; cookie: string }> {
+async function seedAccount(input: { databasePath: string; publicUrl: string }): Promise<{ value: string; cookie: string; clientIds: Map<string, string> }> {
   const database = new Database(input.databasePath);
   const exterior: ExteriorAuth = await openExteriorAuth({
     database,
@@ -318,6 +301,8 @@ async function seedAccount(input: { databasePath: string; publicUrl: string }): 
     { method: "capture" },
   );
   const session = await context.internalAdapter.createSession(user.id);
+  const clientIds = new Map<string, string>();
+  for (const fixture of fixtureApps) clientIds.set(fixture.clientName, (await registerClient(exterior, user.id, { ...fixture, confidential: false })).clientId);
   const devices = openDeviceStore(database);
   for (const fixture of fixtureDevices) {
     if (!fixture.id) continue;
@@ -327,7 +312,7 @@ async function seedAccount(input: { databasePath: string; publicUrl: string }): 
   }
   database.close();
   const value = signSessionToken(session.token);
-  return { value, cookie: `better-auth.session_token=${value}` };
+  return { value, cookie: `better-auth.session_token=${value}`, clientIds };
 }
 
 /**
@@ -529,7 +514,7 @@ async function main(): Promise<void> {
   const online: { close: () => void }[] = [];
   const browser = await chromium.launch();
   try {
-    const tokens = await authorizeApps({ publicUrl, sessionCookie: session.cookie });
+    const tokens = await authorizeApps({ publicUrl, sessionCookie: session.cookie, clientIds: session.clientIds });
     const deviceIds = new Map<string, string>();
     for (const fixture of fixtureDevices) {
       // Only the devices the pair should show as online sign in and hold a device socket.

@@ -59,7 +59,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
               ws.send(JSON.stringify(message));
             },
             close(reason) {
-              ws.close(deviceCloseCodes[reason], reason);
+              ws.close(reason === "invalid_message" ? 1008 : deviceCloseCodes[reason], reason);
             },
           });
         },
@@ -67,7 +67,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
           const read = typeof event.data === "string" ? parseDeviceMessage(parseJson(event.data)) : undefined;
           if (read?.ok === false && read.reason === "unknown") return;
           if (!read?.ok || !device) {
-            ws.close(deviceCloseCodes.invalid_message, "invalid_message");
+            ws.close(1008, "invalid_message");
             return;
           }
           device.receive(read.message);

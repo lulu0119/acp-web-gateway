@@ -10,7 +10,8 @@ Code still missing.
 - Installing `exterior` beyond the release files ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): strip the Linux Node before injecting, then `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget. Then the setup guide's assistant and terminal steps install the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
-- Unauthenticated endpoints that add rows: rate-limit `POST /api/auth/oauth2/register` and the metadata-document fetch, and decide what "verified" means beyond the redirect host the pages show.
+- The metadata-document fetch is unauthenticated: rate-limit it.
+- A dashboard form to register a client: `POST /api/clients/register` exists, but no page offers it, so an app with nowhere to publish a metadata document has no way in ([ADR 0028](adr/0028-a-web-app-names-itself.md)).
 - Grants per device: the consent page grants every device of the account. Let the person choose devices, and close the attach sockets a narrowed grant no longer covers ([spec §4.4](protocol/exterior-agent-protocol.md#44-grants)).
 - The device approval page shows the code and the account. Show the requesting device's name and address too, so a forwarded code is easier to spot.
 - A machine-readable EAP schema and a conformance suite a third-party relay or device can run.
@@ -24,7 +25,7 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
-- EAP v1 against the hosted relay: a device signs in with its key through Exterior's metadata document, which Example's Pages site must serve at `https://lulu0119.github.io/exterior/device-client.json` for any other relay; Example opens an agent through the agent socket; a dropped device socket leaves the agent running; removing the device stops its daemon with sign in again, and signing in again brings it back; `logout` revokes the refresh token. The hosted relay and the installed daemons have to move to v1 together.
+- EAP v1 against the hosted relay: a device signs in with its key through Exterior's metadata document, which Example's Pages site must serve at `https://lulu0119.github.io/exterior/device-client.json` for any other relay, beside Example's own `oauth-client.json` with its loopback redirect; `pnpm example` signs in as Example; Example opens an agent through the agent socket; a dropped device socket leaves the agent running; removing the device stops its daemon with sign in again, and signing in again brings it back; `logout` revokes the refresh token. The hosted relay and the installed daemons have to move to v1 together.
 - Heartbeats through the hosted relay behind Coolify: a device that loses its network goes offline on the dashboard within a minute, and a daemon whose socket died without closing connects again and is listed once.
 - An agent configuration added while the daemon runs shows on the dashboard and in Example without a restart. The daemon logged the change against the live relay; the pages were not checked.
 - Example on GitHub Pages: sign in against the relay from `VITE_EXTERIOR_URL` and land back on the Pages URL.

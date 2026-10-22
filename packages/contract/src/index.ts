@@ -17,6 +17,21 @@ export const exteriorDeviceClient = {
   dpop_bound_access_tokens: true,
 } as const;
 
+/**
+ * The OAuth client Example signs in with: a Client ID Metadata Document published with Example itself. Its loopback
+ * redirect, on any port, lets a development copy of Example sign in under the same client.
+ */
+export const exampleClient = {
+  client_id: "https://lulu0119.github.io/exterior/oauth-client.json",
+  client_name: "Example",
+  client_uri: "https://lulu0119.github.io/exterior/",
+  logo_uri: "https://lulu0119.github.io/exterior/oauth-client-logo.png",
+  redirect_uris: ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  grant_types: ["authorization_code", "refresh_token"],
+  response_types: ["code"],
+  token_endpoint_auth_method: "none",
+} as const;
+
 /** The ACP registry the daemon launches from and the relay reads agent icons from. */
 export const acpRegistryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 

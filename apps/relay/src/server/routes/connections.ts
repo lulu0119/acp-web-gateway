@@ -31,11 +31,7 @@ export function mountConnections(app: Hono<RelayEnv>, input: {
     }
     const result = await input.registry.openConnection({ userId: c.get("userId"), clientId: c.get("clientId"), deviceId, agentName });
     if (!result.ok) return c.json({ code: result.code, message: result.message }, result.status);
-    return c.json({
-      agentType: result.agentType,
-      url: attachUrl(input.publicUrl, result.ticket),
-      expiresAt: new Date(result.expiresAt).toISOString(),
-    }, 201);
+    return c.json({ url: attachUrl(input.publicUrl, result.ticket) }, 201);
   });
 }
 

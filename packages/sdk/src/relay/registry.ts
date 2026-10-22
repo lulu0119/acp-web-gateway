@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { frameBytes, type AgentSlot, type AttachCloseReason, type Device, type DeviceCloseReason, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 
+/** Why the relay closes a device socket: an EAP close code's name, or `invalid_message`, which closes it with 1008. */
+export type DeviceSocketClose = DeviceCloseReason | "invalid_message";
+
 const defaultTicketTtlMs = 60_000;
 const defaultOpenTimeoutMs = 15_000;
 /** Unsent bytes on one socket past which the relay stops reading the socket that feeds it. */
@@ -16,7 +19,7 @@ export type ConnectionInfo = {
 };
 
 export type OpenConnectionResult =
-  | { ok: true; ticket: string; expiresAt: number; agentType: string }
+  | { ok: true; ticket: string }
   | { ok: false; status: 404 | 502 | 504; code: "target_not_found" | "agent_start_failed" | "device_timeout"; message: string };
 
 /** One end of a connection's data path: the client's attach socket or the device's agent socket. */
@@ -48,7 +51,7 @@ type OnlineDevice = {
   workingDirectory: string;
   agents: readonly AgentSlot[];
   send: (message: RelayMessage) => void;
-  close: (reason: DeviceCloseReason) => void;
+  close: (reason: DeviceSocketClose) => void;
 };
 
 type Connection = {
@@ -77,7 +80,7 @@ export type Registry = {
    * A device socket the relay admitted. `deviceId` is the key its token is bound to. `close` ends the socket when
    * a newer one replaces it, the device is removed, or it breaks the protocol.
    */
-  connectDevice(input: { userId: string; deviceId: string; send: (message: RelayMessage) => void; close: (reason: DeviceCloseReason) => void }): {
+  connectDevice(input: { userId: string; deviceId: string; send: (message: RelayMessage) => void; close: (reason: DeviceSocketClose) => void }): {
     receive(message: DeviceMessage): void;
     close(): void;
   };
@@ -266,7 +269,7 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
       byTicket.set(connection.ticket, connection);
       const resolve = connection.resolve;
       connection.resolve = undefined;
-      resolve?.({ ok: true, ticket: connection.ticket, expiresAt: connection.expiresAt, agentType: connection.agentType });
+      resolve?.({ ok: true, ticket: connection.ticket });
       return {
         frame(frame) {
           if (connection.state === "ended") return;

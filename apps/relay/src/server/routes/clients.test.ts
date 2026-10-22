@@ -3,52 +3,41 @@ import Database from "better-sqlite3";
 import type { Hono } from "hono";
 import { test, vi } from "vitest";
 import type { RelayEnv } from "../http.js";
+import { exampleClient } from "@exterior/contract";
 import { openExteriorAuth, type ExteriorAuth } from "../identity/auth.js";
-import { prunePendingClients } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
 const publicUrl = "http://127.0.0.1:8787";
 const secret = "test-secret-test-secret-test-secret";
 
-test("the relay publishes how an app registers itself or names its metadata document", async () => {
+test("an app names itself by a metadata document, or by a client an account registered, never by registering anonymously", async () => {
   const { app } = await openRegistry();
   const metadata = (await (await app.request(`${publicUrl}/api/auth/.well-known/openid-configuration`)).json()) as Record<string, unknown>;
-  assert.equal(metadata.registration_endpoint, `${publicUrl}/api/auth/oauth2/register`);
   assert.equal(metadata.client_id_metadata_document_supported, true);
-});
-
-test("an app registers itself without an account, but cannot pose as Exterior or as a registered client", async () => {
-  const { app, exterior } = await openRegistry();
+  assert.equal(metadata.registration_endpoint, undefined);
+  const anonymous = await app.request(`${publicUrl}/api/auth/oauth2/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Studio", redirect_uris: ["https://app.example.test/callback"], grant_types: ["authorization_code"], token_endpoint_auth_method: "none" }),
+  });
+  assert.ok(anonymous.status >= 400 && anonymous.status < 500, `HTTP ${anonymous.status}`);
   const gated = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: false }),
   });
   assert.equal(gated.status, 401);
-
-  const clientId = await registerApp(app, { client_name: "Studio", redirect_uris: ["https://app.example.test/callback"], software_id: "exterior-user-client:someone:1" });
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<{ clientId: string; softwareId: string }>({ model: "oauthClient", where: [{ field: "clientId", value: clientId }] });
-  assert.match(rows[0]?.softwareId ?? "", /^exterior-pending:/);
-
-  const spoofed = await app.request(`${publicUrl}/api/auth/oauth2/register`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...publicApp, client_name: "Exterior Official", redirect_uris: ["https://app.example.test/callback"] }),
-  });
-  assert.equal(spoofed.status, 400);
 });
 
 test("a registered app approved once comes straight back, and is one authorized app", async () => {
   const { app, cookie } = await openRegistry();
   const redirectUri = "https://app.example.test/callback";
-  const clientId = await registerApp(app, { client_name: "Studio", redirect_uris: [redirectUri], logo_uri: "https://app.example.test/logo.png" });
+  const clientId = await registerApp(app, cookie, { clientName: "Studio", redirectUris: [redirectUri], logoUri: "https://app.example.test/logo.png" });
 
   const consent = new URL(await authorizeLocation(app, cookie, clientId, redirectUri), publicUrl);
   assert.equal(consent.pathname, "/consent");
   const page = await (await app.request(`${publicUrl}/consent?${consent.search.slice(1)}`, { headers: { cookie } })).text();
   assert.match(page, /Studio/);
-  assert.match(page, /Unverified/);
   assert.match(page, /src="https:\/\/app\.example\.test\/logo\.png"/);
   await approveQuery(app, cookie, consent.search.slice(1));
 
@@ -66,15 +55,25 @@ test("a registered app approved once comes straight back, and is one authorized 
 });
 
 test("a logo the browser should not load is not shown", async () => {
-  const { app, cookie } = await openRegistry();
+  const documentUrl = "https://app.example.test/oauth-client.json";
   const redirectUri = "https://app.example.test/callback";
-  const clientId = await registerApp(app, { client_name: "Studio", redirect_uris: [redirectUri], logo_uri: "http://tracker.example.test/pixel.gif" });
-  await approveQuery(app, cookie, new URL(await authorizeLocation(app, cookie, clientId, redirectUri), publicUrl).search.slice(1));
+  const { app, cookie } = await openRegistry({
+    fetchClientMetadataResource: () => Response.json({
+      client_id: documentUrl,
+      client_name: "Studio",
+      logo_uri: "http://tracker.example.test/pixel.gif",
+      redirect_uris: [redirectUri],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    }),
+  });
+  await approveQuery(app, cookie, new URL(await authorizeLocation(app, cookie, documentUrl, redirectUri), publicUrl).search.slice(1));
   const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: { logoUri?: string }[] };
   assert.equal(listed.apps[0]?.logoUri, undefined);
 });
 
-test("an app named by its metadata document is one client, and its own origin vouches for it", async () => {
+test("an app named by its metadata document is one client, shown with the origin it returns to", async () => {
   const documentUrl = "https://app.example.test/oauth-client.json";
   const fetched: string[] = [];
   const { app, cookie } = await openRegistry({
@@ -101,7 +100,7 @@ test("an app named by its metadata document is one client, and its own origin vo
   assert.deepEqual(fetched, [documentUrl]);
   const page = await (await app.request(`${publicUrl}/consent?${prompted.search.slice(1)}`, { headers: { cookie } })).text();
   assert.match(page, /Example<!-- --> wants to use agents on your devices/);
-  assert.doesNotMatch(page, /Unverified/);
+  assert.match(page, />https:\/\/app\.example\.test</);
   await approveQuery(app, cookie, prompted.search.slice(1));
 
   const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: { clientId: string; logoUri?: string }[] };
@@ -109,6 +108,24 @@ test("an app named by its metadata document is one client, and its own origin vo
     listed.apps.map((item) => ({ clientId: item.clientId, logoUri: item.logoUri })),
     [{ clientId: documentUrl, logoUri: "https://app.example.test/logo.png" }],
   );
+});
+
+test("a development copy of Example signs in as Example through its loopback redirect, on any port, with a warning that it runs on this computer", async () => {
+  const fetched: string[] = [];
+  const { app, cookie } = await openRegistry({
+    fetchClientMetadataResource: (input) => {
+      fetched.push(input instanceof Request ? input.url : String(input));
+      return new Response(null, { status: 404 });
+    },
+  });
+  const local = "http://localhost:5199/oauth/callback";
+  const prompted = new URL(await authorizeLocation(app, cookie, exampleClient.client_id, local), publicUrl);
+  assert.equal(prompted.pathname, "/consent");
+  assert.deepEqual(fetched, []);
+  const page = await (await app.request(`${publicUrl}/consent?${prompted.search.slice(1)}`, { headers: { cookie } })).text();
+  assert.match(page, /Example<!-- --> wants to use agents on your devices/);
+  assert.match(page, /This app runs on your computer/);
+  await approveQuery(app, cookie, prompted.search.slice(1));
 });
 
 test("a browser sees a page when the app's description cannot be downloaded", async () => {
@@ -215,7 +232,7 @@ test("an unexpected authorization failure shows browsers a page and API callers 
 test("an app on this computer is asked every time, and so is one that asks for consent", async () => {
   const { app, cookie } = await openRegistry();
   const local = "http://localhost:5173/callback";
-  const localClient = await registerApp(app, { client_name: "Studio", redirect_uris: [local], application_type: "native" });
+  const localClient = await registerApp(app, cookie, { clientName: "Studio", redirectUris: [local] });
   await approveQuery(app, cookie, new URL(await authorizeLocation(app, cookie, localClient, local), publicUrl).search.slice(1));
 
   for (const prompt of [undefined, "none"]) {
@@ -226,35 +243,12 @@ test("an app on this computer is asked every time, and so is one that asks for c
   }
 
   const remote = "https://notes.example.test/callback";
-  const remoteClient = await registerApp(app, { client_name: "Notes", redirect_uris: [remote] });
+  const remoteClient = await registerApp(app, cookie, { clientName: "Notes", redirectUris: [remote] });
   await approveQuery(app, cookie, new URL(await authorizeLocation(app, cookie, remoteClient, remote), publicUrl).search.slice(1));
   const forced = new URL(await authorizeLocation(app, cookie, remoteClient, remote, "consent"), publicUrl);
   assert.equal(forced.pathname, "/consent");
   const page = await app.request(`${publicUrl}/consent?${forced.search.slice(1)}`, { headers: { cookie } });
   assert.equal(page.status, 200);
-});
-
-test("registrations nobody approved are pruned, and approved ones are kept", async () => {
-  const { app, cookie, exterior } = await openRegistry();
-  const redirectUri = "https://dither.example.test/callback";
-  const denied = await registerApp(app, { client_name: "Dither", redirect_uris: [redirectUri] });
-  const query = new URL(await authorizeLocation(app, cookie, denied, redirectUri), publicUrl).search.slice(1);
-  const answered = await app.request(`${publicUrl}/consent`, {
-    method: "POST",
-    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ accept: "no", query }),
-  });
-  assert.equal(answered.status, 302);
-  const listed = (await (await app.request(`${publicUrl}/api/grants`, { headers: { cookie } })).json()) as { apps: unknown[] };
-  assert.deepEqual(listed.apps, []);
-
-  const kept = await registerApp(app, { client_name: "Kept", redirect_uris: [redirectUri] });
-  await approveQuery(app, cookie, new URL(await authorizeLocation(app, cookie, kept, redirectUri), publicUrl).search.slice(1));
-
-  assert.equal(await prunePendingClients(exterior, 0), 1);
-  assert.equal(await prunePendingClients(exterior, 0), 0);
-  const back = new URL(await authorizeLocation(app, cookie, kept, redirectUri));
-  assert.equal(typeof back.searchParams.get("code"), "string");
 });
 
 test("a signed-in account registers, lists, revokes, and re-approves", async () => {
@@ -320,18 +314,15 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   assert.equal(asked.status, 200);
 });
 
-
-const publicApp = { grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" };
-
-/** Registers an app as `@exterioragentprotocol/sdk` does (RFC 7591) and returns its client id. */
-async function registerApp(app: Hono<RelayEnv>, metadata: Record<string, unknown>): Promise<string> {
-  const registered = await app.request(`${publicUrl}/api/auth/oauth2/register`, {
+/** Registers a public app for the signed-in account, as the dashboard does, and returns its client id. */
+async function registerApp(app: Hono<RelayEnv>, cookie: string, input: { clientName: string; redirectUris: string[]; logoUri?: string }): Promise<string> {
+  const registered = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...publicApp, ...metadata }),
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ ...input, confidential: false }),
   });
   assert.equal(registered.status, 201, await registered.clone().text());
-  return ((await registered.json()) as { client_id: string }).client_id;
+  return ((await registered.json()) as { clientId: string }).clientId;
 }
 
 /** Authorizes the approval a consent page shows. */

@@ -163,7 +163,7 @@ test("a device signs in with a key, connects as that key, and removing it signs 
   // The device polls at the interval the provider names, five seconds.
 }, 20_000);
 
-test("one OAuth client holds one role: device software never registers or signs in through a browser, and a web app never with a device code", async () => {
+test("one OAuth client holds one role: device software never signs in through a browser, and a web app never with a device code", async () => {
   const publicUrl = "http://127.0.0.1:8787";
   const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
@@ -173,23 +173,13 @@ test("one OAuth client holds one role: device software never registers or signs 
     githubClientSecret: "github-secret",
   });
   const { app } = await createTestApp(exterior);
-  const register = (metadata: Record<string, unknown>) => app.request(`${publicUrl}/api/auth/oauth2/register`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "studio", token_endpoint_auth_method: "none", ...metadata }),
-  });
-  const both = await register({ grant_types: ["authorization_code", "urn:ietf:params:oauth:grant-type:device_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: deviceScope });
-  assert.equal(both.status, 400);
-  const webAppAsDevice = await register({ grant_types: ["authorization_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: `${clientScope} ${deviceScope}` });
-  assert.equal(webAppAsDevice.status, 400);
-  const deviceAsClient = await register({ grant_types: ["urn:ietf:params:oauth:grant-type:device_code"], response_types: [], scope: clientScope });
-  assert.equal(deviceAsClient.status, 400);
-
-  const webApp = (await (await register({ application_type: "native", grant_types: ["authorization_code"], redirect_uris: ["http://127.0.0.1:5173/callback"], scope: clientScope })).json()) as { client_id: string };
+  const context = await exterior.auth.$context;
+  const user = await context.internalAdapter.createUser({ name: "Ada", email: "ada@example.test", emailVerified: true }, { method: "test" });
+  const webApp = await registerClient(exterior, user.id, { clientName: "Studio", redirectUris: ["http://127.0.0.1:5173/callback"], confidential: false });
   const webAppCode = await app.request(`${publicUrl}/api/auth/device/code`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: webApp.client_id, scope: deviceScope, resource: publicUrl }),
+    body: new URLSearchParams({ client_id: webApp.clientId, scope: deviceScope, resource: publicUrl }),
   });
   assert.equal(((await webAppCode.json()) as { error: string }).error, "unauthorized_client");
   const code = await app.request(`${publicUrl}/api/auth/device/code`, {

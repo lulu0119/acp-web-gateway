@@ -35,25 +35,24 @@ if (session.account.phase === "signed-in") {
 }
 ```
 
-`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in"; accessToken }`. `init` takes `redirectUri` (default `<page origin>/oauth/callback`), `returnTo` (default `/`), and one of the client forms below. `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
+`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in"; accessToken }`. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
 
 ## Which client id
 
-Pass `clientId` when the app has one, otherwise omit it and pass `clientName` and `logoUri` for the relay to show:
+`clientId` is one of:
 
-- A client an account registered from the relay dashboard: its client id.
-- A published app: the https address of its Client ID Metadata Document. The relay reads the name, logo, and redirect address from that file, and the app is one authorized row everywhere.
-- Nothing (local development): the app registers itself with the relay (RFC 7591) on the first sign-in. The registration is kept in `localStorage`, one per relay and redirect address, so the app is one row per browser that signed in. It is finished only after an approval, so a registration nobody approved is not reused.
+- The https address of the app's Client ID Metadata Document. The relay reads the name, logo, and redirect addresses from that file, and the app is one authorized row everywhere.
+- A client id an account registered on the relay, for an app with nowhere to publish a document.
 
-A redirect to `localhost` is asked every time, even for an approved app: any process on the computer can listen on that port, so the address proves nothing about which program asks (OAuth 2.1 §7.3).
+There is no anonymous registration. For local development, list a loopback redirect in the document beside the real one, such as `http://localhost:5173/oauth/callback`, and pass the same `clientId`: the relay accepts any port on it (RFC 8252). A redirect to `localhost` is asked every time, even for an approved app, because any process on the computer can listen on that port.
 
 ## Without React
 
-`beginBrowserSignIn({ relayUrl, redirectUri, store, registrations, clientId, clientName, logoUri })` returns the relay address to navigate to. Pass `sessionStorage` as `store` and `localStorage` as `registrations`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, registrations, clientId, clientSecret })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId, clientSecret })` returns a live access token, refreshing within the last minute of expiry, or `undefined`. `clearBrowserSignIn(store)` signs out. `registerBrowserClient({ relayUrl, redirectUri, clientName, logoUri })` registers directly and returns the client id.
+`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId, clientSecret })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId, clientSecret })` returns a live access token, refreshing within the last minute of expiry, or `undefined`. `clearBrowserSignIn(store)` signs out.
 
 ## Devices and connections
 
-With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` starts the agent and returns `{ url, agentType, expiresAt }`: dial `url` once, before `expiresAt`, and use it as the ACP connection. A request the relay refuses throws `RelayError`; decide by its `code` (`target_not_found`, `agent_start_failed`, `device_timeout`, …).
+With an access token: `listDevices(relayUrl, accessToken)` lists the account's online devices, each with its agents and its `platform` (`macos`, `windows`, or `linux`); `openConnection(relayUrl, accessToken, { deviceId, agentName })` starts the agent and returns `{ url }`: dial `url` once, right away, and use it as the ACP connection. A request the relay refuses throws `RelayError`; decide by its `code` (`target_not_found`, `agent_start_failed`, `device_timeout`, …).
 
 A connection lasts as long as its socket. When the socket closes, `closeReason(attachCloseCodes, event.code)` says why: `ticket_rejected` (the ticket was dialed already, or expired: open a new connection), `agent_exited`, `device_gone`, or `revoked` (sign in again first). To continue a conversation, open a new connection and use ACP `session/resume` or `session/load`. A page that may mount twice keeps one socket per connection; a second dial on the same ticket is rejected and costs a second agent start.
 
