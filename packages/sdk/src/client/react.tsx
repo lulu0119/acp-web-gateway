@@ -1,7 +1,7 @@
 import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, storedAccessToken } from "./oauth.js";
 import { useCallback, useEffect, useState } from "react";
 
-export type Account = { phase: "checking" } | { phase: "signed-out" } | { phase: "signed-in"; accessToken: string };
+export type Account = { phase: "checking" } | { phase: "signed-out" } | { phase: "signed-in" };
 
 export type AccountSession = {
   account: Account;
@@ -9,6 +9,11 @@ export type AccountSession = {
   error: string;
   signIn: () => void;
   signOut: () => void;
+  /**
+   * A live access token for each request, refreshed when it is about to expire. Once the sign-in is gone it rejects
+   * and the account is signed out.
+   */
+  accessToken: () => Promise<string>;
 };
 
 export function useAccount(
@@ -40,7 +45,7 @@ export function useAccount(
     void token
       .then((current) => {
         if (cancelled) return;
-        setAccount(current ? { phase: "signed-in", accessToken: current } : { phase: "signed-out" });
+        setAccount(current ? { phase: "signed-in" } : { phase: "signed-out" });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -71,6 +76,13 @@ export function useAccount(
     setError("");
   }, []);
 
-  return { account, busy, error, signIn, signOut };
+  const accessToken = useCallback(async () => {
+    const current = await storedAccessToken({ relayUrl, store: window.sessionStorage, clientId });
+    if (current) return current;
+    setAccount({ phase: "signed-out" });
+    throw new Error("Sign in again.");
+  }, [relayUrl, clientId]);
+
+  return { account, busy, error, signIn, signOut, accessToken };
 }
 

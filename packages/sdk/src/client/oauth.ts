@@ -1,6 +1,6 @@
 import { clientScope, connectionsPath, devicesPath, errorCodes, isDevice, type Device, type ErrorCode } from "../index.js";
 import * as oauth from "oauth4webapi";
-import { discover, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, requestOptions, toTokens, type Tokens } from "../oauth.js";
+import { discover, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, RefreshTokenRejectedError, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
 const refreshWindowMs = 60_000;
 const signInScope = `${clientScope} offline_access`;
@@ -169,21 +169,37 @@ export async function finishBrowserSignIn(input: {
 
 const pendingCallbackExchanges = new Map<string, Promise<Tokens>>();
 
+/**
+ * A live access token, refreshed within the last minute of its life, or undefined once the sign-in is gone. A relay
+ * that does not answer the refresh rejects, and the sign-in is kept.
+ */
 export async function storedAccessToken(input: { relayUrl: string; store: BrowserStore; clientId: string }): Promise<string | undefined> {
   const accessToken = input.store.getItem(accessKey);
   const expiresAt = Number(input.store.getItem(expiresKey));
   if (accessToken && Number.isFinite(expiresAt) && expiresAt - Date.now() > refreshWindowMs) return accessToken;
   const refreshToken = input.store.getItem(refreshKey);
   if (!refreshToken) return undefined;
+  // A relay may rotate the refresh token on each use, so callers racing to refresh share one.
+  let refreshing = pendingRefreshes.get(refreshToken);
+  if (!refreshing) {
+    refreshing = refreshAccessToken({ relayUrl: input.relayUrl, clientId: input.clientId, refreshToken })
+      .then((tokens) => {
+        writeBrowserTokens(input.store, tokens);
+        return tokens;
+      })
+      .finally(() => pendingRefreshes.delete(refreshToken));
+    pendingRefreshes.set(refreshToken, refreshing);
+  }
   try {
-    const tokens = await refreshAccessToken({ relayUrl: input.relayUrl, clientId: input.clientId, refreshToken });
-    writeBrowserTokens(input.store, tokens);
-    return tokens.accessToken;
-  } catch {
+    return (await refreshing).accessToken;
+  } catch (error) {
+    if (!(error instanceof RefreshTokenRejectedError)) throw error;
     clearBrowserSignIn(input.store);
     return undefined;
   }
 }
+
+const pendingRefreshes = new Map<string, Promise<Tokens>>();
 
 function writeBrowserTokens(store: BrowserStore, tokens: Tokens): void {
   store.setItem(accessKey, tokens.accessToken);

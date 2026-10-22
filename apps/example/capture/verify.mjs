@@ -7,7 +7,6 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const url = process.env.EXAMPLE_URL ?? "http://127.0.0.1:47101/";
-const relayUrl = process.env.EXAMPLE_RELAY_URL ?? "http://127.0.0.1:8787";
 const output = process.env.EXAMPLE_CAPTURE_DIR
   ? resolve(process.env.EXAMPLE_CAPTURE_DIR)
   : resolve("../../.captures/example");
@@ -51,29 +50,31 @@ async function fixture(viewport, signedIn = true) {
     prompts: 0,
     newSessionError: "",
     newSessionDelay: 0,
+    loads: 0,
+    sockets: [],
   };
   if (signedIn)
-    await context.addInitScript((relayUrl) => {
-      sessionStorage.setItem(`exterior.clientId:${relayUrl}`, "fixture-client");
+    await context.addInitScript(() => {
       sessionStorage.setItem("exterior.accessToken", "fixture-token");
       sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
-    }, relayUrl);
-  await page.route("**/api/devices", async (route) => {
+    });
+  await page.route("**/eap/v1/devices", async (route) => {
     if (state.listDelay) await new Promise((resolve) => setTimeout(resolve, state.listDelay));
     await route.fulfill({ status: state.listStatus, json: { devices: state.devices } });
   });
-  await page.route("**/api/connections", async (route) => {
+  await page.route("**/eap/v1/connections", async (route) => {
     state.opens++;
     if (state.openDelay) await new Promise((resolve) => setTimeout(resolve, state.openDelay));
     await route.fulfill({
       status: state.openStatus,
       json:
         state.openStatus === 200
-          ? { url: "ws://fixture.test/acp", agentType: "claude-acp", agentName: "Claude Code" }
-          : { message: "The device went offline. Refresh and try again." },
+          ? { url: "ws://fixture.test/acp" }
+          : { code: "target_not_found", message: "The device went offline. Refresh and try again." },
     });
   });
   await page.routeWebSocket("ws://fixture.test/acp", (socket) => {
+    state.sockets.push(socket);
     socket.onMessage((raw) => {
       const request = JSON.parse(raw.toString());
       if (request.id === undefined) return;
@@ -112,6 +113,7 @@ async function fixture(viewport, signedIn = true) {
           break;
         }
         case "session/load":
+          state.loads++;
           reply({});
           break;
         case "session/prompt": {
@@ -429,8 +431,26 @@ try {
   assert.equal(state.sessions.length, 2, "The directory action creates one conversation");
   assert.equal(state.sessions[1].cwd, directory, "The new conversation uses the chosen directory");
   await shot(page, "conversation-navigation-desktop");
+  const opensBeforeDrop = state.opens;
+  const loadsBeforeDrop = state.loads;
+  state.openDelay = 0;
+  await state.sockets.at(-1).close();
+  const tryAgain = page.getByRole("button", { name: "Try again", exact: true });
+  await expectVisible(tryAgain);
+  await expectVisible(page.getByText("Disconnected from the agent"));
+  await shot(page, "connection-ended-desktop");
+  state.openStatus = 409;
+  await tryAgain.click();
+  await expectVisible(page.getByRole("alert").filter({ hasText: "The device went offline." }));
+  await shot(page, "reconnect-failed-desktop");
+  state.openStatus = 200;
+  await tryAgain.click();
+  await expectVisible(page.getByRole("button", { name: "Follow-up conversation", exact: true }));
+  await page.getByRole("textbox", { name: "Message input" }).waitFor({ state: "visible", timeout: 5000 });
+  assert.equal(state.opens - opensBeforeDrop, 2, "Each try opens a new connection");
+  assert.ok(state.loads > loadsBeforeDrop, "Reconnecting reopens the conversation");
   summary.push(
-    "single picker; refresh preserves selection/data; failed open; double activation; new session; starter/focus; chat; mobile dialog; keyboard creation in the chosen directory",
+    "single picker; refresh preserves selection/data; failed open; double activation; new session; starter/focus; chat; mobile dialog; keyboard creation in the chosen directory; a dropped connection reconnects through a new one and reopens the conversation",
   );
   await context.close();
 

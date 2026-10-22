@@ -31,11 +31,11 @@ const session = useAccount(relayUrl, {
 });
 
 if (session.account.phase === "signed-in") {
-  // session.account.accessToken opens listDevices / openConnection.
+  // await session.accessToken() for a live token before each listDevices or openConnection.
 }
 ```
 
-`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in"; accessToken }`. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
+`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut, accessToken }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in" }`. Call `accessToken()` for each request: it refreshes a token about to expire, and once the sign-in is gone it rejects and signs the account out. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
 
 ## Which client id
 
@@ -48,7 +48,7 @@ There is no anonymous registration. For local development, list a loopback redir
 
 ## Without React
 
-`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId })` returns a live access token, refreshing within the last minute of expiry, or `undefined`. `clearBrowserSignIn(store)` signs out.
+`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId })` returns a live access token, refreshing within the last minute of expiry, or `undefined` once the sign-in is gone; callers that race share one refresh, and a relay that does not answer rejects without signing out. `clearBrowserSignIn(store)` signs out.
 
 ## Devices and connections
 

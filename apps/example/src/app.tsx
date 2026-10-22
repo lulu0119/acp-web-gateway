@@ -55,12 +55,6 @@ export function App() {
     setAdding(false);
   }
 
-  function renewConnection(id: string, url: string) {
-    setConnections((current) =>
-      current.map((connection) => (connection.id === id ? { ...connection, url } : connection)),
-    );
-  }
-
   function disconnect(id: string) {
     const remaining = connections.filter((connection) => connection.id !== id);
     setConnections(remaining);
@@ -175,12 +169,11 @@ export function App() {
           >
             {connections.map((connection) => (
               <ConnectionPane
-                key={connection.url}
+                key={connection.id}
                 connection={connection}
                 active={connection.id === activeId}
                 treeSlot={treeSlot}
-                accessToken={session.account.phase === "signed-in" ? session.account.accessToken : undefined}
-                onRenewed={(url) => renewConnection(connection.id, url)}
+                accessToken={session.accessToken}
                 onStatusChange={reportStatus}
               />
             ))}
