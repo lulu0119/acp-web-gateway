@@ -8,9 +8,9 @@ Read the SDK README before changing the app. Inspect the worktree, package manag
 
 ## Establish the app identity
 
-If the app already has a client id on this relay, or an https Client ID Metadata Document that lists the callback, use it and skip to the next section. A relay-issued id belongs to that relay. A published metadata identity can be used across relays. Changing from one identity to another can require users to authorize again.
+A released app names itself by a Client ID Metadata Document on its own https site; [the SDK README](../packages/sdk/README.md#which-client-id) shows one. If the app has such a document, or already has a client id on this relay, use it and skip to the next section. If the app is deployed at an https address but has no document yet, offer to write one, listing the local callback beside the deployed one, and use its address once it is published.
 
-Otherwise register the app with two plain HTTP calls; no Exterior software is needed:
+Otherwise the app is in development: register a client for it with two plain HTTP calls. No Exterior software is needed. A registered id works only on this relay and belongs to the person's account, so it is the identity for development, not for release.
 
 1. Choose a random setup id of 22 to 128 letters, digits, `-` or `_`, such as a UUID. Build the link with the app's name (1 to 64 characters, not starting with "Exterior") and its callback (https, or http on `localhost`, `127.0.0.1`, or `[::1]`), each URL-encoded:
 
@@ -44,4 +44,4 @@ Install the SDK using its documented package address. Pass its relay, client id,
 
 Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent. App-specific dependencies such as a codemode proxy remain the app's responsibility.
 
-Report where the configuration lives, the relay and public identity, changed code, checks run, and which live steps actually succeeded. Setup is complete only when the app can sign in and initialize a real agent; if credentials, a device, or an agent are unavailable, name that exact remaining step. Publish or commit only when requested.
+If the app uses a registered client, tell the person it is for development: before release, publish a metadata document and switch the client id to it, and people authorize the app again. Report where the configuration lives, the relay and public identity, changed code, checks run, and which live steps actually succeeded. Setup is complete only when the app can sign in and initialize a real agent; if credentials, a device, or an agent are unavailable, name that exact remaining step. Publish or commit only when requested.

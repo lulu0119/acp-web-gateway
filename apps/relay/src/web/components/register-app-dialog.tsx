@@ -9,6 +9,7 @@ import { Input } from "@exterior/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@exterior/ui/input-group";
 
 const appSetupGuide = "https://github.com/lulu0119/exterior/blob/main/docs/app-setup.md";
+const clientIdGuide = "https://github.com/lulu0119/exterior/blob/main/packages/sdk/README.md#which-client-id";
 
 type Registered = { clientId: string; clientName: string; redirectUri: string };
 
@@ -87,7 +88,7 @@ export function RegisterAppDialog() {
             <DialogHeader className="gap-1 pr-8">
               <DialogTitle className="font-display text-xl font-bold">Register an app</DialogTitle>
               <DialogDescription>
-                Give a web app a client id on this relay. A coding assistant can do this for you with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>.
+                Give an app in development a client id on this relay. A coding assistant can do this for you with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>. A released app names itself by a <a href={clientIdGuide} target="_blank" rel="noreferrer">metadata document</a> on its site instead.
               </DialogDescription>
             </DialogHeader>
             <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>

@@ -40,14 +40,26 @@ if (session.account.phase === "signed-in") {
 
 ## Which client id
 
-For a new local app, have your coding assistant follow [app setup](../../docs/app-setup.md). The assistant gives you a registration link on the relay, waits for your approval, and receives the app's client id. Register app on the relay's dashboard does the same by hand. Pass that `clientId`, the relay address, and the `redirectUri` you registered to `useAccount`. App setup registers an identity; your app's normal sign-in separately asks for access to devices. No public website or local relay is required.
+An app names itself in one of two ways.
 
-`clientId` is one of:
+**A released app publishes a Client ID Metadata Document** on its own site and passes the document's https address as `clientId`. Every relay reads the name, logo, and callbacks from it, no account owns it, and each account authorizes the app once. This is the identity to ship. List a loopback callback beside the deployed one, and local development signs in under the same id: the relay accepts any port on it (RFC 8252), and asks every time, because any process on the computer can listen on that port. Example publishes this one:
 
-- The https address of the app's Client ID Metadata Document. The relay reads the name, logo, and redirect addresses from that file, and the app is one authorized row everywhere.
-- A client id an account registered on the relay, for an app with nowhere to publish a document.
+```json
+{
+  "client_id": "https://lulu0119.github.io/exterior/oauth-client.json",
+  "client_name": "Example",
+  "client_uri": "https://lulu0119.github.io/exterior/",
+  "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
+  "redirect_uris": ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
 
-There is no anonymous registration. For local development, list a loopback redirect in the document beside the real one, such as `http://localhost:5173/oauth/callback`, and pass the same `clientId`: the relay accepts any port on it (RFC 8252). A redirect to `localhost` is asked every time, even for an approved app, because any process on the computer can listen on that port.
+**An app in development registers a client** before it has a site. Have your coding assistant follow [app setup](../../docs/app-setup.md), or use Register app on the relay's dashboard. Pass the client id, the relay address, and the registered `redirectUri` to `useAccount`. Registration names the app and its callback and grants nothing; signing in to the app asks for access to devices. The id works only on that relay and belongs to the account that registered it, so publish a metadata document before release and switch `clientId` to it. People authorize the app again under the new id.
+
+There is no anonymous registration.
 
 ## Without React
 
