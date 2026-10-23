@@ -34,6 +34,7 @@ export function accountPageTitle(page: AccountPageData): string {
     case "device":
     case "device-code": return "Connect a device";
     case "device-approved": return "Device connected";
+    case "app-registration": return "Register app";
     case "message": return page.title;
   }
 }
@@ -53,6 +54,7 @@ function AccountContent({ page }: { page: AccountPageData }) {
     case "device": return <DeviceApproval page={page} />;
     case "device-approved": return <DeviceApproved page={page} />;
     case "consent": return <Consent page={page} />;
+    case "app-registration": return <AppRegistration page={page} />;
     case "message": return <Message page={page} />;
   }
 }
@@ -113,6 +115,39 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
           </AlertDescription>
         </Alert>
       )}
+    </Shell>
+  );
+}
+
+function AppRegistration({ page }: { page: Extract<AccountPageData, { kind: "app-registration" }> }) {
+  return (
+    <Shell
+      header={(
+        <>
+          <ExteriorMark className="size-12" />
+          <h1 className="font-display text-2xl font-bold">Register {page.clientName}?</h1>
+          <SignedInAs account={page.account} />
+        </>
+      )}
+      footer="Only continue if your coding assistant just gave you this link."
+    >
+      <p>Your coding assistant will receive a public app id and continue setting up your project.</p>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">Where the app returns after sign-in</h2>
+        <p className="break-all font-mono text-sm text-muted-foreground">{page.redirectUri}</p>
+      </div>
+      <p className="text-sm text-muted-foreground">Registration gives the app a name and a sign-in address. Access to your devices is requested separately when you sign in to the app.</p>
+      <PendingScope>
+        <div className="grid grid-cols-2 gap-3">
+          {[false, true].map((accept) => (
+            <PendingForm key={String(accept)} method="post" action="/api/clients/register" className="flex flex-col">
+              <input type="hidden" name="approval" value={page.approval} />
+              <input type="hidden" name="decision" value={accept ? "register" : "deny"} />
+              <SubmitButton id={accept ? "register" : "deny"} variant={accept ? "default" : "secondary"} size="xl">{accept ? "Register app" : "Cancel"}</SubmitButton>
+            </PendingForm>
+          ))}
+        </div>
+      </PendingScope>
     </Shell>
   );
 }

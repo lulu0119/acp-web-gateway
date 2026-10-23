@@ -42,7 +42,7 @@ export const login = defineCommand({
       const message = error instanceof Error ? error.message : "Sign-in failed.";
       if (json) io.stdout.write(`${JSON.stringify({ event: "failed", relayUrl, message })}\n`);
       io.stderr.write(`${message}\n`);
-      if (!chosen.ok) io.stderr.write("Is a relay running there? Pass --relay <url> to sign in to another one.\n");
+      if (!chosen.ok) io.stderr.write("Check your network and the relay address. Pass --relay <url> to choose another.\n");
       return 1;
     }
     if (json) {

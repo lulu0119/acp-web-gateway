@@ -34,9 +34,10 @@ Relay, Desktop, and Example share basic controls through `@exterior/ui`; each ap
 | Sign in (`/sign-in`) | "Where am I, and how do I continue?" |
 | Device code entry (`/device`) | "Where do I type the code my machine printed?" |
 | Device approval (`/device?user_code=…`) | "Is this the device I just started, and what does approving let it do?" |
+| App registration (`/apps/register?…`, a link from a coding assistant) | "Which app is my assistant setting up, for which account and callback, and does registration grant device access?" |
 | Consent (`/consent`) | "Which app, running where, wants what, from which account, and is it safe to allow?" |
 | Result pages (approved, denied, error) | "Did it work, and what do I do now?" |
-| Dashboard (`/`) | "Which of my devices are reachable, what runs on them, and which apps can reach them?" Secondary: connect another device. |
+| Dashboard (`/`) | "Which of my devices are reachable, what runs on them, and which apps can reach them?" Secondary: connect another device, register an app by hand. |
 | Example web app | "Can I reach an agent on my device from here, and is it working?" |
 | Example conversation navigation | "Which conversation am I in, and where do I start another?" |
 
@@ -46,5 +47,5 @@ Relay, Desktop, and Example share basic controls through `@exterior/ui`; each ap
 | --- | --- | --- |
 | Account | GitHub sign-in | The signed-in person. |
 | Device | `exterior login` with a device code | Approved on `/device`; listed on the dashboard from sign-in on, online while its daemon is connected. |
-| Web app (OAuth client) | Registration, or a pending request from `@exterioragentprotocol/sdk` | Approved on `/consent`; listed under authorized apps; revocable. |
+| Web app (OAuth client) | A published metadata identity, or registration by an account: confirmed on `/apps/register` after an assistant starts setup, or with Register app on the dashboard | Registration gives a client id; device access is separately approved on `/consent`, listed under authorized apps, and revocable. |
 | Connection | A web app opening an agent | Counted on the dashboard. |

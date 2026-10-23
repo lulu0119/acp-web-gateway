@@ -1,6 +1,8 @@
-export const defaultRelayUrl = "http://127.0.0.1:8787";
+export const defaultRelayUrl = "https://relay.apps.superpowerlulu.win";
 
 export const clientRegistryPath = "/api/clients/register";
+export const appSetupPath = "/apps/register";
+export const appSetupResultPath = "/api/clients/setup";
 export const grantsPath = "/api/grants";
 
 /**

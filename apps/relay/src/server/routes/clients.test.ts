@@ -263,6 +263,9 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   assert.ok(created.clientId);
   assert.ok(created.clientSecret);
 
+  const local = { clientName: "Studio", redirectUris: ["http://localhost:5173/oauth/callback"] };
+  assert.equal(await registerApp(app, cookie, local), await registerApp(app, cookie, local), "the same public app is registered once");
+
   const rejected = await app.request(`${publicUrl}/api/clients/register`, {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },

@@ -163,7 +163,30 @@ function validateClientName(clientName: string): string | undefined {
   return undefined;
 }
 
+const registrations = new WeakMap<ExteriorAuth, Promise<unknown>>();
+
+/** A public client the account already registered with the same details is returned again, not duplicated. */
 export async function registerClient(exterior: ExteriorAuth, ownerUserId: string, input: ClientRegistration): Promise<RegisteredClient> {
+  const previous = registrations.get(exterior) ?? Promise.resolve();
+  const pending = previous.catch(() => undefined).then(() => createClient(exterior, ownerUserId, input));
+  registrations.set(exterior, pending);
+  try {
+    return await pending;
+  } finally {
+    if (registrations.get(exterior) === pending) registrations.delete(exterior);
+  }
+}
+
+async function createClient(exterior: ExteriorAuth, ownerUserId: string, input: ClientRegistration): Promise<RegisteredClient> {
+  if (!input.confidential) {
+    const context = await exterior.auth.$context;
+    const rows = await context.adapter.findMany<StoredClient & { name?: string; redirectUris?: string[]; tokenEndpointAuthMethod?: string; uri?: string | null; icon?: string | null }>({ model: "oauthClient", where: [] });
+    const existing = rows.find((row) => row.softwareId?.startsWith(`${userSoftwarePrefix}${ownerUserId}:`)
+      && row.name === input.clientName && row.tokenEndpointAuthMethod === "none"
+      && (row.uri ?? undefined) === input.clientUri && (row.icon ?? undefined) === input.logoUri
+      && JSON.stringify(row.redirectUris) === JSON.stringify(input.redirectUris));
+    if (existing?.clientId) return { clientId: existing.clientId };
+  }
   const owned = await userClientCount(exterior, ownerUserId);
   if (owned >= maxClientsPerUser) throw new Error(`Each account can register at most ${maxClientsPerUser} clients.`);
   const softwareId = `${userSoftwarePrefix}${ownerUserId}:${randomBytes(4).toString("hex")}`;

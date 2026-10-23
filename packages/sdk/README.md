@@ -40,6 +40,8 @@ if (session.account.phase === "signed-in") {
 
 ## Which client id
 
+For a new local app, have your coding assistant follow [app setup](../../docs/app-setup.md). The assistant gives you a registration link on the relay, waits for your approval, and receives the app's client id. Register app on the relay's dashboard does the same by hand. Pass that `clientId`, the relay address, and the `redirectUri` you registered to `useAccount`. App setup registers an identity; your app's normal sign-in separately asks for access to devices. No public website or local relay is required.
+
 `clientId` is one of:
 
 - The https address of the app's Client ID Metadata Document. The relay reads the name, logo, and redirect addresses from that file, and the app is one authorized row everywhere.

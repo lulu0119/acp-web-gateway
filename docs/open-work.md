@@ -11,7 +11,6 @@ Code still missing.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
 - The metadata-document fetch is unauthenticated: rate-limit it.
-- A dashboard form to register a client: `POST /api/clients/register` exists, but no page offers it, so an app with nowhere to publish a metadata document has no way in ([ADR 0028](adr/0028-a-web-app-names-itself.md)).
 - Grants per device: the consent page grants every device of the account. Let the person choose devices, and close the attach sockets a narrowed grant no longer covers ([spec §4.4](protocol/exterior-agent-protocol.md#44-grants)).
 - The device approval page shows the code and the account. Show the requesting device's name and address too, so a forwarded code is easier to spot.
 - A machine-readable EAP schema and a conformance suite a third-party relay or device can run.
@@ -22,6 +21,7 @@ Code still missing.
 
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
+- [App setup](app-setup.md) against the hosted relay: a coding assistant registers a new local third-party app after GitHub sign-in, and the app signs in and initializes a real agent. Local tests use a seeded account; the hosted relay must first deploy [ADR 0029](adr/0029-an-assistant-sets-up-a-web-app.md).
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.

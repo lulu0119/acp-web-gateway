@@ -2,8 +2,8 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./button.js";
 
-/** `iconOnly` keeps the label for assistive technology and the tooltip, and shows only the icon. */
-export function CopyButton({ text, label, iconOnly, className }: { text: string; label: string; iconOnly?: boolean; className?: string }) {
+/** Copies `text`, and reports Copied or a failure for two seconds. `status` is the label to show or announce. */
+export function useCopy(text: string, label: string) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
@@ -23,13 +23,19 @@ export function CopyButton({ text, label, iconOnly, className }: { text: string;
 
   const status = state === "copied" ? "Copied" : state === "failed" ? "Select and copy" : label;
   const icon = state === "copied" ? <CheckIcon data-icon="inline-start" className="text-success-600" /> : <CopyIcon data-icon="inline-start" />;
+  return { copy: () => void copy(), status, icon };
+}
+
+/** `iconOnly` keeps the label for assistive technology and the tooltip, and shows only the icon. */
+export function CopyButton({ text, label, iconOnly, className }: { text: string; label: string; iconOnly?: boolean; className?: string }) {
+  const { copy, status, icon } = useCopy(text, label);
   return (
     <Button
       type="button"
       variant="outline"
       size={iconOnly ? "icon-sm" : "sm"}
       className={className}
-      onClick={() => void copy()}
+      onClick={copy}
       aria-label={iconOnly ? status : undefined}
       title={iconOnly ? status : undefined}
       aria-live="polite"
