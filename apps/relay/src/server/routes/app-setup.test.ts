@@ -33,8 +33,8 @@ test("an assistant registers a local app after account approval, polls for it, a
 
   const page = await app.request(setupUrl(setupId), { headers: { cookie } });
   const html = await page.text();
-  assert.match(html.replace(/<!-- -->/g, ""), /Register AUV Playground Dev\?/);
-  assert.match(html, /Access to your devices is requested separately/);
+  assert.match(html.replace(/<!-- -->/g, ""), /Register AUV Playground Dev with Exterior\?/);
+  assert.match(html, /No access to your devices yet/);
   const decide = (token: string, decision = "register") => app.request(clientRegistryPath, {
     method: "POST", headers: { cookie, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ approval: token, decision }),
   });

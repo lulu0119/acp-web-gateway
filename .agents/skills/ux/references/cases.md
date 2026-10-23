@@ -42,13 +42,15 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-buried-answer
 
-- ✅ `6f20a7f` + app setup: registration leads with the app name and signed-in account, shows the callback above Register app, and states that device access is requested separately. L2: production screenshots at 1440×900 and 390×844, AUV Playground Dev / Ada Lovelace. `web/pages/account.tsx` (`AppRegistration`)
+- ✅ `6f20a7f` + app setup: registration takes consent's shape. The app and Exterior marks, the question, and the callback origin lead; the card holds the account, the warning, what registering gives and withholds, details, and the decision. L2: production screenshots at 1440×900 and 390×844, AUV Playground Dev / Ada Lovelace. `web/pages/account.tsx` (`AppRegistration`)
 
 - ❌ `c94dada`: "Approve another machine" sat at the bottom of the page, below authorized apps. `web/pages/dashboard.tsx`
 - ✅ `feat/relay-ux`: "Add device" sits beside the Devices heading and opens setup steps or code entry. `web/pages/dashboard.tsx`
 
 ## no-equal-weight-noise
 
+- ❌ `6f20a7f` + app setup (first draft): the registered and cancelled pages framed one sentence and a button in a card, the frame #30 had removed from error pages. `web/pages/account.tsx` (`Message`)
+- ✅ `6f20a7f` + app setup: a card holds a page only when its content needs one, as on consent, device approval, and app registration. Every message page, success, neutral, or error, is unframed. L2: production screenshots at 1440×900 and 390×844. `web/pages/account.tsx` (`Message`)
 - ❌ `3cdf4fe` (2026-10-20; L2, 1440×900): consent painted the connector, the Unverified badge, the warning, and the permission icons gold, so the warning did not stand out. `web/pages/account.tsx` (`Consent`)
 - ✅ `3cdf4fe` + consent emphasis (2026-10-20; L2, 1440×900 and 390×844): amber stays on the unverified warning. The connector and permission marks use neutral ink, and Unverified stays an outline next to the origin. `web/pages/account.tsx` (`Consent`)
 

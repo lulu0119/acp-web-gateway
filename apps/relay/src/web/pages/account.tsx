@@ -1,5 +1,6 @@
 import { cn } from "cn";
 import {
+  AppWindowIcon,
   ArrowRightIcon,
   BotIcon,
   CheckIcon,
@@ -122,30 +123,57 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
 function AppRegistration({ page }: { page: Extract<AccountPageData, { kind: "app-registration" }> }) {
   return (
     <Shell
+      wide
       header={(
         <>
-          <ExteriorMark className="size-12" />
-          <h1 className="font-display text-2xl font-bold">Register {page.clientName}?</h1>
-          <SignedInAs account={page.account} />
+          <div className="flex items-center gap-3" aria-hidden>
+            <AppIcon label={page.clientName} className="size-14 rounded-xl bg-card text-xl ring-1 ring-border" />
+            <span className="signal-line h-0.5 w-12 text-muted-foreground" aria-hidden />
+            <ExteriorMark className="size-14" />
+          </div>
+          <h1 className="max-w-lg font-display text-2xl font-bold text-balance">Register {page.clientName} with Exterior?</h1>
+          <span className="font-mono text-sm text-foreground">{originOf(page.redirectUri)}</span>
         </>
       )}
-      footer="Only continue if your coding assistant just gave you this link."
     >
-      <p>Your coding assistant will receive a public app id and continue setting up your project.</p>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Where the app returns after sign-in</h2>
-        <p className="break-all font-mono text-sm text-muted-foreground">{page.redirectUri}</p>
-      </div>
-      <p className="text-sm text-muted-foreground">Registration gives the app a name and a sign-in address. Access to your devices is requested separately when you sign in to the app.</p>
+      <SignedInAs account={page.account} />
+      <Alert variant="warning">
+        <TriangleAlertIcon />
+        <AlertTitle>Only register an app your coding assistant just set up</AlertTitle>
+        <AlertDescription>
+          If someone else sent you this link, cancel. The app would be registered to your account under a name they chose.
+        </AlertDescription>
+      </Alert>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">Registering gives this app</h2>
+        <ul className="flex flex-col gap-4">
+          <Point icon={<AppWindowIcon />} title="A client id on this relay">
+            Your coding assistant receives it and continues setting up the project. The id is public.
+          </Point>
+          <Point icon={<BotIcon />} title="No access to your devices yet">
+            The app asks to use agents on your devices when you sign in to it, and you decide then.
+          </Point>
+        </ul>
+      </section>
+      <details className="group rounded-lg text-sm">
+        <summary className="cursor-pointer text-muted-foreground select-none hover:text-foreground">Details</summary>
+        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+          <dt className="text-muted-foreground">Returns to</dt>
+          <dd className="font-mono break-all">{page.redirectUri}</dd>
+        </dl>
+      </details>
       <PendingScope>
         <div className="grid grid-cols-2 gap-3">
-          {[false, true].map((accept) => (
-            <PendingForm key={String(accept)} method="post" action="/api/clients/register" className="flex flex-col">
-              <input type="hidden" name="approval" value={page.approval} />
-              <input type="hidden" name="decision" value={accept ? "register" : "deny"} />
-              <SubmitButton id={accept ? "register" : "deny"} variant={accept ? "default" : "secondary"} size="xl">{accept ? "Register app" : "Cancel"}</SubmitButton>
-            </PendingForm>
-          ))}
+          <PendingForm method="post" action="/api/clients/register" className="flex flex-col">
+            <input type="hidden" name="approval" value={page.approval} />
+            <input type="hidden" name="decision" value="deny" />
+            <SubmitButton id="deny" variant="secondary" size="xl">Cancel</SubmitButton>
+          </PendingForm>
+          <PendingForm method="post" action="/api/clients/register" className="flex flex-col">
+            <input type="hidden" name="approval" value={page.approval} />
+            <input type="hidden" name="decision" value="register" />
+            <SubmitButton id="register" size="xl">Register app</SubmitButton>
+          </PendingForm>
         </div>
       </PendingScope>
     </Shell>
@@ -367,7 +395,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
 function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }> }) {
   return (
     <Shell
-      framed={page.tone !== "error"}
+      framed={false}
       header={(
         <>
           {page.tone === "error" ? <ExteriorMark className="size-14" /> : <StatusMark tone={page.tone} />}
@@ -397,12 +425,17 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
 
 function Permission({ permission }: { permission: PermissionView }) {
   const icon = permission.scope === "devices" ? <BotIcon /> : permission.scope === "offline_access" ? <KeyRoundIcon /> : <UserIcon />;
+  return <Point icon={icon} title={permission.title}>{permission.detail}</Point>;
+}
+
+/** One thing an approval gives, with its icon. */
+function Point({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <li className="flex gap-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-4">{icon}</span>
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-semibold">{permission.title}</span>
-        <span className="text-sm text-muted-foreground">{permission.detail}</span>
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="text-sm text-muted-foreground">{children}</span>
       </div>
     </li>
   );
@@ -480,6 +513,14 @@ function GitHubIcon() {
 
 function normalizeCode(code: string | undefined): string {
   return (code ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+function originOf(uri: string): string {
+  try {
+    return new URL(uri).origin;
+  } catch {
+    return uri;
+  }
 }
 
 function hostOf(origin: string): string {
