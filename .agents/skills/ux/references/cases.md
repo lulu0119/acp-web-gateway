@@ -42,11 +42,15 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-buried-answer
 
+- ✅ `6f20a7f` + app setup: registration takes consent's shape. The app and Exterior marks, the question, and the callback origin lead; the card holds the account, the warning, what registering gives and withholds, details, and the decision. L2: production screenshots at 1440×900 and 390×844, AUV Playground Dev / Ada Lovelace. `web/pages/account.tsx` (`AppRegistration`)
+
 - ❌ `c94dada`: "Approve another machine" sat at the bottom of the page, below authorized apps. `web/pages/dashboard.tsx`
 - ✅ `feat/relay-ux`: "Add device" sits beside the Devices heading and opens setup steps or code entry. `web/pages/dashboard.tsx`
 
 ## no-equal-weight-noise
 
+- ❌ `6f20a7f` + app setup (first draft): the registered and cancelled pages framed one sentence and a button in a card, the frame #30 had removed from error pages. `web/pages/account.tsx` (`Message`)
+- ✅ `6f20a7f` + app setup: a card holds a page only when its content needs one, as on consent, device approval, and app registration. Every message page, success, neutral, or error, is unframed. L2: production screenshots at 1440×900 and 390×844. `web/pages/account.tsx` (`Message`)
 - ❌ `3cdf4fe` (2026-10-20; L2, 1440×900): consent painted the connector, the Unverified badge, the warning, and the permission icons gold, so the warning did not stand out. `web/pages/account.tsx` (`Consent`)
 - ✅ `3cdf4fe` + consent emphasis (2026-10-20; L2, 1440×900 and 390×844): amber stays on the unverified warning. The connector and permission marks use neutral ink, and Unverified stays an outline next to the origin. `web/pages/account.tsx` (`Consent`)
 
@@ -58,6 +62,9 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 
 ## no-lost-context
 
+- ❌ `6f20a7f`: sign-in discarded the `next` continuation before the GitHub form, so a device or app setup could land on the dashboard instead of continuing. `server/identity/account.ts` (`readSignIn`)
+- ✅ `6f20a7f` + app setup: sign-in preserves the local continuation in its form, and a registration whose account session expires returns through sign-in with its original app name, callback, and waiting request. L1: route tests cover continuation, lost sign-in, and a rejected external destination. `server/identity/account.ts`, `server/routes/clients.ts`
+
 ## no-inconsistent-readout
 
 ## no-inert-action
@@ -65,6 +72,9 @@ Add entries under the rule's heading as `- ❌ <hash>: <finding>. <path>` or `- 
 - ✅ `d3f06a4` + dashboard split button (2026-10-13; L2/L3, desktop and 390×844): the primary link opens device-code entry directly; the separate menu retains setup and code entry, with keyboard navigation and focus return. `web/pages/dashboard.tsx`
 
 ## no-false-feedback
+
+- ✅ `6f20a7f` + app setup: Register app becomes busy and disables Cancel while its form is held; success corresponds to the assistant's poll returning the registered client id. Cancel and invalid approval render distinct outcomes. L3: production capture polls over HTTP and drives the browser at 1440×900 and 390×844. `web/pages/account.tsx`, `apps/relay/capture/capture.ts` (`verifyAppSetup`)
+- ✅ `6f20a7f` + dashboard Register app: the dialog's submit shows Registering with a spinner and disables Cancel while the request runs; a rejected registration shows the relay's reason in the dialog, and success shows the relay, client id, and callback the app needs. L3: production capture holds the request at 1440×900 and 390×844. `web/components/register-app-dialog.tsx`
 
 - ❌ `c94dada`: buttons had no pointer cursor (Tailwind 4 preflight) and form buttons had no pending state, so Approve could be pressed twice. `packages/ui/src/button.tsx`
 - ✅ `feat/relay-ux`: a base rule gives every clickable role a pointer; `Button` has `loading`; `PendingForm` spins the pressed button and disables its sibling across forms. L3: after clicking Connect device, `aria-busy=true`, spinner shown, Deny disabled. `web/styles.css`, `web/components/pending-form.tsx`

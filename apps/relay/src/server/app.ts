@@ -84,12 +84,12 @@ export function createRelayApp(input: {
   // Approve buttons must not be framed by another site and clicked through.
   app.use("*", async (c, next) => {
     await next();
-    if (["/api/", "/eap/", "/assets/", "/.well-known/"].some((prefix) => c.req.path.startsWith(prefix))) return;
+    if (!c.res.headers.get("content-type")?.startsWith("text/html")) return;
     c.header("X-Frame-Options", "DENY");
     c.header("Content-Security-Policy", "frame-ancestors 'none'");
   });
 
-  // A bearer token is the only credential these take, so any origin may call them.
+  // Cross-origin calls use explicit credentials; account cookies are used only on the relay's own origin.
   for (const path of ["/api/*", "/eap/*", "/.well-known/*"]) {
     app.use(path, cors({
       origin: "*",
@@ -110,7 +110,7 @@ export function createRelayApp(input: {
   mountAccountPages(app, input.exterior, input.githubConfigured, render);
   const catalog = input.catalog ?? createAgentCatalog();
   mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, render, catalog });
-  mountClients(app, input.exterior, input.registry);
+  mountClients(app, input.exterior, input.registry, render);
   mountConnections(app, {
     registry: input.registry,
     readAccess: readAccessAccount,

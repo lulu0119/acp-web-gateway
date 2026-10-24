@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { agentSocketPath, clientScope, connectionsPath, deviceSocketPath, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform } from "@exterioragentprotocol/sdk";
-import { exampleClient, exteriorDeviceClient } from "@exterior/contract";
+import { appSetupPath, appSetupResultPath, exampleClient, exteriorDeviceClient } from "@exterior/contract";
 import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, type DeviceKey } from "@exterioragentprotocol/sdk/device";
 import Database from "better-sqlite3";
 import { chromium, type Browser } from "playwright";
@@ -41,6 +41,36 @@ type Surface = {
 };
 
 const surfaces: Surface[] = [
+  { name: "app-registration", path: "/", ready: showAppRegistration },
+  { name: "app-registered", path: "/", ready: verifyAppSetup },
+  { name: "app-sign-in", path: "/", ready: async (page) => {
+    await showAppRegistration(page);
+    const cookies = await page.context().cookies();
+    await page.context().clearCookies();
+    await page.getByRole("button", { name: "Register app", exact: true }).click();
+    await page.getByRole("heading", { name: "Sign in to Exterior" }).waitFor();
+    const next = new URL(page.url()).searchParams.get("next") ?? "";
+    if (!next.startsWith(appSetupPath) || !next.includes("setup_id=")) throw new Error("Signing in lost the pending app setup.");
+    await page.context().addCookies(cookies);
+    const resumed = await page.context().newPage();
+    try {
+      await resumed.goto(page.url());
+      await resumed.getByRole("button", { name: "Register app", exact: true }).waitFor();
+    } finally {
+      await resumed.close();
+    }
+  } },
+  { name: "app-denied", path: "/", ready: async (page) => {
+    await showAppRegistration(page);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("heading", { name: "App setup cancelled" }).waitFor();
+  } },
+  { name: "app-expired", path: "/", ready: async (page) => {
+    await showAppRegistration(page);
+    await page.locator('input[name="approval"]').evaluateAll((inputs) => inputs.forEach((input) => (input as HTMLInputElement).value = "expired"));
+    await page.getByRole("button", { name: "Register app", exact: true }).click();
+    await page.getByRole("heading", { name: "This setup link expired" }).waitFor();
+  } },
   {
     name: "dashboard",
     path: "/",
@@ -79,6 +109,29 @@ const surfaces: Surface[] = [
     },
   },
   {
+    name: "register-app-dialog",
+    path: "/",
+    // Register app beside Authorized apps, filled in and held mid-request.
+    ready: async (page) => {
+      await fillRegisterApp(page);
+      await page.route("**/api/clients/register", () => new Promise(() => undefined));
+      await page.getByRole("dialog").getByRole("button", { name: "Register app" }).click();
+      await page.getByRole("button", { name: "Registering" }).waitFor();
+      const busy = await page.evaluate(() => document.querySelector("[role=dialog] [type=submit]")?.getAttribute("aria-busy") === "true"
+        && [...document.querySelectorAll("[role=dialog] button")].some((button) => button.textContent === "Cancel" && (button as HTMLButtonElement).disabled));
+      if (!busy) throw new Error("Register app did not show its pending state.");
+    },
+  },
+  {
+    name: "register-app-done",
+    path: "/",
+    ready: async (page) => {
+      await fillRegisterApp(page);
+      await page.getByRole("dialog").getByRole("button", { name: "Register app" }).click();
+      await page.getByRole("heading", { name: "Studio Dev registered" }).waitFor();
+    },
+  },
+  {
     name: "consent",
     path: "/",
     // A development copy of Example, on this computer, asking for the first time.
@@ -102,6 +155,51 @@ const surfaces: Surface[] = [
     },
   },
 ];
+
+async function fillRegisterApp(page: import("playwright").Page): Promise<void> {
+  await page.getByRole("button", { name: "Register app" }).click();
+  await page.getByLabel("Name").fill("Studio Dev");
+  await page.getByLabel("Callback").fill("http://localhost:5173/oauth/callback");
+}
+
+async function showAppRegistration(page: import("playwright").Page, setupId: string = randomUUID()): Promise<void> {
+  const url = new URL(appSetupPath, page.url());
+  url.search = new URLSearchParams({
+    setup_id: setupId,
+    client_name: "AUV Playground Dev",
+    redirect_uri: "http://127.0.0.1:5180/playground/oauth/callback",
+  }).toString();
+  await page.goto(url.href);
+  await page.getByRole("button", { name: "Register app", exact: true }).waitFor();
+}
+
+/** Polls the way docs/app-setup.md tells an assistant to, while the production approval page is used. */
+async function verifyAppSetup(page: import("playwright").Page): Promise<void> {
+  const setupId = randomUUID();
+  const result = new URL(`${appSetupResultPath}/${setupId}`, page.url());
+  const poll = async () => {
+    const response = await fetch(result);
+    return { status: response.status, body: await response.json() as { status?: string; clientId?: string } };
+  };
+  if ((await poll()).status !== 202) throw new Error("A setup nobody approved yet did not read as pending.");
+  await showAppRegistration(page, setupId);
+  const button = page.getByRole("button", { name: "Register app", exact: true });
+  let release!: () => void;
+  const held = new Promise<void>((done) => release = done);
+  await page.route("**/api/clients/register", async (route) => { await held; await route.continue(); });
+  try {
+    const clicked = button.click({ noWaitAfter: true });
+    await page.waitForFunction(() => document.querySelector('[data-submitter="register"]')?.getAttribute("aria-busy") === "true"
+      && document.querySelector('[data-submitter="deny"]')?.hasAttribute("disabled"));
+    release();
+    await clicked;
+  } finally {
+    release();
+  }
+  await page.getByRole("heading", { name: "AUV Playground Dev registered" }).waitFor();
+  const outcome = await poll();
+  if (outcome.status !== 200 || outcome.body.status !== "registered" || !outcome.body.clientId) throw new Error(`The assistant did not receive the approved app id: ${JSON.stringify(outcome)}`);
+}
 
 /** Example's own mark, as the inline image a registered app in this fixture sends. */
 const fixtureLogo = `data:image/png;base64,${(await readFile(join(repositoryRoot, "apps/example/public/oauth-client-logo.png"))).toString("base64")}`;
@@ -433,6 +531,13 @@ async function capture(input: { browser: Browser; publicUrl: string; sessionValu
         await Promise.all([...document.images].map((img) => (img.complete ? undefined : img.decode().catch(() => undefined))));
       });
       await page.mouse.move(0, 0);
+      if (surface.name.startsWith("app-")) {
+        const probe = await page.evaluate(() => ({
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          indistinctActions: [...document.querySelectorAll("button, a[href]")].filter((element) => getComputedStyle(element).cursor !== "pointer").length,
+        }));
+        if (probe.overflow || probe.indistinctActions) throw new Error(`${surface.name} failed the layout/affordance probe: ${JSON.stringify(probe)}`);
+      }
       const file = join(input.options.outDir, input.options.label, `${surface.name}-${input.options.viewport}.png`);
       await page.screenshot({ path: file, animations: "disabled", timeout: settledTimeoutMs });
       written.push(file);

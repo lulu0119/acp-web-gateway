@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { DeviceView, GrantedApp, LiveSessionInfo } from "../../shared/account-web.js";
 import { AgentIcon } from "@exterior/ui/agent-icon";
 import { AppIcon } from "./app-icon.js";
+import { RegisterAppDialog } from "./register-app-dialog.js";
 import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button } from "@exterior/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@exterior/ui/item";
@@ -67,7 +68,7 @@ export function GrantsSection({ grants, devices, sessions, agentIcons }: {
 
   return (
     <section className="flex flex-col gap-6" aria-labelledby="apps-heading">
-      <SectionHeading id="apps-heading" title="Authorized apps">
+      <SectionHeading id="apps-heading" title="Authorized apps" action={<RegisterAppDialog />}>
         Web apps that can open agents on your devices. Revoking signs an app out the next time it asks for a token.
       </SectionHeading>
       {problem ? (

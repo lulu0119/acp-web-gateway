@@ -16,7 +16,7 @@ export async function readSignIn(request: Request, exterior: ExteriorAuth, confi
   if (session && next) return { redirect: next };
   const query = continuationQuery(request.url);
   if (session && query.includes("client_id=")) return { redirect: `/api/auth/oauth2/authorize?${query}` };
-  return { page: { kind: "sign-in", query, configured }, status: 200 };
+  return { page: { kind: "sign-in", query: next ? new URLSearchParams({ next }).toString() : query, configured }, status: 200 };
 }
 
 export async function signInWithGitHub(request: Request, exterior: ExteriorAuth, query: string): Promise<AccountResult> {
@@ -176,6 +176,7 @@ function described(error: unknown): string {
 }
 
 function safeNext(value: string | null): string | undefined {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return undefined;
-  return value;
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return undefined;
+  const target = new URL(value, "https://exterior.invalid");
+  return target.origin === "https://exterior.invalid" ? target.pathname + target.search + target.hash : undefined;
 }
