@@ -1,6 +1,6 @@
 # Connect a web app to Exterior
 
-Instructions for a coding assistant integrating a new or existing app. Use an existing relay; the default is `https://relay.apps.superpowerlulu.win`. Device and relay operation is in [the manual](manual.md); the supported client interface is in [the SDK README](../packages/sdk/README.md).
+Instructions for a coding assistant integrating a new or existing app. Use an existing relay. Device and relay operation is in [the manual](manual.md); the supported client interface is in [the SDK README](../packages/sdk/README.md).
 
 ## Inspect
 
