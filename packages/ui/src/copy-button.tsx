@@ -2,7 +2,7 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./button.js";
 
-/** Copies `text`, and reports Copied or a failure for two seconds. `status` is the label to show or announce. */
+/** Reports Copied or a failure for two seconds. */
 export function useCopy(text: string, label: string) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 

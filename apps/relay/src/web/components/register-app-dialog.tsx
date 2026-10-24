@@ -13,7 +13,7 @@ const clientIdGuide = "https://github.com/lulu0119/exterior/blob/main/packages/s
 
 type Registered = { clientId: string; clientName: string; redirectUri: string };
 
-/** Registers a public web app for the signed-in account, the same registration a coding assistant's setup link makes. */
+/** The same registration a coding assistant's setup link makes. */
 export function RegisterAppDialog() {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState("");

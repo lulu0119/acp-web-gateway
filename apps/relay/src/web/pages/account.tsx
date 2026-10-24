@@ -428,7 +428,6 @@ function Permission({ permission }: { permission: PermissionView }) {
   return <Point icon={icon} title={permission.title}>{permission.detail}</Point>;
 }
 
-/** One thing an approval gives, with its icon. */
 function Point({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <li className="flex gap-3">
