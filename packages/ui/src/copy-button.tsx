@@ -2,7 +2,6 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./button.js";
 
-/** Reports Copied or a failure for two seconds. */
 export function useCopy(text: string, label: string) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 

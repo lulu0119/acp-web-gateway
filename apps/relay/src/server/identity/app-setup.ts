@@ -46,14 +46,15 @@ export async function readAppSetupApproval(exterior: ExteriorAuth, token: string
   const expected = createHmac("sha256", (await exterior.auth.$context).secret).update(payload).digest();
   const received = Buffer.from(signature, "base64url");
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) return undefined;
-  // Only a page signed by this relay can reach here.
   const approval = JSON.parse(Buffer.from(payload, "base64url").toString()) as Approval;
   return approval.expiresAt > Date.now() ? approval : undefined;
 }
 
+type PendingSetup = { setup: Approval; expiresAt: number; outcome?: AppSetupOutcome; pending: Promise<AppSetupOutcome> };
+
 /** Polling creates no state. Only an account's signed decision leaves a short-lived result. */
 export function createAppSetupResults() {
-  const results = new Map<string, { setup: Approval; expiresAt: number; outcome?: AppSetupOutcome; pending: Promise<AppSetupOutcome> }>();
+  const results = new Map<string, PendingSetup>();
   function prune() {
     for (const [id, result] of results) if (result.expiresAt <= Date.now()) results.delete(id);
   }
@@ -70,7 +71,7 @@ export function createAppSetupResults() {
         return existing.pending;
       }
       if ([...results.values()].filter((result) => result.setup.userId === setup.userId).length >= 10) throw new Error("Too many recent setups. Wait ten minutes, then ask your coding assistant for a new setup link.");
-      const entry = { setup, expiresAt: Date.now() + lifetimeMs, outcome: undefined as AppSetupOutcome | undefined, pending: Promise.resolve().then(run) };
+      const entry: PendingSetup = { setup, expiresAt: Date.now() + lifetimeMs, pending: Promise.resolve().then(run) };
       results.set(setup.setupId, entry);
       try {
         entry.outcome = await entry.pending;

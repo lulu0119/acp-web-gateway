@@ -199,8 +199,6 @@ async function verifyAppSetup(page: import("playwright").Page): Promise<void> {
   await page.getByRole("heading", { name: "AUV Playground Dev registered" }).waitFor();
   const outcome = await poll();
   if (outcome.status !== 200 || outcome.body.status !== "registered" || !outcome.body.clientId) throw new Error(`The assistant did not receive the approved app id: ${JSON.stringify(outcome)}`);
-  process.stdout.write(`App setup verified: approval → poll returned client ${outcome.body.clientId}.
-`);
 }
 
 /** Example's own mark, as the inline image a registered app in this fixture sends. */
@@ -534,24 +532,11 @@ async function capture(input: { browser: Browser; publicUrl: string; sessionValu
       });
       await page.mouse.move(0, 0);
       if (surface.name.startsWith("app-")) {
-        const probe = await page.evaluate(() => {
-          const fonts: Record<string, number> = {};
-          for (const element of document.querySelectorAll("body *")) {
-            const text = [...element.childNodes].filter((node) => node.nodeType === 3).map((node) => node.textContent?.trim() ?? "").join("");
-            const rect = element.getBoundingClientRect();
-            if (!text || !rect.width || rect.bottom < 0 || rect.top > innerHeight) continue;
-            const style = getComputedStyle(element);
-            const key = `${style.fontSize} ${style.fontWeight}`;
-            fonts[key] = (fonts[key] ?? 0) + text.length;
-          }
-          return {
-            overflow: document.documentElement.scrollWidth > innerWidth,
-            fonts,
-            indistinctActions: [...document.querySelectorAll("button, a[href]")].filter((element) => getComputedStyle(element).cursor !== "pointer").length,
-          };
-        });
+        const probe = await page.evaluate(() => ({
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          indistinctActions: [...document.querySelectorAll("button, a[href]")].filter((element) => getComputedStyle(element).cursor !== "pointer").length,
+        }));
         if (probe.overflow || probe.indistinctActions) throw new Error(`${surface.name} failed the layout/affordance probe: ${JSON.stringify(probe)}`);
-        process.stdout.write(`${surface.name} probe: ${JSON.stringify(probe)}\n`);
       }
       const file = join(input.options.outDir, input.options.label, `${surface.name}-${input.options.viewport}.png`);
       await page.screenshot({ path: file, animations: "disabled", timeout: settledTimeoutMs });
