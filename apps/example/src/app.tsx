@@ -173,7 +173,7 @@ export function App() {
                 connection={connection}
                 active={connection.id === activeId}
                 treeSlot={treeSlot}
-                accessToken={session.accessToken}
+                openConnection={session.openConnection}
                 onStatusChange={reportStatus}
               />
             ))}

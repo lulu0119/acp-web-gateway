@@ -1,4 +1,4 @@
-import { listDevices, openConnection, RelayError, type Device } from "@exterioragentprotocol/sdk/client";
+import { RelayError, type Device } from "@exterioragentprotocol/sdk/client";
 import type { AccountSession } from "@exterioragentprotocol/sdk/client/react";
 import { ArrowRightIcon, ArrowUpRightIcon, BotIcon, LaptopIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -30,15 +30,14 @@ export function ConnectForm({
   const [error, setError] = useState("");
   const opening = useRef<AbortController | null>(null);
   const signedIn = session.account.phase === "signed-in";
-  const { accessToken } = session;
+  const { listDevices, openConnection } = session;
 
   useEffect(() => {
     if (!signedIn) return;
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
     setList((current) => ({ phase: "loading", devices: current.devices }));
-    void accessToken()
-      .then((token) => listDevices(relayUrl, token, signal))
+    void listDevices(signal)
       .then((devices) => {
         if (controller.signal.aborted) return;
         setList({ phase: "ready", devices });
@@ -59,7 +58,7 @@ export function ConnectForm({
           }));
       });
     return () => controller.abort();
-  }, [relayUrl, signedIn, accessToken, refresh]);
+  }, [signedIn, listDevices, refresh]);
 
   useEffect(() => () => opening.current?.abort(), [signedIn]);
 
@@ -76,8 +75,6 @@ export function ConnectForm({
     setError("");
     try {
       const opened = await openConnection(
-        relayUrl,
-        await accessToken(),
         { deviceId: device.id, agentName: agent.name },
         AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
       );

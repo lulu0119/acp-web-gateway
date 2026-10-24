@@ -1,5 +1,5 @@
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import { openConnection } from "@exterioragentprotocol/sdk/client";
+import type { AccountSession } from "@exterioragentprotocol/sdk/client/react";
 import { AssistantRuntimeProvider, AuiIf, useAui } from "@assistant-ui/react";
 import {
   useAcpAuth,
@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createDirectoryAdapter } from "@/acp/directory-adapter";
-import { exteriorRelayUrl } from "@/lib/relay-url";
 import { AgentPlan } from "@/components/assistant-ui/elements/agent-plan";
 import { ApprovalCard } from "@/components/assistant-ui/elements/approval-card";
 import { EmptyState, EmptyStateGreeting } from "@/components/assistant-ui/elements/empty-state";
@@ -45,13 +44,13 @@ export function ConnectionPane({
   connection,
   active,
   treeSlot,
-  accessToken,
+  openConnection,
   onStatusChange,
 }: {
   connection: Connection;
   active: boolean;
   treeSlot: HTMLElement | null;
-  accessToken: () => Promise<string>;
+  openConnection: AccountSession["openConnection"];
   onStatusChange: (id: string, status: AcpConnectionStatus) => void;
 }) {
   const [directories] = useState(() => {
@@ -62,8 +61,6 @@ export function ConnectionPane({
         opened ??
         (
           await openConnection(
-            exteriorRelayUrl(),
-            await accessToken(),
             { deviceId: connection.deviceId, agentName: connection.agentName },
             AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
           )

@@ -31,11 +31,12 @@ const session = useAccount(relayUrl, {
 });
 
 if (session.account.phase === "signed-in") {
-  // await session.accessToken() for a live token before each listDevices or openConnection.
+  const devices = await session.listDevices();
+  // session.openConnection({ deviceId, agentName }) also obtains a live token.
 }
 ```
 
-`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut, accessToken }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in" }`. Call `accessToken()` for each request: it refreshes a token about to expire, and once the sign-in is gone it rejects and signs the account out. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
+`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut, accessToken, listDevices, openConnection }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in" }`. Prefer the returned `listDevices(signal?)` and `openConnection({ deviceId, agentName }, signal?)`: each obtains a live token, sharing a refresh when callers race. `accessToken()` is available for lower-level calls; it refreshes a token about to expire, and once the sign-in is gone it rejects and signs the account out. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
 
 ## Which client id
 

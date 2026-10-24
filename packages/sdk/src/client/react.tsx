@@ -1,4 +1,5 @@
-import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, storedAccessToken } from "./oauth.js";
+import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, listDevices, openConnection, storedAccessToken, type OpenedAgent } from "./oauth.js";
+import type { Device } from "../index.js";
 import { useCallback, useEffect, useState } from "react";
 
 export type Account = { phase: "checking" } | { phase: "signed-out" } | { phase: "signed-in" };
@@ -14,6 +15,8 @@ export type AccountSession = {
    * and the account is signed out.
    */
   accessToken: () => Promise<string>;
+  listDevices: (signal?: AbortSignal) => Promise<Device[]>;
+  openConnection: (input: { deviceId: string; agentName: string }, signal?: AbortSignal) => Promise<OpenedAgent>;
 };
 
 export function useAccount(
@@ -83,6 +86,9 @@ export function useAccount(
     throw new Error("Sign in again.");
   }, [relayUrl, clientId]);
 
-  return { account, busy, error, signIn, signOut, accessToken };
+  const accountDevices = useCallback(async (signal?: AbortSignal) => listDevices(relayUrl, await accessToken(), signal), [relayUrl, accessToken]);
+  const accountConnection = useCallback(async (input: { deviceId: string; agentName: string }, signal?: AbortSignal) => openConnection(relayUrl, await accessToken(), input, signal), [relayUrl, accessToken]);
+
+  return { account, busy, error, signIn, signOut, accessToken, listDevices: accountDevices, openConnection: accountConnection };
 }
 
