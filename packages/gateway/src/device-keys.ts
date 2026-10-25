@@ -1,4 +1,5 @@
 import { isRecord } from "@exterior/contract";
+import { parseJson } from "@exterioragentprotocol/sdk";
 import { exportDeviceKey, generateDeviceKey, importDeviceKey, type DeviceKey } from "@exterioragentprotocol/sdk/device";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -13,7 +14,7 @@ function deviceKeyPath(relayUrl: string, homeDirectory: string): string {
 /** The key this device holds for one relay, if it has one. Its thumbprint is the device id there. */
 export async function readDeviceKey(relayUrl: string, homeDirectory = homedir()): Promise<DeviceKey | undefined> {
   try {
-    const value: unknown = JSON.parse(await readFile(deviceKeyPath(relayUrl, homeDirectory), "utf8"));
+    const value = parseJson(await readFile(deviceKeyPath(relayUrl, homeDirectory), "utf8"));
     return isRecord(value) && isRecord(value.key) ? await importDeviceKey(value.key) : undefined;
   } catch {
     return undefined;

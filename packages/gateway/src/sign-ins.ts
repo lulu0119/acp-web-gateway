@@ -1,4 +1,5 @@
 import { isRecord } from "@exterior/contract";
+import { parseJson } from "@exterioragentprotocol/sdk";
 import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -102,7 +103,7 @@ export function chooseRelay(input: {
 
 async function readSignInFile(path: string): Promise<SignIn | undefined> {
   try {
-    return parseSignIn(JSON.parse(await readFile(path, "utf8")));
+    return parseSignIn(parseJson(await readFile(path, "utf8")));
   } catch {
     return undefined;
   }

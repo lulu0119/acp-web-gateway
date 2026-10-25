@@ -1,4 +1,5 @@
 import { isRecord } from "@exterior/contract";
+import { parseJson } from "@exterioragentprotocol/sdk";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -87,7 +88,7 @@ export async function readDaemonState(
 ): Promise<DaemonState | undefined> {
   let state: DaemonState | undefined;
   try {
-    state = parseDaemonState(JSON.parse(await readFile(join(daemonStateDirectory(homeDirectory), relayFileName(relayUrl)), "utf8")));
+    state = parseDaemonState(parseJson(await readFile(join(daemonStateDirectory(homeDirectory), relayFileName(relayUrl)), "utf8")));
   } catch {
     return undefined;
   }

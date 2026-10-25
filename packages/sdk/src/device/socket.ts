@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 import { dpopProof, type DeviceKey } from "../dpop.js";
 import { heartbeat } from "../heartbeat.js";
-import { closeReason, deviceCloseCodes, deviceSocketPath, parseRelayMessage, relayWebSocketUrl, type DeviceCloseReason } from "../index.js";
+import { closeReason, deviceCloseCodes, deviceSocketPath, parseJson, parseRelayMessage, relayWebSocketUrl, type DeviceCloseReason } from "../index.js";
 import type { DeviceHost } from "./host.js";
 
 export const defaultHeartbeatMs = 30_000;
@@ -55,13 +55,7 @@ export async function connectDevice(input: {
     });
     socket.on("message", (data, isBinary) => {
       if (isBinary) return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data.toString());
-      } catch {
-        return;
-      }
-      const read = parseRelayMessage(parsed);
+      const read = parseRelayMessage(parseJson(data.toString()));
       if (read.ok) input.host.receive(read.message);
     });
     socket.on("unexpected-response", (_request, response) => {

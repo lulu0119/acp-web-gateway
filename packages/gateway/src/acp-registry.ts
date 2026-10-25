@@ -1,4 +1,5 @@
 import { acpRegistryUrl, isEnvName, isRecord, registryIconUrl } from "@exterior/contract";
+import { parseJson } from "@exterioragentprotocol/sdk";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -59,11 +60,7 @@ export function platformTarget(platform = process.platform, arch = process.arch)
 }
 
 export function parseRegistryAgents(text: string): RegistryAgent[] | undefined {
-  try {
-    return agentsFromValue(JSON.parse(text) as unknown);
-  } catch {
-    return undefined;
-  }
+  return agentsFromValue(parseJson(text));
 }
 
 export async function loadAcpRegistry(input?: {

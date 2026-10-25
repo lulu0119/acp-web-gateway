@@ -1,5 +1,5 @@
 import { isEnvName } from "@exterior/contract";
-import { isAgentType } from "@exterioragentprotocol/sdk";
+import { isAgentType, parseJson } from "@exterioragentprotocol/sdk";
 import { mkdirSync, watch } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -163,12 +163,8 @@ async function loadGatewayConfig(homeDirectory: string): Promise<LoadedGatewayCo
     if (isMissingFile(error)) return { kind: "missing" };
     return { kind: "unreadable", path };
   }
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return { kind: "invalid", path, message: `Cannot read ${path} as JSON.` };
-  }
+  const value = parseJson(text);
+  if (value === undefined) return { kind: "invalid", path, message: `Cannot read ${path} as JSON.` };
   try {
     return { kind: "parsed", path, config: parseGatewayConfig(value) };
   } catch (error) {

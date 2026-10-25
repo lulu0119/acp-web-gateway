@@ -1,4 +1,5 @@
 import { acpRegistryUrl, isRecord, registryIconUrl } from "@exterior/contract";
+import { parseJson } from "@exterioragentprotocol/sdk";
 
 const cacheMaxAgeMs = 60 * 60 * 1000;
 
@@ -34,19 +35,15 @@ export function createAgentCatalog(input?: { fetchText?: () => Promise<string>; 
 
 /** The https icon each registry agent publishes, or undefined when the document cannot be read. */
 export function parseAgentIcons(text: string): ReadonlyMap<string, string> | undefined {
-  try {
-    const value = JSON.parse(text) as unknown;
-    if (!isRecord(value) || !Array.isArray(value.agents)) return undefined;
-    const icons = new Map<string, string>();
-    for (const item of value.agents) {
-      if (!isRecord(item) || typeof item.id !== "string" || item.id.length === 0) continue;
-      const icon = registryIconUrl(item.icon);
-      if (icon && !icons.has(item.id)) icons.set(item.id, icon);
-    }
-    return icons;
-  } catch {
-    return undefined;
+  const value = parseJson(text);
+  if (!isRecord(value) || !Array.isArray(value.agents)) return undefined;
+  const icons = new Map<string, string>();
+  for (const item of value.agents) {
+    if (!isRecord(item) || typeof item.id !== "string" || item.id.length === 0) continue;
+    const icon = registryIconUrl(item.icon);
+    if (icon && !icons.has(item.id)) icons.set(item.id, icon);
   }
+  return icons;
 }
 
 async function fetchRegistryText(): Promise<string> {
