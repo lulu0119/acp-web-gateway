@@ -48,6 +48,10 @@ _Avoid_: tray (for the whole app), GUI, client (a web app is the client)
 The directory on a device an agent session works in. A web app runs on another computer, so a session without a chosen directory uses the device's own, which the device reports when it connects. The device's own is a setting (`exterior config set`, or the desktop app's folder picker) and defaults to `~/.local/share/exterior/workspace`. A running daemon opens later sessions in a changed directory; open sessions keep the one they started in.
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
+**MCP endpoint**:
+An MCP server a web app serves from its page through the relay, for tools that run in the page. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
+_Avoid_: MCP gateway, bridge, tunnel, tool server
+
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.
 _Avoid_: token, code, reusable URL

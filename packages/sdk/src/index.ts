@@ -13,6 +13,9 @@ export function agentSocketPath(connectionId: string): string {
   return `${deviceSocketPath}/connections/${connectionId}`;
 }
 
+/** A client opens an MCP endpoint here, which it serves from its page while it holds the endpoint's socket. */
+export const mcpEndpointsPath = "/eap/v1/mcp-endpoints";
+
 /** The scope of a client's token: it lists devices and opens connections. */
 export const clientScope = "eap:client";
 /** The scope of a device's token: it opens the device socket. */
@@ -37,6 +40,27 @@ export type AttachCloseReason = keyof typeof attachCloseCodes;
  */
 export const deviceCloseCodes = { replaced: 4200, revoked: 4201 } as const;
 export type DeviceCloseReason = keyof typeof deviceCloseCodes;
+
+/**
+ * Why the relay closed an MCP socket. Every close ends the MCP endpoint.
+ * `ticket_rejected`: the ticket is used, expired or unknown; open a new endpoint.
+ * `revoked`: the client's authorization no longer permits the endpoint; sign in again before opening another.
+ * A frame that does not follow the protocol closes it with 1008.
+ */
+export const mcpSocketCloseCodes = { ticket_rejected: 4300, revoked: 4301 } as const;
+export type McpSocketCloseReason = keyof typeof mcpSocketCloseCodes;
+
+/** The largest frame on an MCP socket, in UTF-8 bytes. A tool result may carry an image. */
+export const mcpFrameBytes = 16_777_216;
+
+/**
+ * A frame on an MCP socket. `session` is the MCP session (`Mcp-Session-Id`) the message belongs to, and each MCP
+ * session is one MCP server on the page. The relay sends `closed` once a session ends; the page sends only messages.
+ * `relatedRequestId` names the request a notification belongs to, so the relay sends it on that request's response.
+ */
+export type McpFrame =
+  | { session: string; message: object; relatedRequestId?: string | number }
+  | { session: string; closed: true };
 
 /** An error response's `code`. A client decides by it; an unknown one counts as `server_error`. */
 export const errorCodes = [
@@ -147,4 +171,15 @@ function parseMessage<Schema extends v.GenericSchema>(schema: Schema, types: rea
   if (!types.includes(value.type)) return { ok: false, reason: "unknown" };
   const parsed = v.safeParse(schema, value);
   return parsed.success ? { ok: true, message: parsed.output } : { ok: false, reason: "invalid" };
+}
+
+const McpFrameSchema = v.union([
+  v.strictObject({ session: v.pipe(v.string(), v.minLength(1)), message: v.looseObject({}), relatedRequestId: v.optional(v.union([v.string(), v.number()])) }),
+  v.strictObject({ session: v.pipe(v.string(), v.minLength(1)), closed: v.literal(true) }),
+]);
+
+/** Reads an MCP socket frame, or undefined for one that does not follow the protocol. */
+export function parseMcpFrame(value: unknown): McpFrame | undefined {
+  const parsed = v.safeParse(McpFrameSchema, value);
+  return parsed.success ? parsed.output : undefined;
 }

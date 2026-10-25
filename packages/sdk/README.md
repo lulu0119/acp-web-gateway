@@ -73,6 +73,26 @@ A connection lasts as long as its socket. When the socket closes, `closeReason(a
 
 `listDevices` and `openConnection` accept an optional `AbortSignal` as their last argument. Use it to time out a request or cancel it when the person leaves the connection form.
 
+## Serving tools to an agent
+
+A page can give an agent MCP tools that run in the page. `serveMcp(relayUrl, accessToken, connect, signal?)` opens an MCP endpoint on the relay and returns `{ url, headers, closed, close }`. Pass `url` and `headers` to the agent as an HTTP MCP server:
+
+```ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+const tools = await serveMcp(relayUrl, await session.accessToken(), (transport) => {
+  const server = new McpServer({ name: "playground", version: "1.0.0" });
+  server.registerTool("codemode", { inputSchema: { code: z.string() } }, async ({ code }, { signal }) => run(code, signal));
+  void server.connect(transport);
+});
+// In ACP session/new, session/load and session/resume:
+mcpServers: [{ type: "http", name: "playground", url: tools.url, headers: tools.headers }]
+```
+
+Check that the agent's `initialize` response has `agentCapabilities.mcpCapabilities.http` first; an agent without it cannot reach the endpoint. `connect` runs once for each MCP session the agent starts, with that session's transport; connect a new server to each. An agent that cancels a call aborts the handler's `signal`.
+
+The endpoint lasts as long as its socket. Closing the page or calling `close()` ends it: calls still running fail, and the address answers 404. `closed` resolves with `revoked` when the person revokes the app, and otherwise with undefined. Open one endpoint per connection, and pass it again under the same `name` when that connection resumes a session. An agent may share the servers it is given between its sessions (OpenCode does, per working directory), so do not rely on an endpoint being one ACP session's alone.
+
 ## Tokens
 
 `refreshAccessToken` rotates a refresh token and throws `RefreshTokenRejectedError` when the sign-in is gone. `revokeRefreshToken` revokes one. Both are in `client` and `device`.
@@ -97,3 +117,5 @@ A connection lasts as long as its socket. When the socket closes, `closeReason(a
 - `listDevices` and `listConnections` per account, `removeDevice` when a device is removed, and `revokeClient` when an account revokes a client.
 
 `seen` is told when a device says hello and when its socket closes, so the relay can list it while offline. `heartbeat(socket, everyMs)` pings a `ws` socket and ends it when a ping goes unanswered. HTTP routing and authentication stay with the relay's own framework.
+
+The relay side of MCP endpoints is not in `relay`: it speaks MCP's Streamable HTTP, so Exterior's relay keeps it beside its routes. The root exports the wire: `mcpEndpointsPath`, `mcpSocketCloseCodes`, `mcpFrameBytes`, and `parseMcpFrame`.

@@ -10,7 +10,7 @@ import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
 import { attachPath } from "./connections.js";
 
-const defaultHeartbeatMs = 30_000;
+export const defaultHeartbeatMs = 30_000;
 
 /** Whether the account still has a sign-in for the device. */
 export type DeviceSignedIn = (input: { userId: string; deviceId: string }) => Promise<boolean>;

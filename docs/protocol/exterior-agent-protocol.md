@@ -69,6 +69,10 @@ EAP does not specify how an account is created, how a person logs in, what a con
 
 **Grant**: the set of devices an account lets a client reach.
 
+**MCP endpoint**: an MCP server a client serves from itself through the relay. Agents reach it over HTTP while the client holds its MCP socket.
+
+**MCP socket**: the WebSocket a client dials, with a ticket, to serve one MCP endpoint.
+
 ## 3. Addresses
 
 A relay is identified by an origin, the relay address. Every endpoint is at a fixed path under it:
@@ -80,8 +84,9 @@ A relay is identified by an origin, the relay address. Every endpoint is at a fi
 | Connections | `POST /eap/v1/connections` |
 | Device socket | `wss:` `/eap/v1/device` |
 | Agent socket | `wss:` `/eap/v1/device/connections/{connectionId}` |
+| MCP endpoints | `POST /eap/v1/mcp-endpoints` |
 
-The attach address is not fixed: the relay returns it when a connection opens.
+The attach address is not fixed: the relay returns it when a connection opens. Neither are an MCP endpoint's addresses, which the relay returns when the endpoint opens.
 
 The protected resource metadata names the relay address as `resource`, which every token request passes as the resource indicator (RFC 8707). It lists at least one `authorization_servers` entry, `scopes_supported` including `eap:client` and `eap:device`, and `dpop_signing_alg_values_supported`. A client or device reads the authorization server's own metadata from there, as RFC 8414 or, failing that, OpenID Connect Discovery.
 
@@ -97,7 +102,7 @@ A request without a valid token is answered 401 with `WWW-Authenticate: Bearer r
 
 ### 4.1 Scopes
 
-- `eap:client`: the holder is a client. It may list devices and open connections within its grant.
+- `eap:client`: the holder is a client. It may list devices and open connections within its grant, and open MCP endpoints.
 - `eap:device`: the holder is a device. It may open the device socket.
 
 The relay MUST NOT accept a token on an endpoint its scope does not name, and answers it 403 with `insufficient_scope`. It MUST NOT let one OAuth client hold both scopes. `offline_access` MAY be requested to receive a refresh token.
@@ -171,7 +176,7 @@ The relay MUST check the grant on every request, not only when it issues a token
 A socket MUST NOT outlive the authorization that opened it.
 
 - When a device is removed from the account, the relay ends its sign-in, so neither its refresh token nor the access token it still holds opens a device socket again. It closes the device socket with `revoked`, and ends the device's connections: their agent sockets close, and their attach sockets close with `device_gone`.
-- When a client's grant is revoked, or narrowed so it no longer covers a device, the relay closes each attach socket it no longer permits with `revoked`.
+- When a client's grant is revoked, or narrowed so it no longer covers a device, the relay closes each attach socket it no longer permits with `revoked`. When the grant is revoked, it also closes the client's MCP sockets with `revoked`.
 
 An access token that expires while a socket is open does not close the socket.
 
@@ -220,7 +225,7 @@ All bodies are JSON. Names are camelCase.
 - `id` is the device id.
 - `hostname` is 1 to 256 characters.
 - `platform` is `macos`, `windows` or `linux`. A client MUST tolerate other values.
-- `workingDirectory` is a directory on the device, in the device's own path syntax, that its agents start in. It is a hint, not a boundary (section 12).
+- `workingDirectory` is a directory on the device, in the device's own path syntax, that its agents start in. It is a hint, not a boundary (section 15).
 - `agents[].name` is unique on the device, 1 to 128 characters, with no CR, LF or tab. `agentType` matches `^[a-z][a-z0-9-]{0,63}$` and is the agent's ACP Registry id when it has one. The relay does not interpret it.
 
 The list is a snapshot. A client that wants fresh state asks again.
@@ -359,7 +364,41 @@ The device runs the agent as an ACP stdio agent, in the directory it reported as
 
 Which directory an ACP session works in is the client's request inside ACP, not an EAP field.
 
-## 12. Heartbeat and close codes
+## 12. MCP endpoints
+
+A client MAY give agents tools it runs itself, such as a web page's own, as an MCP server. The agent reaches it at the relay with MCP's Streamable HTTP transport, as an HTTP MCP server, such as an ACP `mcpServers` entry of type `http`. The relay ends the HTTP side and carries each MCP session's JSON-RPC messages to the client over the MCP socket, without reading what a tool is asked or answers.
+
+`POST /eap/v1/mcp-endpoints`, with no body, opens one. The client needs a grant; without one the relay answers `target_not_found`. It answers 201:
+
+```json
+{
+  "url": "wss://relay.example.com/eap/v1/mcp-endpoints/socket?ticket=...",
+  "mcpUrl": "https://relay.example.com/eap/v1/mcp",
+  "token": "..."
+}
+```
+
+- `url` is the MCP socket address, carrying a ticket under the rules of section 9. A rejected ticket closes the socket with `ticket_rejected`.
+- `mcpUrl` and `token` are what the client gives the agent: the server's address, and the header `Authorization: Bearer <token>`. The token has at least 128 bits of randomness and is the endpoint's own secret, not an access token.
+
+### 12.1 Agent side
+
+The relay serves MCP's Streamable HTTP at `mcpUrl`. It answers a request whose token names no endpoint with an open MCP socket 404, never 401, so an MCP client does not look for an authorization server. Each `initialize` starts an MCP session with its own `Mcp-Session-Id`. An agent cancels a request with MCP `notifications/cancelled`, which reaches the client like any other message.
+
+### 12.2 MCP socket
+
+Every message is a JSON text message.
+
+- `{ "session": "<Mcp-Session-Id>", "message": { ... } }` carries one JSON-RPC message of that session, either way. The relay sends the client every message the agent sent in the session, in order; the client sends responses and notifications. A notification MAY carry `"relatedRequestId"`, the agent request it belongs to, so the relay sends it on that request's response.
+- `{ "session": "<Mcp-Session-Id>", "closed": true }`: the relay tells the client the agent ended the session.
+
+The client treats each session as one MCP server connection, whose first message is `initialize`. A frame is at most 16 MiB (16,777,216 bytes), because a tool result may carry an image. A frame from the client that does not follow this section closes the socket with 1008 and the reason `invalid_message`.
+
+### 12.3 Lifetime
+
+An MCP endpoint lasts as long as its MCP socket, and is never resumed. When the socket closes, the relay answers every request the client has not answered with the JSON-RPC error -32000 and ends every session, and its token is answered 404 from then on. A client that reloads opens a new endpoint and gives it to the agent again, such as in ACP `session/resume`.
+
+## 13. Heartbeat and close codes
 
 The relay MUST ping every socket, and a device MUST ping every socket it opens, every 30 seconds with a protocol-level ping. A side whose previous ping is unanswered when the next is due MUST terminate the socket. A browser cannot send a ping; it answers the relay's.
 
@@ -381,19 +420,26 @@ Device socket, 4200 to 4299:
 | 4200 | `replaced` | A newer device socket for this device took over. |
 | 4201 | `revoked` | The device was removed or signed out. It must sign in again. |
 
-A device socket also closes with 1008 `invalid_message` when the device sends a message that does not follow section 10.
+MCP socket, 4300 to 4399. Every close ends the MCP endpoint.
+
+| Code | Name | Meaning |
+| --- | --- | --- |
+| 4300 | `ticket_rejected` | The ticket is used, expired or unknown. Open a new endpoint. |
+| 4301 | `revoked` | The client's grant was revoked. Do not open another before signing in again. |
+
+A device socket also closes with 1008 `invalid_message` when the device sends a message that does not follow section 10, and an MCP socket when the client sends a frame that does not follow section 12.2.
 
 Agent socket: 1000 when the connection ends normally, 1001 when the device shuts down, and 1008 for a dial the relay is not waiting for or that comes from another device.
 
-Every socket: 1003 for a binary message and 1009 for a frame larger than 1 MiB.
+Every socket: 1003 for a binary message and 1009 for a frame larger than its limit, 1 MiB or, on an MCP socket, 16 MiB.
 
 An upgrade refused before the socket opens is answered 401 or 403 as in section 4. A device told `revoked` MUST NOT reconnect until it signs in again. A device told `replaced` SHOULD wait the longest of its retry delays before connecting again.
 
-## 13. Deployment
+## 14. Deployment
 
-A relay keeps devices and connections in memory. One relay address is served by one process, or by several that route every request for a device or a connection to the process that holds its sockets and share the store of DPoP proofs already seen, so a proof cannot be replayed against another process. A relay that restarts ends every connection: devices connect again, and clients open new connections as in section 7.
+A relay keeps devices, connections and MCP endpoints in memory. One relay address is served by one process, or by several that route every request for a device or a connection to the process that holds its sockets and share the store of DPoP proofs already seen, so a proof cannot be replayed against another process. A relay that restarts ends every connection and MCP endpoint: devices connect again, and clients open new connections as in section 7 and new endpoints as in section 12.3.
 
-## 14. Security considerations
+## 15. Security considerations
 
 **The grant is the trust boundary.** A client within its grant can run the granted devices' agents with the device owner's permissions. The relay MUST present this to the person when they approve a client: which client, that it can act with their permissions, and that it reaches agents added to a device later.
 
@@ -403,6 +449,8 @@ A relay keeps devices and connections in memory. One relay address is served by 
 
 **The relay sees every frame in plaintext.** EAP has no end-to-end encryption. A person who does not trust a relay does not point their devices at it.
 
+**An MCP endpoint's token is the endpoint.** Whoever holds it can call the client's tools until the MCP socket closes. It reaches the agent inside ACP frames, which the relay sees anyway. A client serves only tools it would let the agent run.
+
 **Tickets and connection ids** appear in a URL, which may be logged. Both are single-use, short-lived and unguessable, and a connection id is useless without the device's key. A relay SHOULD NOT log the query string of an attach address.
 
 **Roles are separate, and a device is its key.** The scope check in section 4.1 stops a client from posing as a device and receiving the frames of connections opened on it. A device's id is the key its tokens are bound to, so no client, and no other device of the account, can take its place, even one that learned its id from the device list.
@@ -411,10 +459,10 @@ A relay keeps devices and connections in memory. One relay address is served by 
 
 **Device authorization can be phished.** A person tricked into approving someone else's code signs in that person's device, with its own key: it appears as a new device of the account, and cannot take the place of one already there. The approval page MUST show the user code to compare with the device's and the account that will hold the device, and tell the person to deny a code they did not start.
 
-## 15. Versioning
+## 16. Versioning
 
 The version is in every endpoint path: this document is `/eap/v1/`. Within a version, changes are additive: new optional fields, new message types, new error codes. A receiver ignores what it does not know, except an unknown error `code`, which it treats like `server_error`. A later version that changes an endpoint serves it under a new path, and a relay that does not speak a version answers its paths 404.
 
-## 16. Conformance
+## 17. Conformance
 
 A relay, a client or a device conforms when it meets every MUST and MUST NOT in this document addressed to it. SHOULD statements are recommendations and do not affect conformance.
