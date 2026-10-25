@@ -100,7 +100,7 @@ export async function openConnection(
   return { url: body.url };
 }
 
-function relayError(status: number, body: unknown, fallback: string): RelayError {
+export function relayError(status: number, body: unknown, fallback: string): RelayError {
   const named = isRecord(body) && typeof body.code === "string" ? errorCodes.find((code) => code === body.code) : undefined;
   const message = isRecord(body) && typeof body.message === "string" ? body.message : fallback;
   return new RelayError(named ?? (status === 401 ? "unauthorized" : "server_error"), status, message);

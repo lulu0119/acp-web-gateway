@@ -22,7 +22,9 @@ import { mountAccountPages } from "./routes/account.js";
 import { mountClients } from "./routes/clients.js";
 import { mountConnections, type IsGranted } from "./routes/connections.js";
 import { mountDashboard } from "./routes/dashboard.js";
+import { mountMcp } from "./routes/mcp.js";
 import { mountSockets, type DeviceSignedIn } from "./routes/sockets.js";
+import { createMcpEndpoints } from "./mcp/endpoints.js";
 
 const log = useLogg("relay").useGlobalConfig();
 
@@ -110,7 +112,11 @@ export function createRelayApp(input: {
   mountAccountPages(app, input.exterior, input.githubConfigured, render);
   const catalog = input.catalog ?? createAgentCatalog();
   mountDashboard(app, { exterior: input.exterior, registry: input.registry, devices: input.devices, render, catalog });
-  mountClients(app, input.exterior, input.registry, render);
+  const endpoints = createMcpEndpoints();
+  mountClients(app, input.exterior, (client) => {
+    input.registry.revokeClient(client);
+    endpoints.revokeClient(client);
+  }, render);
   mountConnections(app, {
     registry: input.registry,
     readAccess: readAccessAccount,
@@ -124,6 +130,15 @@ export function createRelayApp(input: {
     registry: input.registry,
     readAccess: readAccessAccount,
     resourceMetadataUrl,
+    upgradeWebSocket: sockets.upgradeWebSocket,
+    heartbeatMs: input.heartbeatMs,
+  });
+  mountMcp(app, {
+    endpoints,
+    readAccess: readAccessAccount,
+    resourceMetadataUrl,
+    isGranted,
+    publicUrl: input.exterior.publicUrl,
     upgradeWebSocket: sockets.upgradeWebSocket,
     heartbeatMs: input.heartbeatMs,
   });

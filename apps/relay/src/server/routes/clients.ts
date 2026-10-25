@@ -1,5 +1,4 @@
 import { appSetupPath, appSetupResultPath, clientRegistryPath, grantsPath } from "@exterior/contract";
-import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { Hono } from "hono";
 import { readAccount } from "../identity/session.js";
 import type { RelayEnv } from "../http.js";
@@ -9,7 +8,8 @@ import { listGrantedApps, revokeGrant } from "../identity/grants.js";
 import { appSetupPage, createAppSetupResults, isSetupId, parseAppSetup, readAppSetupApproval } from "../identity/app-setup.js";
 import type { PageRenderer } from "../rendering/render-page.js";
 
-export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, registry: Registry, render: PageRenderer): void {
+/** `revokeClient` ends what the client holds open once the account revokes it. */
+export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revokeClient: (input: { userId: string; clientId: string }) => void, render: PageRenderer): void {
   const results = createAppSetupResults();
   app.get(appSetupPath, async (c) => {
     c.header("Cache-Control", "no-store");
@@ -88,7 +88,7 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, regist
     const clientId = typeof body === "object" && body !== null && "clientId" in body && typeof body.clientId === "string" ? body.clientId : "";
     if (!clientId) return c.json({ message: "Choose an app to revoke." }, 400);
     await revokeGrant(exterior, account, clientId);
-    registry.revokeClient({ userId: account.userId, clientId });
+    revokeClient({ userId: account.userId, clientId });
     return c.json({ revoked: true });
   });
 }

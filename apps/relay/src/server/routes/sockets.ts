@@ -1,4 +1,4 @@
-import { attachCloseCodes, deviceCloseCodes, deviceScope, deviceSocketPath, frameBytes, parseDeviceMessage } from "@exterioragentprotocol/sdk";
+import { attachCloseCodes, deviceCloseCodes, deviceScope, deviceSocketPath, frameBytes, parseDeviceMessage, parseJson } from "@exterioragentprotocol/sdk";
 import { heartbeat, type AgentLink, type AttachLink, type FrameSocket, type Registry } from "@exterioragentprotocol/sdk/relay";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import { createInMemoryDpopReplayStore, verifyDpopProof } from "better-auth/oauth2";
@@ -10,7 +10,7 @@ import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
 import { attachPath } from "./connections.js";
 
-const defaultHeartbeatMs = 30_000;
+export const defaultHeartbeatMs = 30_000;
 
 /** Whether the account still has a sign-in for the device. */
 export type DeviceSignedIn = (input: { userId: string; deviceId: string }) => Promise<boolean>;
@@ -156,12 +156,4 @@ function readFrame(data: unknown, ws: WSContext<WebSocket>): string | undefined 
     return undefined;
   }
   return data;
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }
