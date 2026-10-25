@@ -5,6 +5,7 @@ import type { Hono } from "hono";
 import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
 import type { McpEndpoints, McpSocketLink } from "../mcp/endpoints.js";
 import type { IsGranted } from "./connections.js";
+import { defaultHeartbeatMs } from "./sockets.js";
 
 /** Where a page dials the ticket of the endpoint it serves. */
 const mcpSocketPath = `${mcpEndpointsPath}/socket`;
@@ -18,8 +19,9 @@ export function mountMcp(app: Hono<RelayEnv>, input: {
   isGranted: IsGranted;
   publicUrl: string;
   upgradeWebSocket: ReturnType<typeof createNodeWebSocket>["upgradeWebSocket"];
-  heartbeatMs: number;
+  heartbeatMs?: number;
 }): void {
+  const heartbeatMs = input.heartbeatMs ?? defaultHeartbeatMs;
   app.post(mcpEndpointsPath, accessAccount(input, clientScope), async (c) => {
     if (!(await input.isGranted(c.get("userId"), c.get("clientId")))) return c.json({ code: "target_not_found", message: "This app is no longer allowed to serve tools." }, 404);
     const { ticket, token } = input.endpoints.open({ userId: c.get("userId"), clientId: c.get("clientId") });
@@ -36,7 +38,7 @@ export function mountMcp(app: Hono<RelayEnv>, input: {
       let link: McpSocketLink | undefined;
       return {
         onOpen(_event, ws) {
-          if (ws.raw) heartbeat(ws.raw, input.heartbeatMs);
+          if (ws.raw) heartbeat(ws.raw, heartbeatMs);
           link = input.endpoints.acceptSocket(ticket, {
             send: (frame) => ws.send(frame),
             close: (reason) => ws.close(reason === "invalid_message" ? 1008 : mcpSocketCloseCodes[reason], reason),

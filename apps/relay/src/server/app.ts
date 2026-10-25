@@ -23,7 +23,7 @@ import { mountClients } from "./routes/clients.js";
 import { mountConnections, type IsGranted } from "./routes/connections.js";
 import { mountDashboard } from "./routes/dashboard.js";
 import { mountMcp } from "./routes/mcp.js";
-import { defaultHeartbeatMs, mountSockets, type DeviceSignedIn } from "./routes/sockets.js";
+import { mountSockets, type DeviceSignedIn } from "./routes/sockets.js";
 import { createMcpEndpoints } from "./mcp/endpoints.js";
 
 const log = useLogg("relay").useGlobalConfig();
@@ -140,7 +140,7 @@ export function createRelayApp(input: {
     isGranted,
     publicUrl: input.exterior.publicUrl,
     upgradeWebSocket: sockets.upgradeWebSocket,
-    heartbeatMs: input.heartbeatMs ?? defaultHeartbeatMs,
+    heartbeatMs: input.heartbeatMs,
   });
   app.use("/assets/*", serveStatic({ root: publicDir }));
   app.all("/api/auth/*", async (c) => {

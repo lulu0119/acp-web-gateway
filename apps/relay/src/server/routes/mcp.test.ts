@@ -142,8 +142,8 @@ async function agent(served: ServedMcp): Promise<Client> {
 }
 
 /**
- * A relay listening on a real port, its public address that port, so the page dials and the agent calls the
- * addresses the relay hands out. A page's bearer token is the account's user id.
+ * A relay listening on a real port, with that port as its public address, so the page dials and the agent calls
+ * the addresses the relay hands out. A page's bearer token is the account's user id.
  */
 async function listen() {
   let fetchRelay: (request: Request) => Response | Promise<Response> = () => new Response(null, { status: 503 });
