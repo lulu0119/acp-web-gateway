@@ -1,3 +1,4 @@
+import { parseJson } from "@exterioragentprotocol/sdk";
 import type { ExteriorAuth } from "./auth.js";
 import type { Account } from "./session.js";
 import type { GrantedApp } from "../../shared/account-web.js";
@@ -87,7 +88,7 @@ function displayableLogo(uri: string | null | undefined): string | undefined {
 /** Where the app's approvals return, which is the part of an app the relay can vouch for. */
 function firstRedirectOrigin(redirectUris: string[] | string | null | undefined): string | undefined {
   try {
-    const list: unknown = typeof redirectUris === "string" ? JSON.parse(redirectUris) : redirectUris;
+    const list: unknown = typeof redirectUris === "string" ? parseJson(redirectUris) : redirectUris;
     return Array.isArray(list) && typeof list[0] === "string" ? new URL(list[0]).origin : undefined;
   } catch {
     return undefined;
