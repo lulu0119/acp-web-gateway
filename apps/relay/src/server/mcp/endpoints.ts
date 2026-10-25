@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { parseMcpFrame, type McpFrame, type McpSocketCloseReason } from "@exterioragentprotocol/sdk";
+import { parseJson, parseMcpFrame, type McpFrame, type McpSocketCloseReason } from "@exterioragentprotocol/sdk";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { ErrorCode, isJSONRPCErrorResponse, isJSONRPCRequest, isJSONRPCResultResponse, type JSONRPCMessage, type RequestId } from "@modelcontextprotocol/sdk/types.js";
 
@@ -144,12 +144,4 @@ export function createMcpEndpoints(): McpEndpoints {
 
 function notFound(): Response {
   return Response.json({ code: "target_not_found", message: "No MCP endpoint is served here. The page that served it may have closed." }, { status: 404 });
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }

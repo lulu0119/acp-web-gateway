@@ -183,3 +183,9 @@ export function parseMcpFrame(value: unknown): McpFrame | undefined {
   const parsed = v.safeParse(McpFrameSchema, value);
   return parsed.success ? parsed.output : undefined;
 }
+
+/** Reads a socket's JSON text, or undefined when it is not JSON. */
+export function parseJson(text: string): unknown {
+  const parsed = v.safeParse(v.pipe(v.string(), v.parseJson()), text);
+  return parsed.success ? parsed.output : undefined;
+}

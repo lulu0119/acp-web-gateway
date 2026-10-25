@@ -1,4 +1,4 @@
-import { closeReason, mcpEndpointsPath, mcpSocketCloseCodes, parseMcpFrame, type McpFrame, type McpSocketCloseReason } from "../index.js";
+import { closeReason, mcpEndpointsPath, mcpSocketCloseCodes, parseJson, parseMcpFrame, type McpFrame, type McpSocketCloseReason } from "../index.js";
 import { isRecord, originOf } from "../oauth.js";
 import { relayError, RelayError } from "./oauth.js";
 
@@ -44,7 +44,7 @@ export async function serveMcp(
     headers: { authorization: `Bearer ${accessToken}` },
     signal,
   });
-  const body: unknown = await response.json().catch(() => undefined);
+  const body = parseJson(await response.text());
   if (!response.ok) throw relayError(response.status, body, "The relay did not open the MCP endpoint.");
   if (!isRecord(body) || typeof body.url !== "string" || typeof body.mcpUrl !== "string" || typeof body.token !== "string") {
     throw new RelayError("server_error", response.status, "The relay did not open the MCP endpoint.");
@@ -120,12 +120,4 @@ function createTransport(sessionId: string, send: (frame: McpFrame) => void) {
     },
     end,
   };
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }
