@@ -89,8 +89,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
               <label htmlFor="agent-command" className="text-sm font-medium">Command</label>
               <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="pnpm dlx @agentclientprotocol/claude-agent-acp" value={line} onChange={(event) => setLine(event.target.value)} aria-invalid={command === undefined || undefined} />
               {command === undefined ? <p className="text-xs text-danger-600 dark:text-danger-400">A quote is not closed.</p> : null}
-              {command?.length ? <CommandParts command={command} /> : null}
-              <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path. Quotes keep an argument with spaces together.</p>
+              <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path.</p>
             </TabsPanel>
           </Tabs>
 
@@ -158,17 +157,6 @@ function TypeList({ types, search, chosen, onChoose }: {
         </button>
       ))}
     </div>
-  );
-}
-
-/** A command one argument per chip, so an argument with a space in it reads as one. */
-export function CommandParts({ command }: { command: readonly string[] }) {
-  return (
-    <ul aria-label="Command parts" className="flex flex-wrap gap-1">
-      {command.map((part, index) => (
-        <li key={index} className="selectable rounded border border-border px-1 font-mono text-xs leading-5 whitespace-pre text-muted-foreground">{part === "" ? " " : part}</li>
-      ))}
-    </ul>
   );
 }
 
