@@ -3,7 +3,7 @@ import { Badge } from "@exterior/ui/badge";
 import { Button } from "@exterior/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@exterior/ui/dialog";
 import { useCallback, useEffect, useState } from "react";
-import { AddAgentDialog } from "./add-agent-dialog";
+import { AddAgentDialog, CommandParts } from "./add-agent-dialog";
 import { api, errorText, type AgentConfig, type AgentType } from "./api";
 import { InsetGroup, InsetRow, SectionIntro } from "./inset-group";
 
@@ -80,13 +80,7 @@ function AgentRow({ agent, type, onRemoved }: { agent: AgentConfig; type?: Agent
           <span className="selectable truncate text-sm leading-6 font-medium">{agent.name}</span>
           {!custom ? <span className="truncate text-xs text-muted-foreground">{type?.name ?? agent.agentType}</span> : null}
         </div>
-        {agent.command ? (
-          <ul aria-label="Command" className="flex flex-wrap gap-1">
-            {agent.command.map((part, index) => (
-              <li key={index} className="selectable rounded border border-border px-1 font-mono text-xs leading-5 whitespace-pre text-muted-foreground">{part === "" ? " " : part}</li>
-            ))}
-          </ul>
-        ) : null}
+        {agent.command ? <CommandParts command={agent.command} /> : null}
         {type && !type.ready ? <p className="text-xs leading-5 text-amber-700 dark:text-amber-400">Cannot start here: {type.reason}</p> : null}
         {agent.envNames.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">

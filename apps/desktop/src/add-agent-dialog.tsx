@@ -8,6 +8,7 @@ import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, errorText, type AgentType } from "./api";
+import { splitCommandLine } from "./command-line";
 
 type Load<T> = { kind: "loading" } | { kind: "ready"; value: T } | { kind: "error"; message: string };
 type Source = "registry" | "command";
@@ -22,8 +23,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   const [source, setSource] = useState<Source>("registry");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState<string>();
-  const [program, setProgram] = useState("");
-  const [args, setArgs] = useState<string[]>([]);
+  const [line, setLine] = useState("");
   const [name, setName] = useState("");
   const [env, setEnv] = useState<[string, string][]>([]);
   const [pending, setPending] = useState(false);
@@ -34,8 +34,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     setSource("registry");
     setSearch("");
     setChosen(undefined);
-    setProgram("");
-    setArgs([]);
+    setLine("");
     setName("");
     setEnv([]);
     setError(undefined);
@@ -44,14 +43,15 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   const defaultName = source === "registry" ? (chosen ?? "") : "";
   const finalName = name.trim() || defaultName;
   const nameTaken = finalName !== "" && takenNames.includes(finalName);
-  const ready = (source === "registry" ? Boolean(chosen) : program.trim() !== "" && finalName !== "") && !nameTaken;
+  const command = splitCommandLine(line);
+  const ready = (source === "registry" ? Boolean(chosen) : Boolean(command?.length) && finalName !== "") && !nameTaken;
 
   const submit = async () => {
     setPending(true);
     setError(undefined);
     try {
       await api.createAgent({
-        ...(source === "registry" ? { agentType: chosen } : { command: [program.trim(), ...args] }),
+        ...(source === "registry" ? { agentType: chosen } : { command }),
         name: name.trim() || undefined,
         env: env.filter(([key]) => key.trim() !== "").map(([key, value]) => [key.trim(), value]),
       });
@@ -86,10 +86,11 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
               <TypeList types={types} search={search} chosen={chosen} onChoose={setChosen} />
             </TabsPanel>
             <TabsPanel value="command" className="flex flex-col gap-2">
-              <label htmlFor="agent-program" className="text-sm font-medium">Program</label>
-              <Input id="agent-program" className="font-mono" spellCheck={false} placeholder="my-agent" value={program} onChange={(event) => setProgram(event.target.value)} />
-              <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path.</p>
-              <ArgumentFields args={args} onChange={setArgs} />
+              <label htmlFor="agent-command" className="text-sm font-medium">Command</label>
+              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="my-agent --stdio" value={line} onChange={(event) => setLine(event.target.value)} aria-invalid={command === undefined || undefined} />
+              {command === undefined ? <p className="text-xs text-danger-600 dark:text-danger-400">A quote is not closed.</p> : null}
+              {command?.length ? <CommandParts command={command} /> : null}
+              <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path. Quotes keep an argument with spaces together.</p>
             </TabsPanel>
           </Tabs>
 
@@ -160,29 +161,14 @@ function TypeList({ types, search, chosen, onChoose }: {
   );
 }
 
-function ArgumentFields({ args, onChange }: { args: string[]; onChange: (args: string[]) => void }) {
+/** A command one argument per chip, so an argument with a space in it reads as one. */
+export function CommandParts({ command }: { command: readonly string[] }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium">Arguments</span>
-        <Button type="button" size="xs" variant="outline" onClick={() => onChange([...args, ""])}>Add argument</Button>
-      </div>
-      {args.length === 0 ? <p className="text-xs text-muted-foreground">One argument per row, such as --stdio. Spaces and quotes in a row are passed as typed.</p> : null}
-      {args.map((value, index) => (
-        <div key={index} className="flex gap-2">
-          <Input
-            aria-label={`Argument ${index + 1}`}
-            className="flex-1 font-mono"
-            spellCheck={false}
-            value={value}
-            onChange={(event) => onChange(args.map((current, at) => (at === index ? event.target.value : current)))}
-          />
-          <Button type="button" size="icon" variant="outline" aria-label={`Remove argument ${index + 1}`} onClick={() => onChange(args.filter((_, at) => at !== index))}>
-            <XIcon />
-          </Button>
-        </div>
+    <ul aria-label="Command parts" className="flex flex-wrap gap-1">
+      {command.map((part, index) => (
+        <li key={index} className="selectable rounded border border-border px-1 font-mono text-xs leading-5 whitespace-pre text-muted-foreground">{part === "" ? " " : part}</li>
       ))}
-    </div>
+    </ul>
   );
 }
 
