@@ -87,7 +87,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
             </TabsPanel>
             <TabsPanel value="command" className="flex flex-col gap-2">
               <label htmlFor="agent-command" className="text-sm font-medium">Command</label>
-              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="my-agent --stdio" value={line} onChange={(event) => setLine(event.target.value)} aria-invalid={command === undefined || undefined} />
+              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="pnpm dlx @agentclientprotocol/claude-agent-acp" value={line} onChange={(event) => setLine(event.target.value)} aria-invalid={command === undefined || undefined} />
               {command === undefined ? <p className="text-xs text-danger-600 dark:text-danger-400">A quote is not closed.</p> : null}
               {command?.length ? <CommandParts command={command} /> : null}
               <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path. Quotes keep an argument with spaces together.</p>

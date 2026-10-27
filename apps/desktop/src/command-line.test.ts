@@ -3,8 +3,8 @@ import { splitCommandLine } from "./command-line";
 
 describe("splitCommandLine", () => {
   it("splits on spaces and keeps quoted text together", () => {
-    expect(splitCommandLine(`npx -y @foo/agent  --acp`)).toEqual(["npx", "-y", "@foo/agent", "--acp"]);
-    expect(splitCommandLine(`sh -c "my-agent --name 'work box'"`)).toEqual(["sh", "-c", "my-agent --name 'work box'"]);
+    expect(splitCommandLine(`pnpm  dlx @agentclientprotocol/claude-agent-acp`)).toEqual(["pnpm", "dlx", "@agentclientprotocol/claude-agent-acp"]);
+    expect(splitCommandLine(`sh -c "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"`)).toEqual(["sh", "-c", "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"]);
     expect(splitCommandLine(`run "" a"b c"d`)).toEqual(["run", "", "ab cd"]);
   });
 
@@ -13,6 +13,6 @@ describe("splitCommandLine", () => {
   });
 
   it("has no result while a quote is open", () => {
-    expect(splitCommandLine(`sh -c "my-agent`)).toBeUndefined();
+    expect(splitCommandLine(`sh -c "pnpm dlx @agentclientprotocol/claude-agent-acp`)).toBeUndefined();
   });
 });

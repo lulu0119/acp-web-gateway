@@ -22,8 +22,8 @@ export const create = defineCommand({
   examples: [
     "exterior agent create opencode",
     "exterior agent create --name work --env ANTHROPIC_API_KEY=... claude-acp",
-    "exterior agent create --name mine -- my-agent --stdio",
-    "exterior agent create --name box -- sh -c 'my-agent --name \"work box\"'",
+    "exterior agent create --name claude -- pnpm dlx @agentclientprotocol/claude-agent-acp",
+    "exterior agent create --name claude-logged -- sh -c \"pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'\"",
   ],
   async action({ io }, options, operands, command) {
     const name = stringOption(options, "name");

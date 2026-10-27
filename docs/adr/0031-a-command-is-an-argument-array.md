@@ -7,11 +7,11 @@ An agent outside the ACP Registry used to be added as one string, `exterior agen
 Now the program and its arguments follow `--`, and each one is stored exactly as the shell delivered it:
 
 ```sh
-exterior agent create --name mine --env KEY=1 -- my-agent --stdio
-exterior agent create --name box -- sh -c "my-agent --name 'work box'"
+exterior agent create --name claude --env ANTHROPIC_API_KEY=… -- pnpm dlx @agentclientprotocol/claude-agent-acp
+exterior agent create --name claude-logged -- sh -c "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"
 ```
 
-The second stores `["sh", "-c", "my-agent --name 'work box'"]`. Exterior's own options go before `--`; after it, `--help` and `-v` belong to the agent. The CLI never splits a command line.
+The second keeps the agent's stderr in a file and stores `["sh", "-c", "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"]`. Exterior's own options go before `--`; after it, `--help` and `-v` belong to the agent. The CLI never splits a command line.
 
 The desktop window has no shell in front of it, and a person pastes a line written for one, so the window splits it: spaces separate arguments, quotes keep spaces together, and a backslash is an ordinary character so a Windows path survives. The parts show as chips under the box before the agent is added, and the window sends the array. The list shows an agent's command the same way, one argument per chip.
 
