@@ -25,8 +25,12 @@ export type CommandNode = {
   help?: string;
   examples?: readonly string[];
   options?: readonly CommandOption[];
+  /** The words after the options, one usage line per form, such as `<name...>`. A command without it takes none. */
+  operands?: readonly string[];
+  /** The command takes a program and its arguments after `--`, and passes them to the action untouched. */
+  passthrough?: boolean;
   children?: readonly CommandNode[];
-  action?: (context: CommandContext, options: CommandOptions) => number | Promise<number>;
+  action?: (context: CommandContext, options: CommandOptions, operands: readonly string[], passthrough: readonly string[]) => number | Promise<number>;
 };
 
 /** A mistake in how the command was typed. The CLI prints it with a pointer to `--help` and exits with 2. */
@@ -65,14 +69,14 @@ export function registerCommandTree(
   setPendingResult: (result: Promise<number>) => void,
 ): void {
   for (const node of nodes) {
-    const command = cli.command(node.children ? `${node.name} [...args]` : node.name, node.description);
+    const command = cli.command(node.children || node.operands ? `${node.name} [...args]` : node.name, node.description);
     if (node.children) command.allowUnknownOptions();
     for (const option of collectOptions(node)) {
       command.option(option.flags, option.description, option.repeatable ? { type: [String] } : undefined);
     }
     command.action((...args: unknown[]) => {
       const options = args.at(-1) as CommandOptions;
-      const words = node.children ? ((args[0] as string[] | undefined) ?? []) : [];
+      const words = node.children || node.operands ? ((args[0] as string[] | undefined) ?? []) : [];
       setPendingResult(Promise.resolve().then(() => dispatch(context, node, words, options, [node.name])));
     });
   }
@@ -96,7 +100,8 @@ export function formatHelp(input: { bin: string; root: CommandNode; path: readon
   const node = input.path.at(-1) ?? input.root;
   const words = [input.bin, ...input.path.map((item) => item.name)].join(" ");
   const sections = [node.help ?? node.description];
-  sections.push(`Usage:\n  $ ${words}${node.children ? " <command>" : ""}${node.options?.length ? " [options]" : ""}`);
+  const usage = `$ ${words}${node.children ? " <command>" : ""}${node.options?.length ? " [options]" : ""}`;
+  sections.push(`Usage:\n${(node.operands ?? [""]).map((form) => `  ${usage}${form ? ` ${form}` : ""}`).join("\n")}`);
   if (node.children) {
     sections.push(`Commands:\n${table(node.children.map((child) => [child.name, child.description]))}`);
   }
@@ -120,13 +125,15 @@ function dispatch(context: CommandContext, node: CommandNode, args: readonly str
     if (word === undefined) throw new UsageError(`exterior ${path.join(" ")} needs a command:\n${choices}`);
     throw new UsageError(`Unknown command "exterior ${[...path, word].join(" ")}". Pick one:\n${choices}`);
   }
-  if (args[0] !== undefined) throw new UsageError(`Unexpected argument "${args[0]}".`);
+  if (!node.operands && args[0] !== undefined) throw new UsageError(`Unexpected argument "${args[0]}".`);
+  const passthrough = (options["--"] as string[] | undefined) ?? [];
+  if (!node.passthrough && passthrough[0] !== undefined) throw new UsageError(`Unexpected argument "${passthrough[0]}".`);
   const known = new Set((node.options ?? []).map((option) => camelCase(optionName(option.flags))));
   for (const key of Object.keys(options)) {
     if (key !== "--" && !key.includes("-") && !known.has(key)) throw new UsageError(`Unknown option --${kebabCase(key)} for exterior ${path.join(" ")}.`);
   }
   if (!node.action) throw new UsageError(`exterior ${path.join(" ")} does nothing on its own.`);
-  return node.action(context, options);
+  return node.action(context, options, args, passthrough);
 }
 
 function collectOptions(node: CommandNode): CommandOption[] {

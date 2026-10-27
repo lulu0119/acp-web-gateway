@@ -22,7 +22,8 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   const [source, setSource] = useState<Source>("registry");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState<string>();
-  const [command, setCommand] = useState("");
+  const [program, setProgram] = useState("");
+  const [args, setArgs] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [env, setEnv] = useState<[string, string][]>([]);
   const [pending, setPending] = useState(false);
@@ -33,23 +34,24 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     setSource("registry");
     setSearch("");
     setChosen(undefined);
-    setCommand("");
+    setProgram("");
+    setArgs([]);
     setName("");
     setEnv([]);
     setError(undefined);
   }, [open]);
 
-  const defaultName = source === "registry" ? (chosen ?? "") : "custom";
+  const defaultName = source === "registry" ? (chosen ?? "") : "";
   const finalName = name.trim() || defaultName;
   const nameTaken = finalName !== "" && takenNames.includes(finalName);
-  const ready = (source === "registry" ? Boolean(chosen) : command.trim() !== "") && !nameTaken;
+  const ready = (source === "registry" ? Boolean(chosen) : program.trim() !== "" && finalName !== "") && !nameTaken;
 
   const submit = async () => {
     setPending(true);
     setError(undefined);
     try {
       await api.createAgent({
-        ...(source === "registry" ? { agentType: chosen } : { command: command.trim() }),
+        ...(source === "registry" ? { agentType: chosen } : { command: [program.trim(), ...args] }),
         name: name.trim() || undefined,
         env: env.filter(([key]) => key.trim() !== "").map(([key, value]) => [key.trim(), value]),
       });
@@ -84,15 +86,16 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
               <TypeList types={types} search={search} chosen={chosen} onChoose={setChosen} />
             </TabsPanel>
             <TabsPanel value="command" className="flex flex-col gap-2">
-              <label htmlFor="agent-command" className="text-sm font-medium">Command</label>
-              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="my-agent --stdio" value={command} onChange={(event) => setCommand(event.target.value)} />
+              <label htmlFor="agent-program" className="text-sm font-medium">Program</label>
+              <Input id="agent-program" className="font-mono" spellCheck={false} placeholder="my-agent" value={program} onChange={(event) => setProgram(event.target.value)} />
               <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path.</p>
+              <ArgumentFields args={args} onChange={setArgs} />
             </TabsPanel>
           </Tabs>
 
           <div className="flex flex-col gap-2">
             <label htmlFor="agent-name" className="text-sm font-medium">Name</label>
-            <Input id="agent-name" placeholder={defaultName || "Name shown to web apps"} value={name} onChange={(event) => setName(event.target.value)} aria-invalid={nameTaken || undefined} />
+            <Input id="agent-name" required={source === "command"} placeholder={defaultName || "Name shown to web apps"} value={name} onChange={(event) => setName(event.target.value)} aria-invalid={nameTaken || undefined} />
             {nameTaken ? <p className="text-xs text-danger-600 dark:text-danger-400">An agent named {finalName} already exists. Choose another name.</p> : null}
           </div>
 
@@ -152,6 +155,32 @@ function TypeList({ types, search, chosen, onChoose }: {
           {type.ready ? null : <Badge variant="outline">{installChip(type.reason)}</Badge>}
           <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{type.id}</span>
         </button>
+      ))}
+    </div>
+  );
+}
+
+function ArgumentFields({ args, onChange }: { args: string[]; onChange: (args: string[]) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium">Arguments</span>
+        <Button type="button" size="xs" variant="outline" onClick={() => onChange([...args, ""])}>Add argument</Button>
+      </div>
+      {args.length === 0 ? <p className="text-xs text-muted-foreground">One argument per row, such as --stdio. Spaces and quotes in a row are passed as typed.</p> : null}
+      {args.map((value, index) => (
+        <div key={index} className="flex gap-2">
+          <Input
+            aria-label={`Argument ${index + 1}`}
+            className="flex-1 font-mono"
+            spellCheck={false}
+            value={value}
+            onChange={(event) => onChange(args.map((current, at) => (at === index ? event.target.value : current)))}
+          />
+          <Button type="button" size="icon" variant="outline" aria-label={`Remove argument ${index + 1}`} onClick={() => onChange(args.filter((_, at) => at !== index))}>
+            <XIcon />
+          </Button>
+        </div>
       ))}
     </div>
   );

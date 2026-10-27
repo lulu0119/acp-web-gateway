@@ -18,7 +18,7 @@ export const daemon = defineCommand({
   help: [
     "Keep an outbound connection to one relay and start an agent for each connection a web app opens. Connection, refresh, and retry messages go to stderr.",
     "One daemon serves one relay. Run a second daemon to serve a second relay. A second daemon for the same relay exits with 4.",
-    "A change to the agent configurations reaches the relay while the daemon runs. Agents already running keep running, also while the daemon reconnects.",
+    "A change to the agents reaches the relay while the daemon runs. Agents already running keep running, also while the daemon reconnects.",
     `When the relay rejects this device's sign-in, the daemon exits with ${daemonExit.signInRequired}. --json prints each state change as one JSON line on stdout.`,
     "--stop-when-stdin-closes is for a program that runs the daemon, such as the desktop app: closing the pipe stops it cleanly on every system, and so does that program exiting.",
   ].join("\n\n"),
@@ -49,7 +49,7 @@ export const daemon = defineCommand({
     }
     // The daemon stays up without agents: one added later reaches the relay without a restart.
     if (config.agents.length === 0) {
-      io.stderr.write("No agent configurations yet.\nNext: exterior agent-config create --agent-type opencode\n");
+      io.stderr.write("No agents yet.\nNext: exterior agent create opencode\n");
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });
     if (!registry.ok) io.stderr.write(`${registry.message}\n`);

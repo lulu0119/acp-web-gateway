@@ -39,7 +39,7 @@ export const api = {
   workingDirectory: () => invoke<WorkingDirectory>("working_directory"),
   setWorkingDirectory: (directory: string) => invoke<void>("set_working_directory", { directory }),
   resetWorkingDirectory: () => invoke<void>("reset_working_directory"),
-  createAgent: (agent: { agentType?: string; command?: string; name?: string; env: [string, string][] }) =>
+  createAgent: (agent: { agentType?: string; command?: string[]; name?: string; env: [string, string][] }) =>
     invoke<void>("create_agent", { agent }),
   removeAgent: (name: string) => invoke<void>("remove_agent", { name }),
   signIn: (relay: string) => invoke<void>("sign_in", { relay }),

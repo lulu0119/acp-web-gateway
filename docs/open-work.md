@@ -6,7 +6,7 @@ Current roadmap. Decisions: [adr/](./adr/). How agents maintain docs: [../AGENTS
 
 Code still missing.
 
-- `agent-config check`: a broken configuration is only found when a connection opens. Check with an ACP `initialize` before writing.
+- `agent check`: a broken agent is only found when a connection opens. Check with an ACP `initialize` before writing.
 - Installing `exterior` beyond the release files ([ADR 0017](adr/0017-the-daemon-ships-as-one-executable.md)): strip the Linux Node before injecting, then `install.sh`, a Homebrew tap formula, a Scoop bucket, and winget. Then the setup guide's assistant and terminal steps install the executable instead of using `npx`, so the device needs no Node.
 - Signing: an Apple Developer ID to sign and notarize the macOS app, and a Windows code-signing certificate. Until then, the desktop app is for testers.
 - Two accounts on one relay from one device: a sign-in is keyed by relay only, and the token from device sign-in carries no account name to tell two apart.
@@ -33,5 +33,5 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - Sign in with GitHub on Exterior, return to Example, choose an agent on a device running `exterior daemon`, and start a live conversation. Verify tool calls and approvals with the real agent.
 - Sidebar sessions per working directory: create, select, and delete a session with a real ACP agent, and check that a session created in one directory keeps that directory after reload.
 - A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in the device's own directory. The launch, `session/new`, and stop were checked against the real agents without the relay.
-- The folder dialog on a real window: choose a directory in the desktop app's Settings and see it in `exterior config show`, and check a cancelled dialog changes nothing.
-- `agent-config` and a broken entry in the configuration file: one entry the parser cannot read makes `remove` refuse the whole file, including removing a different, good entry, and nothing in the CLI can repair it.
+- The folder dialog on a real window: choose a directory in the desktop app's Settings and see it in `exterior config get working-directory`, and check a cancelled dialog changes nothing.
+- `exterior agent` and a broken entry in the configuration file: one entry the parser cannot read makes `remove` refuse the whole file, including removing a different, good entry, and nothing in the CLI can repair it.

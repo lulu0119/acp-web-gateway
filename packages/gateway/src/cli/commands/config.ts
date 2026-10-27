@@ -1,14 +1,29 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { readGatewayConfig, usableWorkingDirectory, workingDirectoryPath, writeGatewayConfig } from "../../config.js";
-import { defineCommand, stringOption, UsageError } from "../command.js";
+import { defineCommand, UsageError } from "../command.js";
 
-const show = defineCommand({
-  name: "show",
-  description: "Print the directory sessions work in",
-  help: "Print the directory sessions work in, and whether it was chosen or is the default. --json prints both as JSON.",
+/** The one setting so far. A setting is named in its command, as git and npm name theirs. */
+const workingDirectoryKey = "working-directory";
+
+function settingOf(operands: readonly string[], values: number): string[] {
+  const [key, ...rest] = operands;
+  if (key === undefined) throw new UsageError(`Name a setting: ${workingDirectoryKey}.`);
+  if (key !== workingDirectoryKey) throw new UsageError(`Unknown setting "${key}". Settings: ${workingDirectoryKey}.`);
+  if (rest.length < values) throw new UsageError(`Give a value for ${key}.`);
+  if (rest.length > values) throw new UsageError(`Unexpected argument "${rest[values]}".`);
+  return rest;
+}
+
+const get = defineCommand({
+  name: "get",
+  description: "Print a setting",
+  help: "Print the directory sessions work in. --json also says whether it was chosen or is the default.",
   options: [{ flags: "--json", description: "Print JSON" }],
-  async action({ io }, options) {
+  operands: ["<setting>"],
+  examples: ["exterior config get working-directory", "exterior config get working-directory --json"],
+  async action({ io }, options, operands) {
+    settingOf(operands, 0);
     const config = await readGatewayConfig(io.homeDirectory);
     if (config.warning) {
       io.stderr.write(`${config.warning}\n`);
@@ -27,35 +42,18 @@ const show = defineCommand({
 
 const set = defineCommand({
   name: "set",
-  description: "Choose the directory sessions work in",
-  help: "Choose the directory sessions work in. It is created if it does not exist. --default gives up a choice made before and uses the device's own directory again.",
-  options: [
-    { flags: "--working-directory <path>", description: "Directory to work in; a leading ~ means this person's home" },
-    { flags: "--default", description: "Use the device's own directory again" },
-  ],
-  examples: [
-    "exterior config set --working-directory ~/Projects/mine",
-    'exterior config set --working-directory "C:\\Projects\\mine"',
-    "exterior config set --default",
-    "exterior config show --json",
-  ],
-  async action({ io }, options) {
-    const path = stringOption(options, "working-directory");
-    const useDefault = options.default === true;
-    if (path !== undefined && useDefault) throw new UsageError("Pass --working-directory <path> or --default, not both.");
-    if (path === undefined && !useDefault) throw new UsageError("Pass --working-directory <path> or --default.");
+  description: "Change a setting",
+  help: "Choose the directory sessions work in. It is created if it does not exist, and a leading ~ means this person's home.",
+  operands: ["<setting> <value>"],
+  examples: ["exterior config set working-directory ~/Projects/mine", 'exterior config set working-directory "C:\\Projects\\mine"'],
+  async action({ io }, _options, operands) {
+    const [path = ""] = settingOf(operands, 1);
     const config = await readGatewayConfig(io.homeDirectory);
     if (config.warning) {
       io.stderr.write(`${config.warning}\n`);
       return 1;
     }
-    if (useDefault) {
-      const { workingDirectory: _chosen, ...rest } = config;
-      await writeGatewayConfig(rest, io.homeDirectory);
-      io.stdout.write(`Sessions work in ${workingDirectoryPath(io.homeDirectory)}.\n`);
-      return 0;
-    }
-    const directory = resolve(expandHome(path ?? ""));
+    const directory = resolve(expandHome(path));
     const usable = await usableWorkingDirectory(directory, (line: string) => io.stderr.write(`${line}\n`));
     if (!usable) return 1;
     await writeGatewayConfig({ ...config, workingDirectory: usable }, io.homeDirectory);
@@ -64,15 +62,35 @@ const set = defineCommand({
   },
 });
 
+const unset = defineCommand({
+  name: "unset",
+  description: "Go back to a setting's default",
+  help: "Give up the directory chosen before, so sessions work in the device's own directory again.",
+  operands: ["<setting>"],
+  examples: ["exterior config unset working-directory"],
+  async action({ io }, _options, operands) {
+    settingOf(operands, 0);
+    const config = await readGatewayConfig(io.homeDirectory);
+    if (config.warning) {
+      io.stderr.write(`${config.warning}\n`);
+      return 1;
+    }
+    const { workingDirectory: _chosen, ...rest } = config;
+    await writeGatewayConfig(rest, io.homeDirectory);
+    io.stdout.write(`Sessions work in ${workingDirectoryPath(io.homeDirectory)}.\n`);
+    return 0;
+  },
+});
+
 export const config = defineCommand({
   name: "config",
-  description: "Set what this device's sessions work in",
+  description: "Read and change this device's settings",
   help: [
-    "Set the directory an agent session works in by default, for a web app that names none of its own.",
-    "A running daemon picks the change up and opens later sessions there. Sessions already open keep the directory they started in.",
-    "A directory is created here, so a path that cannot be used is refused now rather than at the first session.",
+    `Read and change this device's settings. The one setting is ${workingDirectoryKey}: the directory an agent session works in when a web app names none of its own.`,
+    "A running daemon picks a change up and opens later sessions there. Sessions already open keep the directory they started in.",
+    "A directory is created when it is set, so a path that cannot be used is refused now rather than at the first session.",
   ].join("\n\n"),
-  children: [show, set],
+  children: [get, set, unset],
 });
 
 /** A leading `~` is this person's home. */

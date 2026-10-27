@@ -12,7 +12,7 @@ Install the preview CLI and sign it in:
 
 ```bash
 npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior login
-npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior agent-config create --agent-type opencode
+npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior agent create opencode
 npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior daemon
 ```
 
@@ -23,9 +23,9 @@ npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior daemon
 That directory is `~/.local/share/exterior/workspace` until one is chosen:
 
 ```bash
-exterior config show                                  # what sessions work in now
-exterior config set --working-directory ~/Projects    # choose one; it is created
-exterior config set --default                         # go back to the device's own
+exterior config get working-directory              # what sessions work in now
+exterior config set working-directory ~/Projects    # choose one; it is created
+exterior config unset working-directory            # go back to the device's own
 ```
 
 A running daemon picks the change up and opens later sessions there; sessions already open keep the directory they started in. A directory that cannot be created is refused where it is set, with the system's own reason.

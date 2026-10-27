@@ -40,7 +40,7 @@ type BinaryDistribution = {
   env: Record<string, string>;
 };
 
-/** The file to start for an agent configuration, resolved on this machine. */
+/** The file to start for an agent, resolved on this machine. */
 export type AgentLaunch = {
   executable: Executable;
   args: readonly string[];
