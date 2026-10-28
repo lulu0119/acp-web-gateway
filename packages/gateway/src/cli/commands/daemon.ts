@@ -49,7 +49,7 @@ export const daemon = defineCommand({
     }
     // The daemon stays up without agents: one added later reaches the relay without a restart.
     if (config.agents.length === 0) {
-      io.stderr.write("No agents yet.\nNext: exterior agent create opencode\n");
+      io.stderr.write("No agents yet.\nNext: exterior agent add opencode\n");
     }
     const registry = await loadAcpRegistry({ cachePath: acpRegistryCachePath(io.homeDirectory) });
     if (!registry.ok) io.stderr.write(`${registry.message}\n`);

@@ -12,7 +12,7 @@ const root = defineCommand({
   children: commandTree,
   examples: [
     "exterior login --relay relay.example.com",
-    "exterior agent create opencode",
+    "exterior agent add opencode",
     "exterior daemon",
   ],
 });

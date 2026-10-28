@@ -124,8 +124,8 @@ struct NewAgent {
 
 /// A running daemon picks the change up from the configuration file.
 #[tauri::command]
-async fn create_agent(agent: NewAgent) -> Result<(), String> {
-    let mut args: Vec<String> = vec!["agent".into(), "create".into()];
+async fn add_agent(agent: NewAgent) -> Result<(), String> {
+    let mut args: Vec<String> = vec!["agent".into(), "add".into()];
     if let Some(name) = agent.name.filter(|name| !name.trim().is_empty()) {
         args.extend(["--name".into(), name]);
     }
@@ -280,7 +280,7 @@ fn main() {
             working_directory,
             set_working_directory,
             reset_working_directory,
-            create_agent,
+            add_agent,
             remove_agent,
             sign_in,
             cancel_sign_in,

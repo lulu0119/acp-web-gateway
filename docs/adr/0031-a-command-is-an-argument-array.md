@@ -7,8 +7,8 @@ An agent outside the ACP Registry used to be added as one string, `exterior agen
 Now the program and its arguments follow `--`, and each one is stored exactly as the shell delivered it, the way `claude mcp add <name> -- <command> [args...]` and `kubectl exec POD -- cmd args` take a command:
 
 ```sh
-exterior agent create --name claude --env ANTHROPIC_API_KEY=… -- pnpm dlx @agentclientprotocol/claude-agent-acp
-exterior agent create --name claude-logged -- sh -c "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"
+exterior agent add --name claude --env ANTHROPIC_API_KEY=… -- pnpm dlx @agentclientprotocol/claude-agent-acp
+exterior agent add --name claude-logged -- sh -c "pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'"
 ```
 
 Exterior's own options go before `--`; after it, `--help` and `-v` belong to the agent. The desktop window has no shell in front of it, so it splits a pasted line itself: spaces separate arguments, quotes keep spaces together, and a backslash is an ordinary character so a Windows path survives. An unclosed quote blocks saving. Launching did not change: the configuration already held `command` and `args`, and the daemon spawns that array without a shell.

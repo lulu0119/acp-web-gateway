@@ -46,9 +46,9 @@ test("no command, --help, and --version answer on stdout", async () => {
   assert.match(login.stdout, /--relay <url> +Exterior relay address/);
   assert.match(login.stdout, /Examples:\n {2}exterior login --relay relay.example.com/);
 
-  const create = await run(["agent", "create", "-h"]);
-  assert.match(create.stdout, /\$ exterior agent create \[options\] <type>\n {2}\$ exterior agent create \[options\] --name <name> -- <command> \[args\.\.\.\]/);
-  assert.match(create.stdout, /--env <KEY=VALUE>/);
+  const add = await run(["agent", "add", "-h"]);
+  assert.match(add.stdout, /\$ exterior agent add \[options\] <type>\n {2}\$ exterior agent add \[options\] --name <name> -- <command> \[args\.\.\.\]/);
+  assert.match(add.stdout, /--env <KEY=VALUE>/);
   assert.match((await run(["agent", "--help"])).stdout, /Commands:\n {2}list +Print the agents this device offers/);
 
   assert.match((await run(["--version"])).stdout, /^\d+\.\d+\.\d+/);
@@ -68,12 +68,12 @@ test("a mistyped command names the mistake and exits with 2", async () => {
     [["agent", "list", "--name", "x"], /^Unknown option --name for exterior agent list\.\nRun `exterior agent list --help`/],
     [["agent", "list", "extra"], /^Unexpected argument "extra"\./],
     [["agent", "list", "--", "x"], /^Unexpected argument "x"\./],
-    [["agent", "create"], /^Give an agent type from `exterior registry search`, or a command after --\./],
-    [["agent", "create", "opencode", "--", "x"], /^Give an agent type or a command after --, not both\./],
-    [["agent", "create", "my-agent", "--stdio"], /^Unknown option --stdio for exterior agent create\./],
-    [["agent", "create", "my-agent", "stdio"], /^Unexpected argument "stdio"\. A command and its arguments go after --\./],
-    [["agent", "create", "--", "my-agent"], /^A command needs --name <name>\./],
-    [["agent", "create", "--name", "x", "--env", "nope", "--", "x"], /^--env takes KEY=VALUE, got "nope"\./],
+    [["agent", "add"], /^Give an agent type from `exterior registry search`, or a command after --\./],
+    [["agent", "add", "opencode", "--", "x"], /^Give an agent type or a command after --, not both\./],
+    [["agent", "add", "my-agent", "--stdio"], /^Unknown option --stdio for exterior agent add\./],
+    [["agent", "add", "my-agent", "stdio"], /^Unexpected argument "stdio"\. A command and its arguments go after --\./],
+    [["agent", "add", "--", "my-agent"], /^A command needs --name <name>\./],
+    [["agent", "add", "--name", "x", "--env", "nope", "--", "x"], /^--env takes KEY=VALUE, got "nope"\./],
     [["registry", "search", "a", "b"], /^Unexpected argument "b"\. Search for one term\./],
   ];
   for (const [args, message] of cases) {
@@ -180,16 +180,16 @@ test("login names the relay when nothing answers", async () => {
   assert.equal(result.stderr, "The relay did not answer at http://127.0.0.1:9.\n");
 });
 
-test("agent create stores the words after -- as the command, one argument each", async () => {
-  const result = await run(["agent", "create", "--name", "123", "--env", "A=1", "--env", "B=x=y", "--", "my-agent", "--stdio"]);
+test("agent add stores the words after -- as the command, one argument each", async () => {
+  const result = await run(["agent", "add", "--name", "123", "--env", "A=1", "--env", "B=x=y", "--", "my-agent", "--stdio"]);
   assert.equal(result.code, 0, result.stderr);
-  assert.equal(result.stdout, "Created agent \"123\" (custom).\n");
+  assert.equal(result.stdout, "Added agent \"123\" (custom).\n");
   const saved = JSON.parse(await readFile(join(result.home, ".config", "exterior", "config.json"), "utf8"));
   assert.deepEqual(saved.agents, [{ name: "123", agentType: "custom", env: { A: "1", B: "x=y" }, command: "my-agent", args: ["--stdio"] }]);
   assert.equal((await run(["agent", "list"], { home: result.home })).code, 0);
 
   // After --, a word is the agent's: Exterior's own options, quotes, and spaces are not read again.
-  const shell = await run(["agent", "create", "--name", "box", "--", "sh", "-c", "my-agent --name 'work box'", "", "--help", "--name"]);
+  const shell = await run(["agent", "add", "--name", "box", "--", "sh", "-c", "my-agent --name 'work box'", "", "--help", "--name"]);
   assert.equal(shell.code, 0, shell.stderr);
   const kept = JSON.parse(await readFile(join(shell.home, ".config", "exterior", "config.json"), "utf8"));
   assert.deepEqual(kept.agents, [
@@ -198,10 +198,10 @@ test("agent create stores the words after -- as the command, one argument each",
 });
 
 test("agent list --json names environment variables without their values, and remove deletes by name", async () => {
-  const created = await run(["agent", "create", "--name", "mine", "--env", "API_KEY=secret", "--", "my-agent", "--stdio"]);
+  const created = await run(["agent", "add", "--name", "mine", "--env", "API_KEY=secret", "--", "my-agent", "--stdio"]);
   const home = created.home;
-  await run(["agent", "create", "--name", "other", "--", "other-agent"], { home });
-  await run(["agent", "create", "--name", "third", "--", "third-agent"], { home });
+  await run(["agent", "add", "--name", "other", "--", "other-agent"], { home });
+  await run(["agent", "add", "--name", "third", "--", "third-agent"], { home });
   const listed = await run(["agent", "list", "--json"], { home });
   assert.deepEqual(JSON.parse(listed.stdout), {
     agents: [
@@ -239,7 +239,7 @@ test("a directory is set for sessions, and survives a change to the agents", asy
   assert.equal((await stat(chosen)).isDirectory(), true);
 
   // Adding an agent rewrites the file, and must not drop the directory with it.
-  await run(["agent", "create", "--name", "mine", "--", "my-agent"], { home });
+  await run(["agent", "add", "--name", "mine", "--", "my-agent"], { home });
   assert.deepEqual(JSON.parse(await read("--json")), { workingDirectory: chosen, source: "chosen" });
   assert.deepEqual(JSON.parse(await readFile(join(home, ".config", "exterior", "config.json"), "utf8")).agents, [
     { name: "mine", agentType: "custom", env: {}, command: "my-agent", args: [] },

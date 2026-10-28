@@ -50,7 +50,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     setPending(true);
     setError(undefined);
     try {
-      await api.createAgent({
+      await api.addAgent({
         ...(source === "registry" ? { agentType: chosen } : { command }),
         name: name.trim() || undefined,
         env: env.filter(([key]) => key.trim() !== "").map(([key, value]) => [key.trim(), value]),

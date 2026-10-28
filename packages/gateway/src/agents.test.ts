@@ -11,7 +11,7 @@ test("an agent is named after its type, and a second one needs its own name", ()
   });
   assert.equal(first.ok, true);
   if (!first.ok) return;
-  assert.equal(first.createdName, "opencode");
+  assert.equal(first.addedName, "opencode");
   assert.deepEqual(first.agents, [
     { name: "opencode", agentType: "opencode", env: { OPENCODE_CONFIG: "/tmp/work" } },
   ]);
@@ -67,7 +67,7 @@ test("a custom command is stored beside the name", () => {
   assert.deepEqual(added.agents, [{ name: "mine", agentType: "custom", env: {}, command: "my-agent", args: ["--stdio"] }]);
 });
 
-test("an empty agent list tells the person the create command", () => {
-  assert.match(formatAgentList([]), /exterior agent create opencode/);
+test("an empty agent list tells the person the add command", () => {
+  assert.match(formatAgentList([]), /exterior agent add opencode/);
   assert.equal(formatAgentList([{ name: "work", agentType: "opencode", env: {} }]), "work\topencode\n");
 });

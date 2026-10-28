@@ -10,7 +10,7 @@ export function addAgent(input: {
   command?: string;
   args?: readonly string[];
   knownTypes: readonly string[];
-}): { ok: true; agents: StoredAgent[]; createdName: string } | { ok: false; message: string } {
+}): { ok: true; agents: StoredAgent[]; addedName: string } | { ok: false; message: string } {
   if (!isAgentType(input.agentType) || (!input.command && !input.knownTypes.includes(input.agentType))) {
     return { ok: false, message: `Unknown agent type "${input.agentType}". Run exterior registry search.` };
   }
@@ -37,12 +37,12 @@ export function addAgent(input: {
     agent.command = input.command;
     agent.args = [...(input.args ?? [])];
   }
-  return { ok: true, createdName: name, agents: [...input.agents, agent] };
+  return { ok: true, addedName: name, agents: [...input.agents, agent] };
 }
 
 export function formatAgentList(agents: readonly StoredAgent[]): string {
   if (agents.length === 0) {
-    return "No agents.\nNext: exterior agent create opencode\n";
+    return "No agents.\nNext: exterior agent add opencode\n";
   }
   return `${agents.map((agent) => `${agent.name}\t${agent.agentType}`).join("\n")}\n`;
 }

@@ -48,7 +48,7 @@ Exterior relay: ${relayUrl}
 
    \`\`\`sh
    ${runner} registry search
-   ${runner} agent create <type>
+   ${runner} agent add <type>
    ${runner} agent list
    \`\`\`
 
@@ -73,7 +73,7 @@ ${runner} login --relay ${relayUrl}
 
 # 2. Configure an agent that is installed here
 ${runner} registry search
-${runner} agent create opencode
+${runner} agent add opencode
 
 # 3. Keep the device online
 ${runner} daemon --relay ${relayUrl}`;
@@ -82,7 +82,7 @@ ${runner} daemon --relay ${relayUrl}`;
 function afterLogin(relayUrl: string): string {
   return `# Configure an agent that is installed here
 ${runner} registry search
-${runner} agent create opencode
+${runner} agent add opencode
 
 # Keep the device online
 ${runner} daemon --relay ${relayUrl}`;

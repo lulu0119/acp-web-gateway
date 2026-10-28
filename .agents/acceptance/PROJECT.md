@@ -43,7 +43,7 @@ Exterior is an account and relay that lets a web app reach an ACP agent on a dev
 ### CLI
 
 - Invocation: `node packages/gateway/dist/bin/exterior.mjs` with `HOME` pointed at the run's scratch home so the developer's `~/.config/exterior` is untouched.
-- Daemon: `exterior agent create opencode` then `exterior daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
+- Daemon: `exterior agent add opencode` then `exterior daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
 
 ## 5. Project probes & quick navigation
 

@@ -12,7 +12,7 @@ Install the preview CLI and sign it in:
 
 ```bash
 npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior login
-npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior agent create opencode
+npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior agent add opencode
 npx --package=https://pkg.pr.new/lulu0119/exterior@main -- exterior daemon
 ```
 

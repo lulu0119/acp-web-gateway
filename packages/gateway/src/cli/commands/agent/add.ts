@@ -5,8 +5,8 @@ import { addAgent } from "../../../agents.js";
 import { readGatewayConfig, writeGatewayConfig, type StoredAgent } from "../../../config.js";
 import { defineCommand, stringOption, stringsOption, UsageError } from "../../command.js";
 
-export const create = defineCommand({
-  name: "create",
+export const add = defineCommand({
+  name: "add",
   description: "Add an agent",
   help: [
     "Add an agent, either an agent type from the ACP Registry or a command of its own.",
@@ -20,10 +20,10 @@ export const create = defineCommand({
   operands: ["<type>", "--name <name> -- <command> [args...]"],
   passthrough: true,
   examples: [
-    "exterior agent create opencode",
-    "exterior agent create --name work --env ANTHROPIC_API_KEY=... claude-acp",
-    "exterior agent create --name claude -- pnpm dlx @agentclientprotocol/claude-agent-acp",
-    "exterior agent create --name claude-logged -- sh -c \"pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'\"",
+    "exterior agent add opencode",
+    "exterior agent add --name work --env ANTHROPIC_API_KEY=... claude-acp",
+    "exterior agent add --name claude -- pnpm dlx @agentclientprotocol/claude-agent-acp",
+    "exterior agent add --name claude-logged -- sh -c \"pnpm dlx @agentclientprotocol/claude-agent-acp 2>> 'claude acp.log'\"",
   ],
   async action({ io }, options, operands, command) {
     const name = stringOption(options, "name");
@@ -46,7 +46,7 @@ export const create = defineCommand({
       return 1;
     }
     await writeGatewayConfig({ ...config, agents: added.agents }, io.homeDirectory);
-    io.stdout.write(`Created agent "${added.createdName}" (${added.agents.at(-1)?.agentType}).\n`);
+    io.stdout.write(`Added agent "${added.addedName}" (${added.agents.at(-1)?.agentType}).\n`);
     return 0;
   },
 });
