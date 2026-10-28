@@ -44,12 +44,12 @@ Exterior relay: ${relayUrl}
    ${runner} login --relay ${relayUrl}
    \`\`\`
 
-2. Configure each agent already installed on this computer. Use one id from \`types\` per installed agent (for example \`opencode\`).
+2. Configure each agent already installed on this computer. Use one id from \`registry search\` per installed agent (for example \`opencode\`).
 
    \`\`\`sh
-   ${runner} agent-config types
-   ${runner} agent-config create --agent-type <type>
-   ${runner} agent-config list
+   ${runner} registry search
+   ${runner} agent add <type>
+   ${runner} agent list
    \`\`\`
 
 3. Keep this device online. Keep it running in the foreground so the page sees this device.
@@ -72,8 +72,8 @@ function shellSteps(relayUrl: string): string {
 ${runner} login --relay ${relayUrl}
 
 # 2. Configure an agent that is installed here
-${runner} agent-config types
-${runner} agent-config create --agent-type opencode
+${runner} registry search
+${runner} agent add opencode
 
 # 3. Keep the device online
 ${runner} daemon --relay ${relayUrl}`;
@@ -81,8 +81,8 @@ ${runner} daemon --relay ${relayUrl}`;
 
 function afterLogin(relayUrl: string): string {
   return `# Configure an agent that is installed here
-${runner} agent-config types
-${runner} agent-config create --agent-type opencode
+${runner} registry search
+${runner} agent add opencode
 
 # Keep the device online
 ${runner} daemon --relay ${relayUrl}`;

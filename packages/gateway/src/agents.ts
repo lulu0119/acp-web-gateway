@@ -2,7 +2,7 @@ import { isEnvName } from "@exterior/contract";
 import { isAgentType } from "@exterioragentprotocol/sdk";
 import type { StoredAgent } from "./config.js";
 
-export function addAgentConfig(input: {
+export function addAgent(input: {
   agents: readonly StoredAgent[];
   agentType: string;
   name?: string;
@@ -10,9 +10,9 @@ export function addAgentConfig(input: {
   command?: string;
   args?: readonly string[];
   knownTypes: readonly string[];
-}): { ok: true; agents: StoredAgent[]; createdName: string } | { ok: false; message: string } {
+}): { ok: true; agents: StoredAgent[]; addedName: string } | { ok: false; message: string } {
   if (!isAgentType(input.agentType) || (!input.command && !input.knownTypes.includes(input.agentType))) {
-    return { ok: false, message: `Unknown agent type "${input.agentType}". Run exterior agent-config types.` };
+    return { ok: false, message: `Unknown agent type "${input.agentType}". Run exterior registry search.` };
   }
   if (input.command !== undefined && input.command.length === 0) {
     return { ok: false, message: "The command is empty." };
@@ -29,7 +29,7 @@ export function addAgentConfig(input: {
   if (input.agents.some((agent) => agent.name === name)) {
     return {
       ok: false,
-      message: `An agent configuration named "${name}" already exists. Pass --name to add another of this type.`,
+      message: `An agent named "${name}" already exists. Pass --name to add another of this type.`,
     };
   }
   const agent: StoredAgent = { name, agentType: input.agentType, env: { ...input.env } };
@@ -37,47 +37,12 @@ export function addAgentConfig(input: {
     agent.command = input.command;
     agent.args = [...(input.args ?? [])];
   }
-  return { ok: true, createdName: name, agents: [...input.agents, agent] };
+  return { ok: true, addedName: name, agents: [...input.agents, agent] };
 }
 
-export function parseCommandArgv(text: string): string[] | undefined {
-  const args: string[] = [];
-  let current = "";
-  let quoting: "'" | '"' | undefined;
-  let started = false;
-  for (const char of text) {
-    if (quoting) {
-      if (char === quoting) quoting = undefined;
-      else current += char;
-      started = true;
-      continue;
-    }
-    if (char === "'" || char === '"') {
-      quoting = char;
-      started = true;
-      continue;
-    }
-    if (char === " " || char === "\t") {
-      if (started) {
-        args.push(current);
-        current = "";
-        started = false;
-      }
-      continue;
-    }
-    if (char === "\n" || char === "\r") return undefined;
-    current += char;
-    started = true;
-  }
-  if (quoting || !started) return undefined;
-  args.push(current);
-  if (args[0]?.length === 0) return undefined;
-  return args;
-}
-
-export function formatAgentConfigList(agents: readonly StoredAgent[]): string {
+export function formatAgentList(agents: readonly StoredAgent[]): string {
   if (agents.length === 0) {
-    return "No agent configurations.\nNext: exterior agent-config create --agent-type opencode\n";
+    return "No agents.\nNext: exterior agent add opencode\n";
   }
   return `${agents.map((agent) => `${agent.name}\t${agent.agentType}`).join("\n")}\n`;
 }

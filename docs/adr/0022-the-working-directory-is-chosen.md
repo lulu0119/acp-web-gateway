@@ -6,11 +6,11 @@ ADR 0016 gave every device one working directory, `~/.local/share/exterior/works
 
 ## The decision
 
-The directory is a setting in `~/.config/exterior/config.json`, under `workingDirectory`. It is absolute, and unset means the default path above. `exterior config set --working-directory <path>` writes it; `exterior config set --default` removes the key. The daemon reads it at startup, watches the file, and opens later sessions in a changed directory. Sessions already open keep the one they started in, because a process's cwd does not move.
+The directory is a setting in `~/.config/exterior/config.json`, under `workingDirectory`. It is absolute, and unset means the default path above. `exterior config set working-directory <path>` writes it; `exterior config unset working-directory` removes the key. The daemon reads it at startup, watches the file, and opens later sessions in a changed directory. Sessions already open keep the one they started in, because a process's cwd does not move.
 
 The daemon reports the chosen directory in `hello` exactly as it reported the fixed one, so nothing in the contract, the relay, or a web app changes.
 
-**A directory is selected, never typed.** The desktop app's window has no text field: it opens the system's own folder picker through `tauri-plugin-dialog` and writes what it chose with `exterior config set --working-directory <path>`. The CLI keeps `--working-directory <path>` for a machine with no desktop, and that is the only place a path is typed.
+**A directory is selected, never typed.** The desktop app's window has no text field: it opens the system's own folder picker through `tauri-plugin-dialog` and writes what it chose with `exterior config set working-directory <path>`. The CLI takes a typed path there for a machine with no desktop, and that is the only place a path is typed.
 
 ## Why
 

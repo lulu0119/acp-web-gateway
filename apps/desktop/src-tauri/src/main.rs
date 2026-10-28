@@ -86,55 +86,59 @@ fn device_name() -> String {
 
 #[tauri::command]
 async fn agents() -> Result<serde_json::Value, String> {
-    cli::run_json(&["agent-config", "list", "--json"])
+    cli::run_json(&["agent", "list", "--json"])
 }
 
 /// The directory sessions work in, and whether the person chose it.
 #[tauri::command]
 async fn working_directory() -> Result<serde_json::Value, String> {
-    cli::run_json(&["config", "show", "--json"])
+    cli::run_json(&["config", "get", "working-directory", "--json"])
 }
 
 /// Writes the directory the person picked in the window's folder dialog.
 #[tauri::command]
 async fn set_working_directory(directory: String) -> Result<(), String> {
-    cli::run(&["config", "set", "--working-directory", &directory]).map(|_| ())
+    cli::run(&["config", "set", "working-directory", &directory]).map(|_| ())
 }
 
 /// Undoes a choice made before, so sessions work in the device's own directory again.
 #[tauri::command]
 async fn reset_working_directory() -> Result<(), String> {
-    cli::run(&["config", "set", "--default"]).map(|_| ())
+    cli::run(&["config", "unset", "working-directory"]).map(|_| ())
 }
 
 #[tauri::command]
 async fn agent_types() -> Result<serde_json::Value, String> {
-    cli::run_json(&["agent-config", "types", "--json"])
+    cli::run_json(&["registry", "search", "--json"])
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NewAgent {
     agent_type: Option<String>,
-    command: Option<String>,
+    /// A program and its arguments, one entry each. They reach the CLI after `--` and are not split again.
+    command: Option<Vec<String>>,
     name: Option<String>,
     env: Vec<(String, String)>,
 }
 
 /// A running daemon picks the change up from the configuration file.
 #[tauri::command]
-async fn create_agent(agent: NewAgent) -> Result<(), String> {
-    let mut args: Vec<String> = vec!["agent-config".into(), "create".into()];
-    match (agent.agent_type, agent.command) {
-        (Some(agent_type), None) => args.extend(["--agent-type".into(), agent_type]),
-        (None, Some(command)) => args.extend(["--command".into(), command]),
-        _ => return Err("Choose an agent type or enter a command.".into()),
-    }
+async fn add_agent(agent: NewAgent) -> Result<(), String> {
+    let mut args: Vec<String> = vec!["agent".into(), "add".into()];
     if let Some(name) = agent.name.filter(|name| !name.trim().is_empty()) {
         args.extend(["--name".into(), name]);
     }
     for (key, value) in agent.env {
         args.extend(["--env".into(), format!("{key}={value}")]);
+    }
+    match (agent.agent_type, agent.command) {
+        (Some(agent_type), None) => args.push(agent_type),
+        (None, Some(command)) if !command.is_empty() => {
+            args.push("--".into());
+            args.extend(command);
+        }
+        _ => return Err("Choose an agent type or enter a command.".into()),
     }
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     cli::run(&args).map(|_| ())
@@ -142,7 +146,7 @@ async fn create_agent(agent: NewAgent) -> Result<(), String> {
 
 #[tauri::command]
 async fn remove_agent(name: String) -> Result<(), String> {
-    cli::run(&["agent-config", "remove", "--name", &name]).map(|_| ())
+    cli::run(&["agent", "remove", &name]).map(|_| ())
 }
 
 /// Runs `exterior login --json` and forwards its lines as `sign-in` events. The browser
@@ -276,7 +280,7 @@ fn main() {
             working_directory,
             set_working_directory,
             reset_working_directory,
-            create_agent,
+            add_agent,
             remove_agent,
             sign_in,
             cancel_sign_in,

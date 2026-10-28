@@ -5,7 +5,7 @@
 Exterior is an account and relay that lets a web app reach an ACP agent on a device the person owns. Layout that matters for testing:
 
 - `apps/relay` — the relay: Hono server, better-auth (GitHub sign-in, OAuth provider, device authorization), server-rendered account pages (`/sign-in`, `/device`, `/consent`) and the client-rendered dashboard (`/`). Built output: `apps/relay/dist`.
-- `packages/gateway` — the `exterior` CLI (`login`, `agent-config`, `daemon`, `status`, `logout`). Built output: `packages/gateway/dist/bin/exterior.mjs`.
+- `packages/gateway` — the `exterior` CLI (`login`, `logout`, `status`, `daemon`, `agent`, `registry`, `config`). Built output: `packages/gateway/dist/bin/exterior.mjs`.
 - `packages/sdk` — the EAP SDK (`@exterioragentprotocol/sdk`): wire messages, client, device, and relay entries. `packages/contract` — Exterior's own constants shared by the above.
 - `apps/example` — one web app that uses the SDK.
 
@@ -43,7 +43,7 @@ Exterior is an account and relay that lets a web app reach an ACP agent on a dev
 ### CLI
 
 - Invocation: `node packages/gateway/dist/bin/exterior.mjs` with `HOME` pointed at the run's scratch home so the developer's `~/.config/exterior` is untouched.
-- Daemon: `exterior agent-config create --agent-type opencode` then `exterior daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
+- Daemon: `exterior agent add opencode` then `exterior daemon --relay http://127.0.0.1:8799` (needs network for the ACP registry once).
 
 ## 5. Project probes & quick navigation
 

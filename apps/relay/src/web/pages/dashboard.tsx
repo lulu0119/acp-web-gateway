@@ -269,7 +269,7 @@ function AgentStack({ device, sessions, apps, agentIcons }: {
 }) {
   if (!device.online) return <p className="text-sm leading-6 text-muted-foreground">Agents shown when online</p>;
   if (device.agents.length === 0) {
-    return <p className="text-sm leading-6 text-muted-foreground">No agents yet. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent-config create</code> on it.</p>;
+    return <p className="text-sm leading-6 text-muted-foreground">No agents yet. Add one in the desktop app, or run <code className="font-mono text-xs">exterior agent add</code> on it.</p>;
   }
   const users = [...new Set(sessions.map((session) => session.clientId))];
   const names = device.agents.map((agent) => agent.name);

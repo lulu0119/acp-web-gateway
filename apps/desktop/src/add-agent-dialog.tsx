@@ -8,6 +8,7 @@ import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, errorText, type AgentType } from "./api";
+import { splitCommandLine } from "./command-line";
 
 type Load<T> = { kind: "loading" } | { kind: "ready"; value: T } | { kind: "error"; message: string };
 type Source = "registry" | "command";
@@ -22,7 +23,7 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
   const [source, setSource] = useState<Source>("registry");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState<string>();
-  const [command, setCommand] = useState("");
+  const [line, setLine] = useState("");
   const [name, setName] = useState("");
   const [env, setEnv] = useState<[string, string][]>([]);
   const [pending, setPending] = useState(false);
@@ -33,23 +34,24 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
     setSource("registry");
     setSearch("");
     setChosen(undefined);
-    setCommand("");
+    setLine("");
     setName("");
     setEnv([]);
     setError(undefined);
   }, [open]);
 
-  const defaultName = source === "registry" ? (chosen ?? "") : "custom";
+  const defaultName = source === "registry" ? (chosen ?? "") : "";
   const finalName = name.trim() || defaultName;
   const nameTaken = finalName !== "" && takenNames.includes(finalName);
-  const ready = (source === "registry" ? Boolean(chosen) : command.trim() !== "") && !nameTaken;
+  const command = splitCommandLine(line);
+  const ready = (source === "registry" ? Boolean(chosen) : Boolean(command?.length) && finalName !== "") && !nameTaken;
 
   const submit = async () => {
     setPending(true);
     setError(undefined);
     try {
-      await api.createAgent({
-        ...(source === "registry" ? { agentType: chosen } : { command: command.trim() }),
+      await api.addAgent({
+        ...(source === "registry" ? { agentType: chosen } : { command }),
         name: name.trim() || undefined,
         env: env.filter(([key]) => key.trim() !== "").map(([key, value]) => [key.trim(), value]),
       });
@@ -85,14 +87,15 @@ export function AddAgentDialog({ open, onOpenChange, types, takenNames, onAdded 
             </TabsPanel>
             <TabsPanel value="command" className="flex flex-col gap-2">
               <label htmlFor="agent-command" className="text-sm font-medium">Command</label>
-              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="my-agent --stdio" value={command} onChange={(event) => setCommand(event.target.value)} />
+              <Input id="agent-command" className="font-mono" spellCheck={false} placeholder="pnpm dlx @agentclientprotocol/claude-agent-acp" value={line} onChange={(event) => setLine(event.target.value)} aria-invalid={command === undefined || undefined} />
+              {command === undefined ? <p className="text-xs text-danger-600 dark:text-danger-400">A quote is not closed.</p> : null}
               <p className="text-xs text-muted-foreground">Any program that speaks ACP over stdin and stdout. It must be on this device's PATH, or give its full path.</p>
             </TabsPanel>
           </Tabs>
 
           <div className="flex flex-col gap-2">
             <label htmlFor="agent-name" className="text-sm font-medium">Name</label>
-            <Input id="agent-name" placeholder={defaultName || "Name shown to web apps"} value={name} onChange={(event) => setName(event.target.value)} aria-invalid={nameTaken || undefined} />
+            <Input id="agent-name" required={source === "command"} placeholder={defaultName || "Name shown to web apps"} value={name} onChange={(event) => setName(event.target.value)} aria-invalid={nameTaken || undefined} />
             {nameTaken ? <p className="text-xs text-danger-600 dark:text-danger-400">An agent named {finalName} already exists. Choose another name.</p> : null}
           </div>
 

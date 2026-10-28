@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { addAgentConfig, formatAgentConfigList, parseCommandArgv } from "./agents.js";
+import { addAgent, formatAgentList } from "./agents.js";
 
-test("creating a configuration names it after the type, and a second one needs its own name", () => {
-  const first = addAgentConfig({
+test("an agent is named after its type, and a second one needs its own name", () => {
+  const first = addAgent({
     agents: [],
     agentType: "opencode",
     env: { OPENCODE_CONFIG: "/tmp/work" },
@@ -11,12 +11,12 @@ test("creating a configuration names it after the type, and a second one needs i
   });
   assert.equal(first.ok, true);
   if (!first.ok) return;
-  assert.equal(first.createdName, "opencode");
+  assert.equal(first.addedName, "opencode");
   assert.deepEqual(first.agents, [
     { name: "opencode", agentType: "opencode", env: { OPENCODE_CONFIG: "/tmp/work" } },
   ]);
 
-  const duplicate = addAgentConfig({
+  const duplicate = addAgent({
     agents: first.agents,
     agentType: "opencode",
     env: {},
@@ -24,10 +24,10 @@ test("creating a configuration names it after the type, and a second one needs i
   });
   assert.deepEqual(duplicate, {
     ok: false,
-    message: 'An agent configuration named "opencode" already exists. Pass --name to add another of this type.',
+    message: 'An agent named "opencode" already exists. Pass --name to add another of this type.',
   });
 
-  const second = addAgentConfig({
+  const second = addAgent({
     agents: first.agents,
     agentType: "opencode",
     name: "personal",
@@ -43,17 +43,17 @@ test("creating a configuration names it after the type, and a second one needs i
 });
 
 test("an unknown agent type points at the registry list", () => {
-  const added = addAgentConfig({
+  const added = addAgent({
     agents: [],
     agentType: "not-a-type",
     env: {},
     knownTypes: ["opencode"],
   });
-  assert.deepEqual(added, { ok: false, message: 'Unknown agent type "not-a-type". Run exterior agent-config types.' });
+  assert.deepEqual(added, { ok: false, message: 'Unknown agent type "not-a-type". Run exterior registry search.' });
 });
 
 test("a custom command is stored beside the name", () => {
-  const added = addAgentConfig({
+  const added = addAgent({
     agents: [],
     agentType: "custom",
     name: "mine",
@@ -67,14 +67,7 @@ test("a custom command is stored beside the name", () => {
   assert.deepEqual(added.agents, [{ name: "mine", agentType: "custom", env: {}, command: "my-agent", args: ["--stdio"] }]);
 });
 
-test("a command string keeps quotes and does not run a shell", () => {
-  assert.deepEqual(parseCommandArgv("npx -y my-acp-agent --stdio"), ["npx", "-y", "my-acp-agent", "--stdio"]);
-  assert.deepEqual(parseCommandArgv('my-agent --name "work box"'), ["my-agent", "--name", "work box"]);
-  assert.equal(parseCommandArgv('npx "unfinished'), undefined);
-  assert.equal(parseCommandArgv("   "), undefined);
-});
-
-test("an empty configuration list tells the person the create command", () => {
-  assert.match(formatAgentConfigList([]), /agent-config create --agent-type opencode/);
-  assert.equal(formatAgentConfigList([{ name: "work", agentType: "opencode", env: {} }]), "work\topencode\n");
+test("an empty agent list tells the person the add command", () => {
+  assert.match(formatAgentList([]), /exterior agent add opencode/);
+  assert.equal(formatAgentList([{ name: "work", agentType: "opencode", env: {} }]), "work\topencode\n");
 });

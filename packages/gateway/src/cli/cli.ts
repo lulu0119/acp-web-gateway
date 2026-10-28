@@ -8,23 +8,26 @@ export type { CliIo } from "./command.js";
 const root = defineCommand({
   name: "exterior",
   description: "Connect this device's ACP agents to an Exterior account",
-  help: "Connect this device's ACP agents to an Exterior account. Sign in to a relay, add an agent configuration, then keep the daemon running.",
+  help: "Connect this device's ACP agents to an Exterior account. Sign in to a relay, add an agent, then keep the daemon running.",
   children: commandTree,
   examples: [
     "exterior login --relay relay.example.com",
-    "exterior agent-config create --agent-type opencode",
+    "exterior agent add opencode",
     "exterior daemon",
   ],
 });
 
 /** Runs one CLI invocation. `args` excludes the node and script paths. Exit 2 means the command was mistyped. */
 export async function executeCli(args: readonly string[], io: CliIo, runtime: { signal?: AbortSignal } = {}): Promise<number> {
-  const words = args.filter((arg) => !arg.startsWith("-"));
-  if (args.includes("--version") || args.includes("-v")) {
+  // Words after `--` belong to an agent's command line, so its own --help is not Exterior's.
+  const separator = args.indexOf("--");
+  const own = separator === -1 ? args : args.slice(0, separator);
+  const words = own.filter((arg) => !arg.startsWith("-"));
+  if (own.includes("--version") || own.includes("-v")) {
     io.stdout.write(`${packageVersion()}\n`);
     return 0;
   }
-  if (args.includes("--help") || args.includes("-h") || args.length === 0) {
+  if (own.includes("--help") || own.includes("-h") || args.length === 0) {
     io.stdout.write(formatHelp({ bin: "exterior", root, path: resolveCommandPath(commandTree, words) }));
     return 0;
   }
