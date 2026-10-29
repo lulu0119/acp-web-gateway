@@ -37,7 +37,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
+    "build": "tsc -p tsconfig.json && node scripts/write-npmignore.mjs",
     "prepublishOnly": "pnpm run build",
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
