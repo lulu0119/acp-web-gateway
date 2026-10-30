@@ -13,6 +13,9 @@ importers:
 
   .:
     devDependencies:
+      pele:
+        specifier: ^1.6.0
+        version: 1.6.0
       pkg-pr-new:
         specifier: ^0.0.91
         version: 0.0.91
@@ -4107,6 +4110,10 @@ packages:
   pathval@2.0.1:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
+
+  pele@1.6.0:
+    resolution: {integrity: sha512-VfAiVItsOGlGhvnBfphdT28VCG7mXMZxQNOwAGsCtxI2ztbUsT39MraEOYjsapLxVETkdUZscm0DdotYDQMLdw==}
+    engines: {node: '>=20'}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -8764,6 +8771,8 @@ snapshots:
   pathe@2.0.3: {}
 
   pathval@2.0.1: {}
+
+  pele@1.6.0: {}
 
   picocolors@1.1.1: {}
 
